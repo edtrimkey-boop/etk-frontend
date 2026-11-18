@@ -216,48 +216,52 @@ export default function TeachersPage() {
 
                   return (
                     <tr key={t.id || idx}>
-                      <td>
-                        <div style={{ fontWeight: 800, color: 'white' }}>{t.full_name || t.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.email}</div>
-                      </td>
-                      <td>
-                        <div style={{ marginBottom: '4px' }}>
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              color: 'var(--accent)',
-                              background: 'rgba(38,195,234,0.1)',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            Class: {assignedClass}
-                          </span>
+                      <td data-label="NAME">
+                        <div>
+                          <div style={{ fontWeight: 800, color: 'white' }}>{t.full_name || t.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.email}</div>
                         </div>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          {subjects.map((sub, sIdx) => (
+                      </td>
+                      <td data-label="SUBJECT & CLASS">
+                        <div>
+                          <div style={{ marginBottom: '4px' }}>
                             <span
-                              key={sIdx}
                               style={{
-                                fontSize: '10px',
-                                background: 'rgba(255,255,255,0.08)',
-                                padding: '2px 6px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                color: 'var(--accent)',
+                                background: 'rgba(38,195,234,0.1)',
+                                padding: '2px 8px',
                                 borderRadius: '4px',
-                                color: 'var(--text)',
                               }}
                             >
-                              {sub}
+                              Class: {assignedClass}
                             </span>
-                          ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {subjects.map((sub, sIdx) => (
+                              <span
+                                key={sIdx}
+                                style={{
+                                  fontSize: '10px',
+                                  background: 'rgba(255,255,255,0.08)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  color: 'var(--text)',
+                                }}
+                              >
+                                {sub}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </td>
-                      <td>
+                      <td data-label="CONTACT NO">
                         <span style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 600 }}>
                           {t.phone_number || t.phone || '-'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="STATUS">
                         <span
                           style={{
                             padding: '3px 8px',
@@ -273,8 +277,8 @@ export default function TeachersPage() {
                           {t.status || 'Active'}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                      <td data-label="ACTION" style={{ textAlign: 'right' }}>
+                        <div className="mobile-action-row" style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                           <button
                             type="button"
                             className="liquid-glass btn-sm btn-outline"

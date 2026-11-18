@@ -203,18 +203,20 @@ export default function StudentsPage() {
               ) : (
                 filtered.map((s, idx) => (
                   <tr key={s.id || idx}>
-                    <td>
+                    <td data-label="ADM / ROLL NO">
                       <span style={{ fontWeight: 800, color: 'var(--brand)', fontFamily: 'monospace' }}>
                         {s.admission_no || s.adm_no || s.roll_no || `TK-${idx + 1}`}
                       </span>
                     </td>
-                    <td>
-                      <div style={{ fontWeight: 800, color: 'white' }}>{s.student_name || s.name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        Father: {s.father_name || s.father || '-'}
+                    <td data-label="STUDENT">
+                      <div>
+                        <div style={{ fontWeight: 800, color: 'white' }}>{s.student_name || s.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          Father: {s.father_name || s.father || '-'}
+                        </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="CLASS">
                       <span
                         style={{
                           fontSize: '11px',
@@ -228,12 +230,12 @@ export default function StudentsPage() {
                         {s.class_name || s.class || '-'}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="CONTACT">
                       <span style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 600 }}>
                         {s.phone_number || s.contact_no || s.phone || '-'}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="STATUS">
                       <span
                         style={{
                           padding: '3px 8px',

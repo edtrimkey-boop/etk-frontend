@@ -104,13 +104,13 @@ export default function BillingPage() {
               <tbody>
                 {ledger.map((row: any, i: number) => (
                   <tr key={i}>
-                    <td style={{ fontFamily: 'monospace', color: 'var(--brand)', fontWeight: 700 }}>
+                    <td data-label="REFERENCE" style={{ fontFamily: 'monospace', color: 'var(--brand)', fontWeight: 700 }}>
                       {row.reference || `REF-${i + 1}`}
                     </td>
-                    <td>{row.date || 'Recent'}</td>
-                    <td>{row.type || 'Quota Top-Up'}</td>
-                    <td style={{ fontWeight: 800, color: 'white' }}>₹{row.amount || 0}</td>
-                    <td>
+                    <td data-label="DATE">{row.date || 'Recent'}</td>
+                    <td data-label="TYPE">{row.type || 'Quota Top-Up'}</td>
+                    <td data-label="AMOUNT" style={{ fontWeight: 800, color: 'white' }}>₹{row.amount || 0}</td>
+                    <td data-label="STATUS">
                       <span
                         style={{
                           padding: '3px 8px',

@@ -211,7 +211,7 @@ export default function DocumentsPage() {
               className="filter-select"
               value={instFilter}
               onChange={(e) => setInstFilter(e.target.value)}
-              style={{ marginBottom: 0, width: 'auto' }}
+              style={{ marginBottom: 0 }}
             >
               <option value="all">All Institutes</option>
               {dynamicOptions.insts.map((inst) => (
@@ -227,7 +227,7 @@ export default function DocumentsPage() {
             className="filter-select"
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value)}
-            style={{ marginBottom: 0, width: 'auto' }}
+            style={{ marginBottom: 0 }}
           >
             <option value="all">All Classes</option>
             {dynamicOptions.classes.map((c) => (
@@ -242,7 +242,7 @@ export default function DocumentsPage() {
             className="filter-select"
             value={sessionFilter}
             onChange={(e) => setSessionFilter(e.target.value)}
-            style={{ marginBottom: 0, width: 'auto' }}
+            style={{ marginBottom: 0 }}
           >
             <option value="all">All Sessions</option>
             {dynamicOptions.sessions.map((s) => (
@@ -257,7 +257,7 @@ export default function DocumentsPage() {
             className="filter-select"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            style={{ marginBottom: 0, width: 'auto' }}
+            style={{ marginBottom: 0 }}
           >
             <option value="all">All Types</option>
             <option value="Report Card">Report Card</option>
@@ -278,7 +278,7 @@ export default function DocumentsPage() {
             className="filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ marginBottom: 0, width: 'auto' }}
+            style={{ marginBottom: 0 }}
           >
             <option value="all">All Statuses</option>
             <option value="Pending">Pending</option>
