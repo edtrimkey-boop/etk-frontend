@@ -1851,6 +1851,13 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   z-index: 2;
 }
 
+/* Prevent cloned Safari refraction mirror from replaying page fadeIn/slide animations */
+[data-lg-clone="true"],
+[data-lg-clone="true"] * {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* Full viewport app shell (uses 100dvh on mobile browsers so dynamic address bar never clips dock) */
 .app-shell-root {
   display: flex;

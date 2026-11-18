@@ -59,32 +59,47 @@ const useGlassEngine = () => {
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     const ua = navigator.userAgent;
-    // Chromium exposes `navigator.userAgentData`; Safari and Firefox do not.
-    // On iOS every browser is really WebKit (CriOS / EdgiOS / FxiOS) with no
-    // userAgentData and no `backdrop-filter: url()` support, so this rules them out too.
+    const vendor = navigator.vendor || "";
+    // Real Blink (Chrome/Edge/Brave/Opera on Desktop & Android — INCLUDING DevTools mobile emulation!)
+    // exposes `navigator.userAgentData` OR `navigator.vendor === "Google Inc."`.
+    // Real WebKit (macOS Safari AND every iOS/iPadOS browser: Safari, CriOS, EdgiOS) has
+    // `vendor === "Apple Computer, Inc."` and no `userAgentData`, and does NOT support `backdrop-filter: url()`.
     const hasUAData =
       (navigator as Navigator & { userAgentData?: unknown }).userAgentData !=
       null;
+    const isAppleWebKit = /Apple/i.test(vendor);
     const isBlink =
-      hasUAData ||
-      (/\b(?:Chrome|Chromium|Edg)\//.test(ua) &&
-        !/\b(?:CriOS|EdgiOS|FxiOS|OPiOS)\b/.test(ua) &&
-        !/iPhone|iPad|iPod/.test(ua));
+      !isAppleWebKit &&
+      (hasUAData ||
+        vendor === "Google Inc." ||
+        (/\b(?:Chrome|Chromium|Edg)\//.test(ua) &&
+          !/\b(?:CriOS|EdgiOS|FxiOS|OPiOS)\b/.test(ua) &&
+          !/iPhone|iPad|iPod/.test(ua)));
     setEngine(isBlink ? "blink" : "other");
   }, []);
   return engine;
 };
 
+// Always selects the REAL live `.content-area` (direct child of `.main-wrapper`),
+// NEVER an inert clone nested inside a glass pill mirror.
+function getRealContentArea(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector(".main-wrapper > .content-area") as HTMLElement | null;
+}
+
 // Creates a lightweight, inert DOM clone of `.content-area` for real Safari `filter: url()` refraction.
 // Strips all IDs, scripts, iframes, videos, canvases, and internal SVG glass layers so there are
-// zero duplicate DOM IDs, zero side effects, and zero recursive clones.
+// zero duplicate DOM IDs, zero side effects, zero replay animations, and zero recursive clones.
 function createSanitizedContentClone(source: HTMLElement): HTMLElement {
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute("id");
   clone.setAttribute("aria-hidden", "true");
+  clone.setAttribute("data-lg-clone", "true");
   clone.style.pointerEvents = "none";
   clone.style.userSelect = "none";
   clone.style.setProperty("-webkit-user-select", "none");
+  clone.style.width = "100%";
+  clone.style.boxSizing = "border-box";
 
   // Remove heavy/interactive/recursive elements from the inert visual mirror
   const stripNodes = clone.querySelectorAll(
@@ -583,7 +598,7 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     const el = wrapRef.current;
     if (!el || typeof document === "undefined") return;
     const isInsideContent = !!el.closest(".content-area");
-    const hasContentArea = !!document.querySelector(".content-area");
+    const hasContentArea = !!getRealContentArea();
     setUseSafariMirror(!isInsideContent && hasContentArea);
   }, [isNonBlink]);
 
@@ -650,43 +665,70 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
 
   const safariBleed = 24;
 
-  // Safari Live Backdrop Mirror: clones `.content-area` (inert, IDs stripped) and aligns it
-  // pixel-for-pixel behind this floating pill on scroll, resize, and DOM updates.
+  // Safari Live Backdrop Mirror: clones the REAL `.main-wrapper > .content-area` (inert, IDs stripped)
+  // and aligns it pixel-for-pixel behind this floating pill on scroll, touch-momentum, resize, and DOM updates.
   useEffect(() => {
     if (!useSafariMirror || !sized || typeof document === "undefined") return;
     const wrapEl = wrapRef.current;
     const mirrorHost = safariMirrorInnerRef.current;
-    const contentEl = document.querySelector(".content-area") as HTMLElement | null;
+    const contentEl = getRealContentArea();
     const scrollEl = document.querySelector(".main-wrapper") as HTMLElement | null;
     if (!wrapEl || !mirrorHost || !contentEl) return;
 
     let disposed = false;
     let rafId = 0;
+    let settleUntil = 0;
     let mutTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastDx = NaN;
+    let lastDy = NaN;
+    let lastW = NaN;
 
-    const syncPosition = (bumpFilter: boolean) => {
+    const syncPosition = (forceBump: boolean) => {
       if (disposed || !wrapRef.current || !safariMirrorInnerRef.current) return;
       const pillRect = wrapRef.current.getBoundingClientRect();
       const contentRect = contentEl.getBoundingClientRect();
-      const dx = contentRect.left - pillRect.left + safariBleed;
-      const dy = contentRect.top - pillRect.top + safariBleed;
+      const dx = Math.round((contentRect.left - pillRect.left + safariBleed) * 2) / 2;
+      const dy = Math.round((contentRect.top - pillRect.top + safariBleed) * 2) / 2;
+      const cw = Math.round(contentRect.width);
+
+      const moved = dx !== lastDx || dy !== lastDy || cw !== lastW;
+      if (!moved && !forceBump) return;
+      lastDx = dx;
+      lastDy = dy;
+      lastW = cw;
+
       const host = safariMirrorInnerRef.current;
       host.style.left = `${dx}px`;
       host.style.top = `${dy}px`;
-      host.style.width = `${contentRect.width}px`;
+      host.style.width = `${cw}px`;
 
-      if (bumpFilter) {
-        const refractEl = safariRefractRef.current;
-        const filterEl = filterRef.current;
-        if (refractEl && filterEl && mapUrlRef.current) {
-          versionRef.current += 1;
-          filterEl.id = `lg-mat-${baseId}-v${versionRef.current}`;
-          const sat = merged.saturate ?? 1;
-          const satStr = sat !== 1 ? ` saturate(${sat})` : "";
-          const fVal = `url(#${filterEl.id})${satStr}`;
-          refractEl.style.filter = fVal;
-          refractEl.style.setProperty("-webkit-filter", fVal);
-        }
+      const refractEl = safariRefractRef.current;
+      const filterEl = filterRef.current;
+      if (refractEl && filterEl && mapUrlRef.current) {
+        versionRef.current += 1;
+        filterEl.id = `lg-mat-${baseId}-v${versionRef.current}`;
+        const sat = merged.saturate ?? 1;
+        const satStr = sat !== 1 ? ` saturate(${sat})` : "";
+        const fVal = `url(#${filterEl.id})${satStr}`;
+        refractEl.style.filter = fVal;
+        refractEl.style.setProperty("-webkit-filter", fVal);
+      }
+    };
+
+    const tick = () => {
+      rafId = 0;
+      if (disposed) return;
+      syncPosition(false);
+      // Keep syncing smoothly through the tail of iOS momentum / rubber-band scroll
+      if (performance.now() < settleUntil) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    const schedulePositionSync = () => {
+      settleUntil = performance.now() + 180;
+      if (!rafId) {
+        rafId = requestAnimationFrame(tick);
       }
     };
 
@@ -697,19 +739,11 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
       syncPosition(true);
     };
 
-    const schedulePositionSync = () => {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = 0;
-        syncPosition(true);
-      });
-    };
-
     rebuildClone();
 
     const mo = new MutationObserver(() => {
       if (mutTimer) clearTimeout(mutTimer);
-      mutTimer = setTimeout(rebuildClone, 160);
+      mutTimer = setTimeout(rebuildClone, 140);
     });
     mo.observe(contentEl, {
       childList: true,
@@ -719,17 +753,27 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
       attributeFilter: ["class", "style"],
     });
 
+    const ro = new ResizeObserver(schedulePositionSync);
+    ro.observe(contentEl);
+    ro.observe(wrapEl);
+
+    // Capture-phase scroll catches EVERY scrollable container (`.main-wrapper`, body, window, etc.)
+    document.addEventListener("scroll", schedulePositionSync, { passive: true, capture: true });
     scrollEl?.addEventListener("scroll", schedulePositionSync, { passive: true });
     window.addEventListener("scroll", schedulePositionSync, { passive: true });
+    window.addEventListener("touchmove", schedulePositionSync, { passive: true });
     window.addEventListener("resize", schedulePositionSync, { passive: true });
 
     return () => {
       disposed = true;
       mo.disconnect();
+      ro.disconnect();
       if (mutTimer) clearTimeout(mutTimer);
       if (rafId) cancelAnimationFrame(rafId);
+      document.removeEventListener("scroll", schedulePositionSync, true);
       scrollEl?.removeEventListener("scroll", schedulePositionSync);
       window.removeEventListener("scroll", schedulePositionSync);
+      window.removeEventListener("touchmove", schedulePositionSync);
       window.removeEventListener("resize", schedulePositionSync);
       if (safariMirrorInnerRef.current) {
         safariMirrorInnerRef.current.replaceChildren();
