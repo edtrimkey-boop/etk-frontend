@@ -515,9 +515,14 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
         return;
       }
 
-      // Safari / iOS / Firefox: crystal-clear low-blur live hardware glass (NO milky 20px fog, NO frozen clone!)
-      const safariBlur = Math.max(rawFrost, 5);
-      const value = `blur(${safariBlur}px) saturate(${Math.max(sat, 1.8)})`;
+      // Safari / iOS / Firefox: obey exact MASTER_GLASS_OPTICS.frost & saturate (crystal-clear glass, NOT frosted!)
+      const fns = [
+        rawFrost > 0 ? `blur(${rawFrost}px)` : "",
+        sat !== 1 ? `saturate(${sat})` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const value = fns || "none";
       el.style.backdropFilter = value;
       el.style.setProperty("-webkit-backdrop-filter", value);
     },
@@ -627,7 +632,15 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
       />
     ) : null;
 
-  const safariClearFilter = `blur(${Math.max(Math.max(0, merged.frost), 5)}px) saturate(${Math.max(merged.saturate ?? 1, 1.8)})`;
+  const rawFrostVal = Math.max(0, merged.frost);
+  const rawSatVal = merged.saturate ?? 1;
+  const safariClearFilter =
+    [
+      rawFrostVal > 0 ? `blur(${rawFrostVal}px)` : "",
+      rawSatVal !== 1 ? `saturate(${rawSatVal})` : "",
+    ]
+      .filter(Boolean)
+      .join(" ") || "none";
 
   return (
     <div
