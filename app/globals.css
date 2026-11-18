@@ -1845,17 +1845,10 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   transition: transform 0.16s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
-/* Keep crisp children stacked above Safari live-refraction mirror & tint layers */
+/* Keep crisp children stacked above internal glass layers */
 [data-liquid-glass] > :not([data-lg-layer]) {
   position: relative;
   z-index: 2;
-}
-
-/* Prevent cloned Safari refraction mirror from replaying page fadeIn/slide animations */
-[data-lg-clone="true"],
-[data-lg-clone="true"] * {
-  animation: none !important;
-  transition: none !important;
 }
 
 /* Full viewport app shell (uses 100dvh on mobile browsers so dynamic address bar never clips dock) */
