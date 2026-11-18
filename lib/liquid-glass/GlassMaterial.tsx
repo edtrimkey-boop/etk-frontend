@@ -54,15 +54,14 @@ import { GlassValue, isGlassMotionValue, readGlassValue } from "./signal";
  * SSR-safe: `false` on the server + first client render (so hydration matches),
  * then settles on mount.
  */
-const useSupportsBackdropUrl = () => {
-  const [ok, setOk] = useState(false);
+const useGlassEngine = () => {
+  const [engine, setEngine] = useState<"ssr" | "blink" | "other">("ssr");
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     const ua = navigator.userAgent;
     // Chromium exposes `navigator.userAgentData`; Safari and Firefox do not.
     // On iOS every browser is really WebKit (CriOS / EdgiOS / FxiOS) with no
-    // userAgentData and no `url()` support, so this rules them out too. The UA
-    // fallback covers Chromium builds with userAgentData disabled.
+    // userAgentData and no `backdrop-filter: url()` support, so this rules them out too.
     const hasUAData =
       (navigator as Navigator & { userAgentData?: unknown }).userAgentData !=
       null;
@@ -71,10 +70,40 @@ const useSupportsBackdropUrl = () => {
       (/\b(?:Chrome|Chromium|Edg)\//.test(ua) &&
         !/\b(?:CriOS|EdgiOS|FxiOS|OPiOS)\b/.test(ua) &&
         !/iPhone|iPad|iPod/.test(ua));
-    setOk(isBlink);
+    setEngine(isBlink ? "blink" : "other");
   }, []);
-  return ok;
+  return engine;
 };
+
+// Creates a lightweight, inert DOM clone of `.content-area` for real Safari `filter: url()` refraction.
+// Strips all IDs, scripts, iframes, videos, canvases, and internal SVG glass layers so there are
+// zero duplicate DOM IDs, zero side effects, and zero recursive clones.
+function createSanitizedContentClone(source: HTMLElement): HTMLElement {
+  const clone = source.cloneNode(true) as HTMLElement;
+  clone.removeAttribute("id");
+  clone.setAttribute("aria-hidden", "true");
+  clone.style.pointerEvents = "none";
+  clone.style.userSelect = "none";
+  clone.style.setProperty("-webkit-user-select", "none");
+
+  // Remove heavy/interactive/recursive elements from the inert visual mirror
+  const stripNodes = clone.querySelectorAll(
+    "script, iframe, video, audio, canvas, svg[data-lg-layer], [data-lg-safari-mirror]",
+  );
+  stripNodes.forEach((n) => n.remove());
+
+  // Strip IDs, form names, and tab stops so the visual mirror never conflicts with the real DOM
+  const all = clone.querySelectorAll("*");
+  all.forEach((node) => {
+    if (node.hasAttribute("id")) node.removeAttribute("id");
+    if (node.hasAttribute("name")) node.removeAttribute("name");
+    if (node.hasAttribute("for")) node.removeAttribute("for");
+    if (node instanceof HTMLElement) {
+      node.tabIndex = -1;
+    }
+  });
+  return clone;
+}
 
 /**
  * The material default look — a subtle glass SURFACE (not a magnifying loupe).
@@ -128,6 +157,11 @@ const MaterialFilterContents: React.FC<{
   height: number;
   mapUrl: string;
   feImageRef: React.Ref<SVGFEImageElement>;
+  /** Safari `filter: url()` mirror mode: runs in-filter blur, symmetric RGB dispersion,
+   *  and reads specular from rawMap (per WebKit feComposite ordering). */
+  isSafariFilter?: boolean;
+  frost?: number;
+  mapOffset?: number;
 }> = ({
   dispScale,
   dispersion,
@@ -138,8 +172,25 @@ const MaterialFilterContents: React.FC<{
   height,
   mapUrl,
   feImageRef,
+  isSafariFilter = false,
+  frost = 0,
+  mapOffset = 0,
 }) => {
   const mapInput = mapMatrix ? "scaledMap" : "map";
+  const useInFilterBlur = isSafariFilter && frost > 0;
+  const sourceInput = useInFilterBlur ? "blurredSrc" : "SourceGraphic";
+  // Symmetric dispersion in Safari keeps the refracted field aligned with zero drift;
+  // Blink keeps its existing exact dispersion formula unchanged.
+  const scaleR = isSafariFilter
+    ? dispScale * (1 + DISPERSION_SPREAD * 0.5 * dispersion)
+    : dispScale * (1 + DISPERSION_SPREAD * dispersion);
+  const scaleG = isSafariFilter
+    ? dispScale
+    : dispScale * (1 + DISPERSION_SPREAD * 0.5 * dispersion);
+  const scaleB = isSafariFilter
+    ? dispScale * (1 - DISPERSION_SPREAD * 0.5 * dispersion)
+    : dispScale;
+
   return (
     <>
       {/* Back the map with neutral grey (displacement 0) across the whole, margin-
@@ -150,8 +201,8 @@ const MaterialFilterContents: React.FC<{
       <feImage
         ref={feImageRef}
         href={mapUrl || undefined}
-        x={0}
-        y={0}
+        x={mapOffset}
+        y={mapOffset}
         width={width}
         height={height}
         preserveAspectRatio="none"
@@ -166,12 +217,19 @@ const MaterialFilterContents: React.FC<{
           result="scaledMap"
         />
       )}
+      {useInFilterBlur && (
+        <feGaussianBlur
+          in="SourceGraphic"
+          stdDeviation={frost}
+          result="blurredSrc"
+        />
+      )}
       {dispersion > 0 ? (
         <>
           <feDisplacementMap
-            in="SourceGraphic"
+            in={sourceInput}
             in2={mapInput}
-            scale={dispScale * (1 + DISPERSION_SPREAD * dispersion)}
+            scale={scaleR}
             xChannelSelector="R"
             yChannelSelector="G"
           />
@@ -181,9 +239,9 @@ const MaterialFilterContents: React.FC<{
             result="refractR"
           />
           <feDisplacementMap
-            in="SourceGraphic"
+            in={sourceInput}
             in2={mapInput}
-            scale={dispScale * (1 + DISPERSION_SPREAD * 0.5 * dispersion)}
+            scale={scaleG}
             xChannelSelector="R"
             yChannelSelector="G"
           />
@@ -193,9 +251,9 @@ const MaterialFilterContents: React.FC<{
             result="refractG"
           />
           <feDisplacementMap
-            in="SourceGraphic"
+            in={sourceInput}
             in2={mapInput}
-            scale={dispScale}
+            scale={scaleB}
             xChannelSelector="R"
             yChannelSelector="G"
           />
@@ -227,7 +285,7 @@ const MaterialFilterContents: React.FC<{
         </>
       ) : (
         <feDisplacementMap
-          in="SourceGraphic"
+          in={sourceInput}
           in2={mapInput}
           scale={dispScale}
           xChannelSelector="R"
@@ -241,7 +299,7 @@ const MaterialFilterContents: React.FC<{
               then add it over the refracted backdrop — the directional rim shine
               + soft inner glow, the same specular the rest of the library uses. */}
           <feColorMatrix
-            in="map"
+            in={isSafariFilter ? "rawMap" : "map"}
             type="matrix"
             values={`0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 1 0 ${-128 / 255}`}
             result="sheenMask"
@@ -314,7 +372,9 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
   style,
   ...rest
 }) => {
-  const supportsUrl = useSupportsBackdropUrl();
+  const engine = useGlassEngine();
+  const supportsUrl = engine === "blink";
+  const isNonBlink = engine === "other";
   const merged = useMemo(
     () => ({ ...DEFAULT_LENS_PARAMS, ...MATERIAL_OPTICS, ...optics }),
     [optics],
@@ -322,10 +382,13 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
   const baseId = useId().replace(/:/g, "");
 
   const wrapRef = useRef<HTMLDivElement>(null);
+  const safariRefractRef = useRef<HTMLDivElement>(null);
+  const safariMirrorInnerRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<SVGFilterElement>(null);
   const feImageRef = useRef<SVGFEImageElement>(null);
   const mapUrlRef = useRef<string>("");
   const versionRef = useRef(0);
+  const [useSafariMirror, setUseSafariMirror] = useState(false);
 
   // Measured box + the radius to round the lens map / edge to. Precedence:
   // explicit `radius` prop → the wrapper's own border-radius (className/style) →
@@ -508,40 +571,171 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sized, shapeKey]);
 
-  // Compose + apply the backdrop-filter string (and bump the filter id so the
-  // browser re-rasterizes against the fresh map).
-  // • Blink (Chrome/Edge): runs full SVG <feDisplacementMap> refraction + user's exact MATERIAL_OPTICS.
-  // • WebKit/Gecko (Safari, iOS, Firefox): WebKit doesn't support `backdrop-filter: url(#...)`,
-  //   and a 1px frost without SVG displacement looks invisible — so automatically boost
-  //   frost/saturation to native Apple iOS Liquid Glass frosted refraction (`blur(20px) saturate(210%)`)
-  //   paired with the curved specular dome overlay rendered below.
+  // Detect whether this <Glass> floats above `.content-area` on Safari/iOS/Firefox.
+  // Floating pills (TopBar, MobileNav dock, FAB, Sara) get a live inert DOM mirror
+  // driven by regular SVG `filter: url(#...)` (which WebKit supports natively!)
+  // so real iPhone Safari bends & refracts the scrolled page identically to Chrome/Edge.
+  useEffect(() => {
+    if (!isNonBlink) {
+      setUseSafariMirror(false);
+      return;
+    }
+    const el = wrapRef.current;
+    if (!el || typeof document === "undefined") return;
+    const isInsideContent = !!el.closest(".content-area");
+    const hasContentArea = !!document.querySelector(".content-area");
+    setUseSafariMirror(!isInsideContent && hasContentArea);
+  }, [isNonBlink]);
+
+  // Compose + apply the filter string (and bump the filter id so the browser
+  // re-rasterizes against the fresh map).
+  // • Blink (Chrome/Edge): `backdrop-filter: blur() saturate() url(#...)` directly on wrapRef.
+  // • Safari/iOS/Firefox (floating pills): `filter: url(#...) saturate()` on safariRefractRef
+  //   which wraps a clipped live mirror of `.content-area` (zero transform on filtered node,
+  //   filter origin pinned at 0,0 — obeying both real-Safari WebKit rules!).
+  // • Safari/iOS/Firefox (inline pills inside `.content-area`): crystal-clear dark glass
+  //   (`blur(4px) saturate(1.8)`), matching Edge's dark translucent look with zero milky fog.
   const applyBackdropFilter = useMemo(
     () => () => {
       const el = wrapRef.current;
       const filterEl = filterRef.current;
       if (!el) return;
-      const rawFrost = Math.max(0, merged.frost);
-      const rawSat = merged.saturate ?? 1;
-      const frost = supportsUrl ? rawFrost : Math.max(rawFrost, 20);
-      const sat = supportsUrl ? rawSat : Math.max(rawSat, 2.1);
-      const fns = [
-        frost > 0 ? `blur(${frost}px)` : "",
-        sat !== 1 ? `saturate(${sat})` : "",
-        !supportsUrl ? "brightness(1.06)" : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      let value = fns || "none";
-      if (supportsUrl && filterEl && mapUrlRef.current) {
-        versionRef.current += 1;
-        filterEl.id = `lg-mat-${baseId}-v${versionRef.current}`;
-        value = `${fns ? fns + " " : ""}url(#${filterEl.id})`;
+      const frost = Math.max(0, merged.frost);
+      const sat = merged.saturate ?? 1;
+
+      if (supportsUrl) {
+        const fns = [
+          frost > 0 ? `blur(${frost}px)` : "",
+          sat !== 1 ? `saturate(${sat})` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        let value = fns || "none";
+        if (filterEl && mapUrlRef.current) {
+          versionRef.current += 1;
+          filterEl.id = `lg-mat-${baseId}-v${versionRef.current}`;
+          value = `${fns ? fns + " " : ""}url(#${filterEl.id})`;
+        }
+        el.style.backdropFilter = value;
+        el.style.setProperty("-webkit-backdrop-filter", value);
+        return;
       }
-      el.style.backdropFilter = value;
-      el.style.setProperty("-webkit-backdrop-filter", value);
+
+      if (useSafariMirror) {
+        // Clear backdrop-filter on wrapper; live SVG filter runs on safariRefractRef instead
+        el.style.backdropFilter = "none";
+        el.style.setProperty("-webkit-backdrop-filter", "none");
+        const refractEl = safariRefractRef.current;
+        if (refractEl && filterEl && mapUrlRef.current) {
+          versionRef.current += 1;
+          filterEl.id = `lg-mat-${baseId}-v${versionRef.current}`;
+          const satStr = sat !== 1 ? ` saturate(${sat})` : "";
+          const fVal = `url(#${filterEl.id})${satStr}`;
+          refractEl.style.filter = fVal;
+          refractEl.style.setProperty("-webkit-filter", fVal);
+        }
+        return;
+      }
+
+      if (isNonBlink) {
+        // Inline pills inside `.content-area` (e.g. Refresh Data): sleek crystal-clear dark glass
+        const fallbackBlur = Math.max(frost, 6);
+        const value = `blur(${fallbackBlur}px) saturate(${Math.max(sat, 1.6)})`;
+        el.style.backdropFilter = value;
+        el.style.setProperty("-webkit-backdrop-filter", value);
+      }
     },
-    [merged.frost, merged.saturate, supportsUrl, baseId],
+    [merged.frost, merged.saturate, supportsUrl, useSafariMirror, isNonBlink, baseId],
   );
+
+  const safariBleed = 24;
+
+  // Safari Live Backdrop Mirror: clones `.content-area` (inert, IDs stripped) and aligns it
+  // pixel-for-pixel behind this floating pill on scroll, resize, and DOM updates.
+  useEffect(() => {
+    if (!useSafariMirror || !sized || typeof document === "undefined") return;
+    const wrapEl = wrapRef.current;
+    const mirrorHost = safariMirrorInnerRef.current;
+    const contentEl = document.querySelector(".content-area") as HTMLElement | null;
+    const scrollEl = document.querySelector(".main-wrapper") as HTMLElement | null;
+    if (!wrapEl || !mirrorHost || !contentEl) return;
+
+    let disposed = false;
+    let rafId = 0;
+    let mutTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const syncPosition = (bumpFilter: boolean) => {
+      if (disposed || !wrapRef.current || !safariMirrorInnerRef.current) return;
+      const pillRect = wrapRef.current.getBoundingClientRect();
+      const contentRect = contentEl.getBoundingClientRect();
+      const dx = contentRect.left - pillRect.left + safariBleed;
+      const dy = contentRect.top - pillRect.top + safariBleed;
+      const host = safariMirrorInnerRef.current;
+      host.style.left = `${dx}px`;
+      host.style.top = `${dy}px`;
+      host.style.width = `${contentRect.width}px`;
+
+      if (bumpFilter) {
+        const refractEl = safariRefractRef.current;
+        const filterEl = filterRef.current;
+        if (refractEl && filterEl && mapUrlRef.current) {
+          versionRef.current += 1;
+          filterEl.id = `lg-mat-${baseId}-v${versionRef.current}`;
+          const sat = merged.saturate ?? 1;
+          const satStr = sat !== 1 ? ` saturate(${sat})` : "";
+          const fVal = `url(#${filterEl.id})${satStr}`;
+          refractEl.style.filter = fVal;
+          refractEl.style.setProperty("-webkit-filter", fVal);
+        }
+      }
+    };
+
+    const rebuildClone = () => {
+      if (disposed || !safariMirrorInnerRef.current) return;
+      const sanitized = createSanitizedContentClone(contentEl);
+      safariMirrorInnerRef.current.replaceChildren(sanitized);
+      syncPosition(true);
+    };
+
+    const schedulePositionSync = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        syncPosition(true);
+      });
+    };
+
+    rebuildClone();
+
+    const mo = new MutationObserver(() => {
+      if (mutTimer) clearTimeout(mutTimer);
+      mutTimer = setTimeout(rebuildClone, 160);
+    });
+    mo.observe(contentEl, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+
+    scrollEl?.addEventListener("scroll", schedulePositionSync, { passive: true });
+    window.addEventListener("scroll", schedulePositionSync, { passive: true });
+    window.addEventListener("resize", schedulePositionSync, { passive: true });
+
+    return () => {
+      disposed = true;
+      mo.disconnect();
+      if (mutTimer) clearTimeout(mutTimer);
+      if (rafId) cancelAnimationFrame(rafId);
+      scrollEl?.removeEventListener("scroll", schedulePositionSync);
+      window.removeEventListener("scroll", schedulePositionSync);
+      window.removeEventListener("resize", schedulePositionSync);
+      if (safariMirrorInnerRef.current) {
+        safariMirrorInnerRef.current.replaceChildren();
+      }
+    };
+  }, [useSafariMirror, sized, baseId, merged.saturate]);
 
   // Re-apply (which BUMPS the filter id) when anything that shapes the filter
   // changes without re-running the map regen: the frost/saturate/url-support
@@ -604,37 +798,10 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     }
   }, [sized]);
 
-  // Edge specular highlight:
-  // • Blink (Chrome/Edge): SVG filter B-channel handles internal refraction sheen,
-  //   so keep internal boxShadow clean ("none") and let .apple-glass-shell::after draw the 1px rim.
-  // • WebKit/Gecko (Safari, iOS, Firefox): SVG filter doesn't execute on backdrop,
-  //   so emulate Apple iOS Liquid Glass curved top/bottom meniscus catchlight + inner dome sheen!
-  const edgeShadow = useMemo(() => {
-    if (supportsUrl) return "none";
-    return [
-      "inset 0 1px 0.75px rgba(255, 255, 255, 0.44)",
-      "inset 0 -1px 0.75px rgba(255, 255, 255, 0.16)",
-      "inset 1px 0 1px rgba(255, 255, 255, 0.14)",
-      "inset -1px 0 1px rgba(255, 255, 255, 0.14)",
-    ].join(", ");
-  }, [supportsUrl]);
-
-  // Curved glass top-dome sheen rendered ONLY on non-Blink browsers (Safari/iOS/Firefox)
-  // to restore the luminous optical volume normally generated by the SVG displacement filter.
-  const safariDomeLayer = !supportsUrl ? (
-    <div
-      aria-hidden
-      data-lg-layer=""
-      style={{
-        position: "absolute",
-        inset: 0,
-        pointerEvents: "none",
-        borderRadius: "inherit",
-        background:
-          "linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.06) 36%, rgba(255, 255, 255, 0.01) 62%, rgba(255, 255, 255, 0.09) 100%)",
-      }}
-    />
-  ) : null;
+  // Rim highlight is handled consistently across Chrome, Edge, and Safari by
+  // .apple-glass-shell::after (single razor-thin 1px Apple specular rim) +
+  // the SVG filter's B-channel specular lift. Zero milky/double inner border.
+  const edgeShadow = "none";
 
   // The wrapper must be a positioned containing block (the edge + filter layers are
   // inset:0 absolute). An explicit positioned inline `style.position` wins; a
@@ -668,47 +835,88 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
           borderRadius: "inherit",
           background: merged.brightness > 0 ? "#fff" : "#000",
           opacity: Math.min(1, Math.abs(merged.brightness)),
+          zIndex: 1,
         }}
       />
     ) : null;
 
+  // In Safari mirror mode, tint sits ABOVE the refracted DOM mirror (zIndex: 1)
+  // while wrapper background stays transparent so the mirror shines through cleanly.
+  const wrapperBg = useSafariMirror ? "transparent" : style?.background;
+
   return (
     <div
       ref={wrapRef}
-      data-liquid-glass={supportsUrl ? "material" : "safari-fallback"}
+      data-liquid-glass={
+        supportsUrl
+          ? "material"
+          : useSafariMirror
+            ? "safari-refract"
+            : "safari-clear"
+      }
       className={className}
       style={{
-        // Shrink-wrap the content by default (a button-sized pill, matching the
-        // acceptance examples) yet still honour a className/style/Tailwind width:
-        // an inline-block box sizes to its content but obeys an explicit width
-        // (unlike `width: fit-content`, which an inline style would pin past a
-        // className). `style` / the `width`/`height` props win over all of it.
         display: "inline-block",
         ...style,
-        // Safari/WebKit requires overflow:hidden + GPU layer for rounded backdrop-filter
-        // to clip cleanly and stay alive inside sticky headers & fixed docks.
-        ...(!supportsUrl
-          ? {
-              overflow: "hidden",
-              WebkitTransform: "translateZ(0)",
-              transform: "translateZ(0)",
-              backdropFilter: `blur(${Math.max(Math.max(0, merged.frost), 20)}px) saturate(${Math.max(merged.saturate ?? 1, 2.1)}) brightness(1.06)`,
-              WebkitBackdropFilter: `blur(${Math.max(Math.max(0, merged.frost), 20)}px) saturate(${Math.max(merged.saturate ?? 1, 2.1)}) brightness(1.06)`,
-            }
-          : null),
-        // Conditional so an `undefined` (className positions it) never strips the
-        // user's own `style.position`.
+        ...(wrapperBg !== undefined ? { background: wrapperBg } : null),
+        ...(isNonBlink ? { overflow: "hidden" } : null),
         ...(position != null ? { position } : null),
         ...(explicitW != null ? { width: explicitW } : null),
         ...(explicitH != null ? { height: explicitH } : null),
-        // Round the wrapper from the prop / adopted child radius (when the user
-        // gave the box none); a className/style radius is left to the user's CSS.
         ...(box.appliedR != null ? { borderRadius: box.appliedR } : null),
       }}
       {...rest}
     >
+      {/* Real Safari Live Backdrop Refraction Layer (zero transform on filtered element;
+          24px bleed ring lets rim displacement sample real content just outside the pill edge!) */}
+      {useSafariMirror && (
+        <>
+          <div
+            ref={safariRefractRef}
+            aria-hidden
+            data-lg-layer=""
+            data-lg-safari-mirror=""
+            style={{
+              position: "absolute",
+              top: -safariBleed,
+              left: -safariBleed,
+              width: sized ? box.w + safariBleed * 2 : "100%",
+              height: sized ? box.h + safariBleed * 2 : "100%",
+              overflow: "hidden",
+              pointerEvents: "none",
+              zIndex: 0,
+              background: "var(--bg, #0B111E)",
+            }}
+          >
+            <div
+              ref={safariMirrorInnerRef}
+              aria-hidden
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                pointerEvents: "none",
+                userSelect: "none",
+              }}
+            />
+          </div>
+          {style?.background && (
+            <div
+              aria-hidden
+              data-lg-layer=""
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "inherit",
+                pointerEvents: "none",
+                zIndex: 1,
+                background: style.background,
+              }}
+            />
+          )}
+        </>
+      )}
       {brightnessLayer}
-      {safariDomeLayer}
       {children}
       {/* Soft bright edge — its own inset layer, rounded to the wrapper. */}
       <div
@@ -720,9 +928,10 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
           pointerEvents: "none",
           borderRadius: "inherit",
           boxShadow: edgeShadow,
+          zIndex: 1,
         }}
       />
-      {/* The displacement filter (Blink refraction). 0-size; defs only. */}
+      {/* The displacement filter (Blink backdrop-filter OR Safari live-mirror filter). 0-size; defs only. */}
       <svg
         aria-hidden
         data-lg-layer=""
@@ -737,10 +946,10 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
             filterUnits="userSpaceOnUse"
             primitiveUnits="userSpaceOnUse"
             colorInterpolationFilters="sRGB"
-            x={-margin}
-            y={-margin}
-            width={box.w + 2 * margin}
-            height={box.h + 2 * margin}
+            x={useSafariMirror ? 0 : -margin}
+            y={useSafariMirror ? 0 : -margin}
+            width={useSafariMirror ? box.w + safariBleed * 2 : box.w + 2 * margin}
+            height={useSafariMirror ? box.h + safariBleed * 2 : box.h + 2 * margin}
           >
             {sized && (
               <MaterialFilterContents
@@ -753,6 +962,9 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
                 height={box.h}
                 mapUrl={mapUrlRef.current || ""}
                 feImageRef={feImageRef}
+                isSafariFilter={useSafariMirror}
+                frost={Math.max(0, merged.frost)}
+                mapOffset={useSafariMirror ? safariBleed : 0}
               />
             )}
           </filter>

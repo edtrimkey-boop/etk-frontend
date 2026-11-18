@@ -1845,6 +1845,12 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   transition: transform 0.16s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
+/* Keep crisp children stacked above Safari live-refraction mirror & tint layers */
+[data-liquid-glass] > :not([data-lg-layer]) {
+  position: relative;
+  z-index: 2;
+}
+
 /* Full viewport app shell (uses 100dvh on mobile browsers so dynamic address bar never clips dock) */
 .app-shell-root {
   display: flex;
