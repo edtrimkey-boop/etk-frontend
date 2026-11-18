@@ -121,7 +121,6 @@ export default function TopBar({
           className="sidebar-toggle-btn desktop-only liquid-glass glass-circle-btn"
           onClick={onToggleSidebar}
           radius={999}
-          glassBg="rgba(255, 255, 255, 0.065)"
           style={{
             marginRight: '10px',
             width: '42px',
@@ -141,7 +140,6 @@ export default function TopBar({
         <OpticalSurface
           className="glass-title-pill brand"
           radius={999}
-          glassBg="rgba(255, 255, 255, 0.065)"
         >
           {displayLogo && (
             <img
@@ -187,7 +185,6 @@ export default function TopBar({
           <OpticalSurface
             className="liquid-glass glass-circle-btn notification-wrapper"
             radius={999}
-            glassBg="rgba(255, 255, 255, 0.065)"
             onClick={(e) => {
               e.stopPropagation();
               setNotifDropdownOpen(!notifDropdownOpen);
@@ -287,7 +284,6 @@ export default function TopBar({
           <OpticalSurface
             className={`liquid-glass user-profile-container ${profileDropdownOpen ? 'active' : ''}`}
             radius={999}
-            glassBg="rgba(255, 255, 255, 0.065)"
             onClick={(e) => {
               e.stopPropagation();
               setProfileDropdownOpen(!profileDropdownOpen);

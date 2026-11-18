@@ -32,7 +32,6 @@ export default function SaraWidget() {
       >
         <OpticalSurface
           radius={999}
-          glassBg="rgba(255, 255, 255, 0.08)"
           style={{ width: '100%', height: '100%', justifyContent: 'center', padding: '5px' }}
         >
           <div className="sara-chat-icon" style={{ width: '100%', height: '100%' }}>

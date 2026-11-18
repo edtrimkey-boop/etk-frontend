@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import {
   Glass,
+  MASTER_GLASS_OPTICS,
   type GlassOptics,
   animateGlassValue,
   cubicBezier,
@@ -35,63 +36,23 @@ const EXPAND_ANIM = { ease: cubicBezier(0.34, 1.36, 0.42, 1), duration: 0.27 };
 const COLLAPSE_ANIM = { ease: cubicBezier(0.36, 0, 0.18, 1), duration: 0.46 };
 
 export const SLIDER_BASE: Partial<GlassOptics> = {
+  ...MASTER_GLASS_OPTICS,
   mapSize: 256,
-  // depth/curvature are 0..1 fractions of the thumb's expanded half-extent (~16.5px):
-  // depth ≈ 0.12 is a ~1.3–2px refractive rim; curvature ≈ 0.30 shapes the rim BEND
-  // (strongest on the short vertical axis). At this depth the thumb body stays
-  // near-neutral, so the bleed is the two-tone track (blue fill / grey track) showing
-  // through a glassy-rimmed thumb — NOT a magnifying body dome. Per-axis scaleX/scaleY
-  // (vs the switch's single `strength`): a wide thumb over a thin horizontal track
-  // wants more vertical than horizontal bend (Safari more still — see SLIDER_SAFARI).
-  depth: 0.2,
-  dispersion: 0.5,
-  scaleX: 0.06,
-  scaleY: 0.06,
   clipToShape: true,
   softEdge: true,
-  curvature: 0.55,
   splay: 0.5,
-  bend: 0.1,
-  bendWidth: 0.05,
-  frost: 0,
-  brightness: 0.06,
-  specular: 1.5,
-  sheenAngle: 45,
   sheenDark: false,
-  glow: 0.4,
-  glowSpread: 0.5,
-  glowFalloff: 1.5,
-  sheen: 0,
-  sheenWidth: 3,
-  sheenFalloff: 1.5,
   edgeShadow: "0 2px 6px rgba(0, 0, 0, 0.16)",
   edgeInsetShadow: "0 -4px 10px rgba(0, 0, 0, 0.12)",
-  // restEdgeShadow (the floating resting-puck shadow, fades out as the thumb
-  // blooms) is themed per scheme — see SLIDER_DARK / SLIDER_LIGHT below.
 };
 
 const SLIDER_DARK: Partial<GlassOptics> = {
   restEdgeShadow: "0 1.333px 5.333px rgba(0, 0, 0, 0.5)",
-  scaleX: 0.133,
-  scaleY: 0.135,
-  brightness: 0.12,
-  sheenAngle: 45,
-  glowFalloff: 1.5,
-  sheen: 0.5,
-  sheenWidth: 1,
-  sheenFalloff: 1.5,
 };
 
 const SLIDER_LIGHT: Partial<GlassOptics> = {
   restEdgeShadow: "0 1.333px 5.333px rgba(46, 15, 15, 0.12)",
-  scaleX: 0.1,
-  scaleY: 0.1,
   brightness: -0.02,
-  sheenAngle: 30,
-  glowFalloff: 2,
-  sheen: 1,
-  sheenWidth: 1,
-  sheenFalloff: 1,
 };
 
 // Safari needs more vertical displacement than Chromium.

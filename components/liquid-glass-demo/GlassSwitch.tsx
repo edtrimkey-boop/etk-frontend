@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import {
   Glass,
+  MASTER_GLASS_OPTICS,
   type GlassOptics,
   type GlassAnimation,
   animateGlassValue,
@@ -40,56 +41,22 @@ const EXPAND_ANIM = { ease: EASE, duration: 0.26 };
 const COLLAPSE_ANIM = { ease: SETTLE, duration: 0.46 };
 
 export const SWITCH_BASE: Partial<GlassOptics> = {
+  ...MASTER_GLASS_OPTICS,
   mapSize: 256,
-  // depth/curvature are 0..1 fractions of the thumb's expanded half-extent (~16.5px):
-  // a gentle depth keeps a refractive rim, not a magnifying body dome; the glassy
-  // character is the rim refraction + specular + bloom (raise depth toward 1 for a
-  // true body dome).
-  depth: 0.2,
-  dispersion: 0.65,
-  strength: 0.19,
   clipToShape: true,
   softEdge: true,
-  curvature: 0.3,
   splay: 0.6,
-  bend: 0.1,
-  bendWidth: 0.06,
-  frost: 0,
-  brightness: 0.05,
-  specular: 1.2,
-  sheenAngle: 45,
   sheenDark: false,
-  glow: 0.05,
-  glowSpread: 0.5,
-  glowFalloff: 1.5,
-  sheen: 0.45,
-  sheenWidth: 2,
-  sheenFalloff: 1.5,
   edgeShadow: "0 2px 6px rgba(0, 0, 0, 0.16)",
   edgeInsetShadow: "0 -4px 10px rgba(0, 0, 0, 0.12)",
-  // Resting puck drop-shadow (the floating white thumb sits ABOVE the track) —
-  // a tight contact shadow + a soft ambient one. Fades out as it expands into
-  // the lens (which has its own `edgeShadow`).
   restEdgeShadow:
     "0 1px 3px rgba(0, 0, 0, 0.24), 0 4px 10px rgba(0, 0, 0, 0.14)",
 };
 
-const SWITCH_DARK: Partial<GlassOptics> = {
-  brightness: 0.12,
-  glow: 0.4,
-  sheen: 0.5,
-};
+const SWITCH_DARK: Partial<GlassOptics> = {};
 
 const SWITCH_LIGHT: Partial<GlassOptics> = {
   brightness: -0.02,
-  sheenAngle: 30,
-  specular: 1.5,
-  glow: 0.4,
-  glowSpread: 0.5,
-  glowFalloff: 2,
-  sheen: 1,
-  sheenWidth: 1.5,
-  sheenFalloff: 1,
 };
 
 const TRACK_BACKGROUND =

@@ -1,6 +1,6 @@
 'use client';
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { Glass, type GlassOptics } from "@/lib/liquid-glass";
+import { Glass, MASTER_GLASS_OPTICS, type GlassOptics } from "@/lib/liquid-glass";
 
 /**
  * A macOS-style notification, built as a real liquid-glass panel: the frosted
@@ -22,27 +22,10 @@ const sans =
 // "liquid" lip), NO bevel. The crisp panel edge is a CSS double-border on the card
 // overlay (see boxShadow below), not the lens edge — which keeps it clean.
 export const PANEL_LENS: Partial<GlassOptics> = {
+  ...MASTER_GLASS_OPTICS,
   mapSize: 256,
   clipToShape: true,
   softEdge: true,
-  depth: 1,
-  curvature: 0.5,
-  dispersion: 0.6,
-  strength: 0.17,
-  bend: 0.7,
-  bendWidth: 0.12,
-  // Light frost so the bend + chroma stay visible (a heavy blur washes the
-  // refraction out), with a soft veil + sheen for the glassy edge. Legibility comes
-  // from the card overlay's top-lit white gradient, not a heavy lens veil.
-  frost: 3,
-  brightness: 0.22,
-  specular: 1.3,
-  sheenAngle: 50,
-  glow: 0.32,
-  glowSpread: 1,
-  glowFalloff: 1,
-  sheen: 1.3,
-  sheenWidth: 3,
 };
 
 // Dark text — the bright frosted glass (lens brightness veil) is the material;

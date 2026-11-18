@@ -39,6 +39,11 @@ export type { GlassProps } from "./Glass";
 
 // ── The look: one optics bag for every lens. ────────────────────────────────
 export type { GlassOptics } from "./displacement";
+export {
+  MASTER_GLASS_OPTICS,
+  MASTER_GLASS_BG,
+  MATERIAL_OPTICS,
+} from "./glass-config";
 
 // ── Motion values: drive lens geometry without a framer-motion dependency. ──
 export {

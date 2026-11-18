@@ -106,10 +106,11 @@ export type GlassOptics = Omit<
   "lensW" | "lensH" | "borderRadius"
 >;
 
+import { MASTER_GLASS_OPTICS } from "./glass-config";
+
 /**
- * The out-of-the-box look — a balanced liquid-glass lens, so `<Glass>` looks
- * good with zero config; override any field via the `lens` prop. (No presets;
- * one good default kept unopinionated.)
+ * The out-of-the-box look — synced directly to MASTER_GLASS_OPTICS in glass-config.ts
+ * so every <Glass>, <GlassDOM>, <GlassMaterial>, and <GlassSurface> shares the exact same settings.
  */
 export const DEFAULT_LENS_PARAMS: GlassLensParams = {
   lensW: 95,
@@ -118,24 +119,25 @@ export const DEFAULT_LENS_PARAMS: GlassLensParams = {
   mapSize: 512,
   clipToShape: true,
   softEdge: true,
-  strength: 0.06,
-  depth: 0.65,
-  curvature: 0.6,
+  strength: MASTER_GLASS_OPTICS.strength ?? 0.2,
+  depth: MASTER_GLASS_OPTICS.depth ?? 0.3,
+  curvature: MASTER_GLASS_OPTICS.curvature ?? 0.6,
   splay: 0,
-  dispersion: 0.5,
-  bend: 0,
-  bendWidth: 0.16,
-  frost: 0.5,
-  brightness: 0.1,
-  specular: 1,
-  sheenAngle: 45,
+  dispersion: MASTER_GLASS_OPTICS.dispersion ?? 0.7,
+  bend: MASTER_GLASS_OPTICS.bend ?? 0.6,
+  bendWidth: MASTER_GLASS_OPTICS.bendWidth ?? 0.1,
+  frost: MASTER_GLASS_OPTICS.frost ?? 1,
+  saturate: MASTER_GLASS_OPTICS.saturate ?? 2,
+  brightness: MASTER_GLASS_OPTICS.brightness ?? 0.05,
+  specular: MASTER_GLASS_OPTICS.specular ?? 1.6,
+  sheenAngle: MASTER_GLASS_OPTICS.sheenAngle ?? 45,
   sheenDark: false,
-  sheen: 0.3,
-  sheenWidth: 3,
-  sheenFalloff: 1.5,
-  glow: 0.12,
-  glowSpread: 1,
-  glowFalloff: 0.5,
+  sheen: MASTER_GLASS_OPTICS.sheen ?? 0.32,
+  sheenWidth: MASTER_GLASS_OPTICS.sheenWidth ?? 3,
+  sheenFalloff: MASTER_GLASS_OPTICS.sheenFalloff ?? 1.5,
+  glow: MASTER_GLASS_OPTICS.glow ?? 0.1,
+  glowSpread: MASTER_GLASS_OPTICS.glowSpread ?? 1.0,
+  glowFalloff: MASTER_GLASS_OPTICS.glowFalloff ?? 1.5,
 };
 
 export const BLANK_MAP =

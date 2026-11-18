@@ -261,7 +261,6 @@ export default function MobileNav({
           className="nav-pill-box"
           radius={35}
           interactive={false}
-          glassBg="rgba(255, 255, 255, 0.065)"
           style={{
             display: 'flex',
             justifyContent: 'space-evenly',
@@ -276,7 +275,6 @@ export default function MobileNav({
         <OpticalSurface
           className={`fab-dock ${fabOpen ? 'open' : ''}`}
           radius={999}
-          glassBg="rgba(255, 255, 255, 0.065)"
           onClick={toggleFabMenu}
           style={{
             width: '60px',

@@ -16,6 +16,7 @@ import {
   matrixForAxisScale,
 } from "./displacement";
 import { GlassValue, isGlassMotionValue, readGlassValue } from "./signal";
+import { MASTER_GLASS_OPTICS } from "./glass-config";
 
 /**
  * Material mode — the friendly default for `<Glass>children</Glass>`.
@@ -121,35 +122,10 @@ function createSanitizedContentClone(source: HTMLElement): HTMLElement {
 }
 
 /**
- * The material default look — a subtle glass SURFACE (not a magnifying loupe).
- * Gentle body, a soft rim meniscus, light chromatic edge, a directional sheen.
- * `frost` here is the backdrop blur in PX (the CSS `blur()` radius), unlike the
- * tiny obb/px frost the copy-based engine uses. Override any field via `optics`.
+ * Single source of truth re-exported from `./glass-config.ts` so every glass surface
+ * across the entire app shares and syncs the exact same settings.
  */
-export const MATERIAL_OPTICS: Partial<GlassOptics> = {
-  // ── Refraction ─────────────────────────────────────────
-  strength: 0.200,        // Strength
-  depth: 0.300,           // Depth
-  curvature: 0.600,       // Curvature
-  dispersion: 0.700,      // Dispersion
-
-  // ── Edge ───────────────────────────────────────────────
-  bend: 0.600,            // Bend
-  bendWidth: 0.100,       // Width
-  sheen: 0.32,            // Intensity
-  sheenWidth: 3,          // Thickness
-  sheenFalloff: 1.5,      // Edge Falloff
-  specular: 1.6,          // Specular
-  sheenAngle: 45,          // Angle
-
-  // ── Background ─────────────────────────────────────────
-  glow: 0.100,            // Glow
-  glowSpread: 1.0,          // Glow Spread
-  glowFalloff: 1.5,       // Glow Falloff
-  frost: 1,               // Frost
-  brightness: 0.050,      // Brightness
-  saturate: 2,            // Saturation
-};
+export const MATERIAL_OPTICS: Partial<GlassOptics> = MASTER_GLASS_OPTICS;
 
 /**
  * The displacement + dispersion + specular primitive chain for the BACKDROP-filter

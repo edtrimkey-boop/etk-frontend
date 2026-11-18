@@ -3,12 +3,16 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { Glass, type GlassOptics } from '@/lib/liquid-glass';
-import { MATERIAL_OPTICS } from '@/lib/liquid-glass/GlassMaterial';
+import {
+  Glass,
+  MASTER_GLASS_OPTICS,
+  MASTER_GLASS_BG,
+  type GlassOptics,
+} from '@/lib/liquid-glass';
 import { useOptionalDashboard } from '@/lib/dashboard-context';
 
-// Single source of truth: directly inherits MATERIAL_OPTICS from lib/liquid-glass/GlassMaterial.tsx
-export const ETK_OPTICAL_DEFAULTS: Partial<GlassOptics> = MATERIAL_OPTICS;
+// Single source of truth: directly inherits MASTER_GLASS_OPTICS from lib/liquid-glass/glass-config.ts
+export const ETK_OPTICAL_DEFAULTS: Partial<GlassOptics> = MASTER_GLASS_OPTICS;
 
 type Variant = 'primary' | 'warning' | 'danger' | 'success' | 'purple' | 'secondary' | 'outline' | 'surface';
 type GlassMode = 'optical' | 'frosted';
@@ -16,16 +20,16 @@ type GlassMode = 'optical' | 'frosted';
 const SOLID_VARIANTS = new Set<Variant>(['primary', 'success', 'warning', 'danger', 'purple']);
 
 // Exact original Ed-Trim Key colors from index.html / globals.css:
-// Solid vivid fills for primary/success/warning/danger/purple; translucent optical glass for secondary/outline/surface.
+// Solid vivid fills for primary/success/warning/danger/purple; shared MASTER_GLASS_BG for translucent glass.
 const VARIANT_BG: Record<Variant, string> = {
   primary: 'var(--brand, #26C3EA)',
   success: 'var(--success, #2ECC71)',
   warning: 'var(--accent, #F59E0B)',
   danger: 'var(--danger, #EF4444)',
   purple: 'var(--purple, #8B5CF6)',
-  secondary: 'rgba(255, 255, 255, 0.075)',
-  outline: 'rgba(255, 255, 255, 0.04)',
-  surface: 'rgba(255, 255, 255, 0.065)',
+  secondary: MASTER_GLASS_BG,
+  outline: MASTER_GLASS_BG,
+  surface: MASTER_GLASS_BG,
 };
 
 const VARIANT_COLOR: Record<Variant, string> = {
@@ -378,7 +382,7 @@ export function OpticalSurface({
   className = '',
   id,
   style,
-  glassBg = 'rgba(255, 255, 255, 0.065)',
+  glassBg = MASTER_GLASS_BG,
   radius = 999,
   mode = 'optical',
   interactive = true,

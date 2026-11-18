@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { Glass, glassValue, type GlassOptics } from '@/lib/liquid-glass';
+import { Glass, glassValue, MASTER_GLASS_OPTICS, type GlassOptics } from '@/lib/liquid-glass';
 import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
 import { GlassSlider } from '@/components/liquid-glass-demo/GlassSlider';
 import { GlassNotification } from '@/components/liquid-glass-demo/GlassNotification';
@@ -14,17 +14,18 @@ export default function LiquidGlassTestPage() {
   const [autoDraft, setAutoDraft] = useState(false);
   const [sliderVal, setSliderVal] = useState(64);
 
-  // Live Optics Tuner
-  const [strength, setStrength] = useState(0.18);
-  const [depth, setDepth] = useState(0.55);
-  const [curvature, setCurvature] = useState(0.45);
-  const [dispersion, setDispersion] = useState(0.45);
-  const [bend, setBend] = useState(0.65);
-  const [frost, setFrost] = useState(2);
-  const [sheen, setSheen] = useState(0.85);
+  // Live Optics Tuner — initialized directly from MASTER_GLASS_OPTICS (glass-config.ts)
+  const [strength, setStrength] = useState(MASTER_GLASS_OPTICS.strength ?? 0.2);
+  const [depth, setDepth] = useState(MASTER_GLASS_OPTICS.depth ?? 0.3);
+  const [curvature, setCurvature] = useState(MASTER_GLASS_OPTICS.curvature ?? 0.6);
+  const [dispersion, setDispersion] = useState(MASTER_GLASS_OPTICS.dispersion ?? 0.7);
+  const [bend, setBend] = useState(MASTER_GLASS_OPTICS.bend ?? 0.6);
+  const [frost, setFrost] = useState(MASTER_GLASS_OPTICS.frost ?? 1);
+  const [sheen, setSheen] = useState(MASTER_GLASS_OPTICS.sheen ?? 0.32);
 
   const customOptics: Partial<GlassOptics> = useMemo(
     () => ({
+      ...MASTER_GLASS_OPTICS,
       strength,
       depth,
       curvature,
@@ -51,13 +52,13 @@ export default function LiquidGlassTestPage() {
   };
 
   const resetOptics = () => {
-    setStrength(0.18);
-    setDepth(0.55);
-    setCurvature(0.45);
-    setDispersion(0.45);
-    setBend(0.65);
-    setFrost(2);
-    setSheen(0.85);
+    setStrength(MASTER_GLASS_OPTICS.strength ?? 0.2);
+    setDepth(MASTER_GLASS_OPTICS.depth ?? 0.3);
+    setCurvature(MASTER_GLASS_OPTICS.curvature ?? 0.6);
+    setDispersion(MASTER_GLASS_OPTICS.dispersion ?? 0.7);
+    setBend(MASTER_GLASS_OPTICS.bend ?? 0.6);
+    setFrost(MASTER_GLASS_OPTICS.frost ?? 1);
+    setSheen(MASTER_GLASS_OPTICS.sheen ?? 0.32);
   };
 
   return (
