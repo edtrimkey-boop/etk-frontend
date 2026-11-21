@@ -1,60 +1,19 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton, OpticalSurface } from '@/components/ui/OpticalGlass';
 import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
 import { generateReceiptPdf, printReceipt } from '@/components/modals/BillingReceiptModal';
 
-interface PricingTier {
-  id?: string;
-  service_name: string;
-  min_quantity: number;
-  max_quantity: number;
-  base_rate: number;
-  discount_percent: number;
-  final_rate: number;
-  unit_measure?: string;
-  plan_type?: string;
-  active?: boolean;
-}
-
-// Production default pricing tiers (synced with Supabase pricing_master)
-const DEFAULT_PRICING_MASTER: PricingTier[] = [
-  // MCQ Paper
-  { service_name: 'MCQ', min_quantity: 1, max_quantity: 50, base_rate: 20, discount_percent: 0, final_rate: 20, unit_measure: 'Paper', plan_type: 'Standard' },
-  { service_name: 'MCQ', min_quantity: 51, max_quantity: 200, base_rate: 20, discount_percent: 10, final_rate: 18, unit_measure: 'Paper', plan_type: 'Volume Growth' },
-  { service_name: 'MCQ', min_quantity: 201, max_quantity: 99999, base_rate: 20, discount_percent: 25, final_rate: 15, unit_measure: 'Paper', plan_type: 'Enterprise Pro' },
-  // Maths Paper
-  { service_name: 'Maths', min_quantity: 1, max_quantity: 50, base_rate: 30, discount_percent: 0, final_rate: 30, unit_measure: 'Paper', plan_type: 'Standard' },
-  { service_name: 'Maths', min_quantity: 51, max_quantity: 200, base_rate: 30, discount_percent: 10, final_rate: 27, unit_measure: 'Paper', plan_type: 'Volume Growth' },
-  { service_name: 'Maths', min_quantity: 201, max_quantity: 99999, base_rate: 30, discount_percent: 25, final_rate: 22.5, unit_measure: 'Paper', plan_type: 'Enterprise Pro' },
-  // Report Card
-  { service_name: 'Report Card', min_quantity: 1, max_quantity: 100, base_rate: 15, discount_percent: 0, final_rate: 15, unit_measure: 'Student', plan_type: 'Standard' },
-  { service_name: 'Report Card', min_quantity: 101, max_quantity: 500, base_rate: 15, discount_percent: 10, final_rate: 13.5, unit_measure: 'Student', plan_type: 'Volume Growth' },
-  { service_name: 'Report Card', min_quantity: 501, max_quantity: 99999, base_rate: 15, discount_percent: 20, final_rate: 12, unit_measure: 'Student', plan_type: 'Enterprise Pro' },
-  // Admit Card
-  { service_name: 'Admit Card', min_quantity: 1, max_quantity: 100, base_rate: 10, discount_percent: 0, final_rate: 10, unit_measure: 'Student', plan_type: 'Standard' },
-  { service_name: 'Admit Card', min_quantity: 101, max_quantity: 500, base_rate: 10, discount_percent: 10, final_rate: 9, unit_measure: 'Student', plan_type: 'Volume Growth' },
-  { service_name: 'Admit Card', min_quantity: 501, max_quantity: 99999, base_rate: 10, discount_percent: 20, final_rate: 8, unit_measure: 'Student', plan_type: 'Enterprise Pro' },
-  // SMS Cost
-  { service_name: 'SMS Cost', min_quantity: 1, max_quantity: 1000, base_rate: 0.25, discount_percent: 0, final_rate: 0.25, unit_measure: 'SMS', plan_type: 'Standard' },
-  { service_name: 'SMS Cost', min_quantity: 1001, max_quantity: 5000, base_rate: 0.25, discount_percent: 12, final_rate: 0.22, unit_measure: 'SMS', plan_type: 'Bulk Tier' },
-  { service_name: 'SMS Cost', min_quantity: 5001, max_quantity: 99999, base_rate: 0.25, discount_percent: 20, final_rate: 0.20, unit_measure: 'SMS', plan_type: 'Enterprise Bulk' },
-  // App Subscriptions (Flat Rate)
-  { service_name: 'App Subscription - Admission', min_quantity: 1, max_quantity: 999, base_rate: 4999, discount_percent: 0, final_rate: 4999, unit_measure: 'Year', plan_type: 'Annual License' },
-  { service_name: 'App Subscription - Attendance', min_quantity: 1, max_quantity: 999, base_rate: 4999, discount_percent: 0, final_rate: 4999, unit_measure: 'Year', plan_type: 'Annual License' },
-  { service_name: 'App Subscription - Fee Collection', min_quantity: 1, max_quantity: 999, base_rate: 4999, discount_percent: 0, final_rate: 4999, unit_measure: 'Year', plan_type: 'Annual License' },
-];
-
-const DB_SERVICE_MAP: Record<string, string> = {
-  'MCQ Paper': 'MCQ',
-  'Math Paper': 'Maths',
-  'Report Card': 'Report Card',
-  'Admit Card': 'Admit Card',
-  'SMS Cost': 'SMS Cost',
-};
+import {
+  PricingTier,
+  FALLBACK_PRICING_MASTER,
+  fetchLivePricingMaster,
+  calculateServicePrice,
+  CalculationResult,
+} from '@/lib/pricing';
 
 export default function BillingPage() {
   const { user, payload, loading, refreshData, openModal, showAlert, showConfirm, showLoader, hideLoader, opticalGlassEnabled } = useDashboard();
@@ -81,79 +40,62 @@ export default function BillingPage() {
   const smsRemaining = Number(instDetails.smsRemaining !== undefined ? instDetails.smsRemaining : 3250);
 
   // ── 2. Pricing Master & Live Calculator State ───────────────────────────
-  const [pricingMaster, setPricingMaster] = useState<PricingTier[]>(DEFAULT_PRICING_MASTER);
+  const [pricingMaster, setPricingMaster] = useState<PricingTier[]>(FALLBACK_PRICING_MASTER);
+  const [pricingSource, setPricingSource] = useState<'supabase_live' | 'gateway' | 'fallback'>('supabase_live');
+  const [isSyncingPricing, setIsSyncingPricing] = useState<boolean>(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string>('Live');
+
   const [serviceSelect, setServiceSelect] = useState<string>('MCQ Paper');
   const [customUnitToggle, setCustomUnitToggle] = useState<boolean>(false);
   const [paperUnitInput, setPaperUnitInput] = useState<number>(25);
-  const [singleAppToggle, setSingleAppToggle] = useState<boolean>(false);
-  const [singleAppSelect, setSingleAppSelect] = useState<string>('Admission');
-  const [rechargeQuantity, setRechargeQuantity] = useState<number>(50);
+  const [singleAppSelect, setSingleAppSelect] = useState<string>('Admission System');
+  const [rechargeQuantity, setRechargeQuantity] = useState<number>(25);
 
-  // Load live pricing from backend/supabase on mount
+  // Real-time synchronization directly with Supabase pricing_master
+  const refreshLivePricing = useCallback(async (showToast = false) => {
+    setIsSyncingPricing(true);
+    try {
+      const res = await fetchLivePricingMaster();
+      if (res.data && res.data.length > 0) {
+        setPricingMaster(res.data);
+        setPricingSource(res.source);
+        const timeStr = new Date().toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        setLastSyncedTime(timeStr);
+        if (showToast) {
+          showAlert(
+            `Pricing rules updated live from ${res.source === 'supabase_live' ? 'Supabase Database' : res.source} at ${timeStr}.`,
+            'Live Pricing Synced'
+          );
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Pricing] Live sync error:', err);
+    } finally {
+      setIsSyncingPricing(false);
+    }
+  }, [showAlert]);
+
   useEffect(() => {
-    async function loadPricing() {
-      try {
-        const res = await serverCall('getPricingMaster');
-        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
-          setPricingMaster(res.data);
-        }
-      } catch {
-        // Fall back to complete DEFAULT_PRICING_MASTER
-      }
-    }
-    loadPricing();
-  }, []);
+    refreshLivePricing(false);
+    const onFocus = () => refreshLivePricing(false);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refreshLivePricing]);
 
-  // Calculate pricing breakdown
-  const pricingDetails = useMemo(() => {
-    let actualQty = rechargeQuantity > 0 ? rechargeQuantity : 0;
-    let checkQty = actualQty > 0 ? actualQty : 1;
-
-    let matchingRow: PricingTier | null = null;
-
-    if (serviceSelect === 'App Subscriptions') {
-      const appKey = `App Subscription - ${singleAppSelect}`;
-      matchingRow = pricingMaster.find((r) => r.service_name.includes(singleAppSelect)) || null;
-      actualQty = 1;
-    } else {
-      const dbName = DB_SERVICE_MAP[serviceSelect] || serviceSelect;
-      const availableTiers = pricingMaster.filter((r) => r.service_name === dbName);
-
-      if (availableTiers.length > 0) {
-        matchingRow = availableTiers.find((r) => checkQty >= r.min_quantity && checkQty <= r.max_quantity) || null;
-        if (!matchingRow) {
-          matchingRow = availableTiers.reduce((prev, current) => (prev.max_quantity > current.max_quantity ? prev : current));
-        }
-      }
-    }
-
-    if (!matchingRow) {
-      return { baseRate: 0, discountPct: 0, finalRate: 0, finalAmount: 0, unitMeasure: 'Unit', planType: 'Standard' };
-    }
-
-    let baseRate = Number(matchingRow.base_rate) || 0;
-    let discountPct = Number(matchingRow.discount_percent) || 0;
-    let finalRate = Number(matchingRow.final_rate) || 0;
-    const unitMeasure = matchingRow.unit_measure || 'Unit';
-    const planType = matchingRow.plan_type || 'Standard';
-
-    if (serviceSelect.includes('Paper') && customUnitToggle) {
-      const customUnits = paperUnitInput > 0 ? paperUnitInput : 25;
-      const multiplier = customUnits / 25;
-      baseRate *= multiplier;
-      finalRate *= multiplier;
-    }
-
-    const finalAmount = finalRate * actualQty;
-
-    return {
-      baseRate,
-      discountPct,
-      finalRate,
-      finalAmount,
-      unitMeasure,
-      planType,
-    };
+  // Calculate pricing breakdown using verified pure rule engine
+  const pricingDetails: CalculationResult = useMemo(() => {
+    return calculateServicePrice({
+      serviceSelect,
+      rechargeQuantity,
+      customUnitToggle,
+      paperUnitInput,
+      singleAppSelect,
+      pricingMaster,
+    });
   }, [serviceSelect, rechargeQuantity, customUnitToggle, paperUnitInput, singleAppSelect, pricingMaster]);
 
   // ── 3. App Modules Access Toggles ───────────────────────────────────────
@@ -208,48 +150,56 @@ export default function BillingPage() {
     }
   };
 
-  // ── 4. Checkout / Pay Now Execution ─────────────────────────────────────
+  // ── 4. Checkout / Pay Now Execution (In-App Pop-in Modal, No External Tabs) ───
   const handlePayNow = async () => {
     if (pricingDetails.finalAmount <= 0) {
       showAlert('Please enter a valid quantity to initiate top-up.', 'Warning');
       return;
     }
 
-    showConfirm(`Confirm recharge of ${serviceSelect} (${rechargeQuantity} units) for ₹${pricingDetails.finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}?`, async () => {
-      showLoader('GENERATING FLOW PAYMENT LINK...');
-      try {
-        const phone = String(user?.phone || user?.phone_number || '').replace(/\D/g, '');
-        const validPhone = /^[6-9]\d{9}$/.test(phone) ? phone : undefined;
+    const orderQty = serviceSelect === 'App Subscriptions' ? 1 : rechargeQuantity;
+    const formattedAmt = pricingDetails.finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
-        const res = await serverCall('createPaymentLink', {
-          instCode: user?.code,
-          type: serviceSelect,
-          amount: pricingDetails.finalAmount,
-          email: user?.email,
-          name: user?.name || user?.full_name || 'Institute Admin',
-          phone: validPhone,
-          quantity: rechargeQuantity,
-        });
+    showConfirm(
+      `Confirm recharge of ${serviceSelect} (${orderQty} ${pricingDetails.unitMeasure}) for ₹${formattedAmt}?`,
+      async () => {
+        showLoader('GENERATING FLOW PAYMENT LINK...');
+        try {
+          const phone = String(user?.phone || user?.phone_number || '').replace(/\D/g, '');
+          const validPhone = /^[6-9]\d{9}$/.test(phone) ? phone : undefined;
 
-        if (res && res.success) {
-          const paymentNumber = res.refId || res.payment_number || res.paymentNumber || `TRX-${Date.now()}`;
-          const checkoutUrl = res.checkout_url || res.checkoutUrl || `https://flow.trimkey.in/checkout/${paymentNumber}`;
+          const res = await serverCall('createPaymentLink', {
+            instCode: user?.code,
+            type: serviceSelect,
+            amount: pricingDetails.finalAmount,
+            email: user?.email,
+            name: user?.name || user?.full_name || 'Institute Admin',
+            phone: validPhone,
+            quantity: orderQty,
+          });
 
-          // Open Flow checkout window
-          window.open(checkoutUrl, '_blank');
-          showAlert(`Payment link generated! Ref: ${paymentNumber}. Once completed, credits settle automatically.`, 'Checkout Initiated');
+          if (res && res.success) {
+            const paymentNumber = res.refId || res.payment_number || res.paymentNumber || `TRX-${Date.now()}`;
+            const checkoutUrl = res.checkout_url || res.checkoutUrl || `https://flow.trimkey.in/checkout/${paymentNumber}`;
 
-          // Refresh ledger to pick up newly initialized transaction
-          setTimeout(() => refreshData(true), 1500);
-        } else {
-          showAlert(res?.message || 'Could not initiate checkout link.', 'Error');
+            // 🎯 Open In-App Pop-in Checkout Modal (Zero External Tabs)
+            openModal('flowPayment', {
+              checkoutUrl,
+              paymentNumber,
+              amount: res.amount || pricingDetails.finalAmount,
+              serviceType: serviceSelect,
+              quantity: orderQty,
+            });
+          } else {
+            showAlert(res?.message || 'Could not initiate checkout link.', 'Error');
+          }
+        } catch (err: any) {
+          showAlert(err.message || 'Payment initiation error.', 'Error');
+        } finally {
+          hideLoader();
         }
-      } catch (err: any) {
-        showAlert(err.message || 'Payment initiation error.', 'Error');
-      } finally {
-        hideLoader();
       }
-    });
+    );
   };
 
   // ── 5. Activity Ledger & Receipts Table ─────────────────────────────────
@@ -301,7 +251,14 @@ export default function BillingPage() {
     }
   };
 
-  // Preset quick quantity buttons
+  // Dynamic preset quick quantity increments adapted to current service
+  const presetQuantities = useMemo(() => {
+    if (serviceSelect.includes('Paper')) return [5, 10, 25, 50, 100];
+    if (serviceSelect.includes('Card')) return [50, 100, 250, 500];
+    if (serviceSelect.includes('SMS')) return [500, 1000, 2500, 5000];
+    return [10, 50, 100, 250];
+  }, [serviceSelect]);
+
   const addPresetQuantity = (qty: number) => {
     setRechargeQuantity((prev) => Math.max(1, prev + qty));
   };
@@ -678,11 +635,62 @@ export default function BillingPage() {
 
         {/* Right Column: Recharge Quota & Services Calculator */}
         <div className="panel" style={{ margin: 0, borderTop: '4px solid var(--success)' }}>
-          <div className="panel-header" style={{ marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>Recharge Services &amp; Quotas</h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
-              Top up educational operational units credited directly to your active institute balance.
-            </p>
+          <div className="panel-header" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>Recharge Services &amp; Quotas</h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
+                Top up operational units with real-time database pricing &amp; volume discount tiers.
+              </p>
+            </div>
+
+            {/* Live Database Sync Badge & Reload Button */}
+            <button
+              type="button"
+              onClick={() => refreshLivePricing(true)}
+              disabled={isSyncingPricing}
+              title="Click to fetch real-time pricing directly from Supabase"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                background: pricingSource === 'supabase_live' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(38, 195, 234, 0.12)',
+                border: pricingSource === 'supabase_live' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(38, 195, 234, 0.35)',
+                color: pricingSource === 'supabase_live' ? '#10B981' : '#26C3EA',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: isSyncingPricing ? 'wait' : 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: isSyncingPricing ? '#F59E0B' : '#10B981',
+                  boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)',
+                  display: 'inline-block',
+                }}
+              />
+              {isSyncingPricing ? 'Syncing DB...' : `Live DB: ${lastSyncedTime}`}
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  animation: isSyncingPricing ? 'spin 1s linear infinite' : 'none',
+                }}
+              >
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+              </svg>
+            </button>
           </div>
 
           {/* Service Selector */}
@@ -694,15 +702,23 @@ export default function BillingPage() {
               id="serviceSelect"
               className="form-input"
               value={serviceSelect}
-              onChange={(e) => setServiceSelect(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setServiceSelect(val);
+                if (val.includes('Paper')) setRechargeQuantity(25);
+                else if (val.includes('Card')) setRechargeQuantity(100);
+                else if (val.includes('SMS')) setRechargeQuantity(1000);
+                else if (val === 'App Subscriptions') setRechargeQuantity(1);
+              }}
               style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'var(--card-light)', color: 'white', border: '1px solid var(--border)' }}
             >
-              <option value="MCQ Paper">MCQ Paper Top-Up</option>
-              <option value="Math Paper">Math Paper Top-Up</option>
-              <option value="Report Card">Report Card Generation</option>
-              <option value="Admit Card">Admit Card Generation</option>
-              <option value="SMS Cost">SMS Credits Top-Up</option>
-              <option value="App Subscriptions">App Subscriptions (Annual License)</option>
+              <option value="MCQ Paper">MCQ Paper Top-Up (Tiers: 1-11, 12-23, 24+)</option>
+              <option value="Math Paper">Maths Paper Top-Up (Tiers: 1-11, 12-23, 24+)</option>
+              <option value="Physics / Numerical Paper">Physics / Numerical Paper (Tiers: 1-11, 12-23, 24+)</option>
+              <option value="Report Card">Report Card Generation (₹9/student)</option>
+              <option value="Admit Card">Admit Card Generation (₹1/student)</option>
+              <option value="SMS Top-up">SMS Credits Top-Up (₹0.35/SMS)</option>
+              <option value="App Subscriptions">App Subscriptions &amp; Cloud Modules</option>
             </select>
           </div>
 
@@ -761,7 +777,7 @@ export default function BillingPage() {
             </div>
           )}
 
-          {/* App Subscription Option */}
+          {/* App Subscription Option with Real Database Pricing */}
           {serviceSelect === 'App Subscriptions' && (
             <div
               style={{
@@ -773,7 +789,7 @@ export default function BillingPage() {
               }}
             >
               <label className="label-text" style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 800, display: 'block', marginBottom: '6px' }}>
-                Select Annual Cloud App License
+                Select Annual Cloud App / System Module
               </label>
               <select
                 className="form-input"
@@ -781,14 +797,18 @@ export default function BillingPage() {
                 onChange={(e) => setSingleAppSelect(e.target.value)}
                 style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'var(--card-light)', color: 'white', border: '1px solid var(--border)', margin: 0 }}
               >
-                <option value="Admission">Online Admission System — ₹4,999/yr</option>
-                <option value="Attendance">Smart Attendance Portal — ₹4,999/yr</option>
-                <option value="Fee Collection">Fee Collection Portal — ₹4,999/yr</option>
+                <option value="Admission System">Online Admission System — ₹2,000.00 / yr (33.3% off base ₹3,000)</option>
+                <option value="Attendance System">Smart Attendance Portal — ₹2,000.00 / yr (20.0% off base ₹2,500)</option>
+                <option value="Fee Collection">Fee Collection Portal — ₹2,500.00 / yr (37.5% off base ₹4,000)</option>
+                <option value="AI Agent">AI Institutional Agent — ₹1,800.00 / yr (40.0% off base ₹3,000)</option>
+                <option value="AI Song">Custom AI Anthem / Song — ₹500.00 / song (50.0% off base ₹1,000)</option>
+                <option value="Document Branding">Official Document Branding — ₹200.00 / doc (50.0% off base ₹400)</option>
+                <option value="Complete Apps Combo">Complete Apps Combo — ₹7,500.00 One-Time (11.8% off base ₹8,500)</option>
               </select>
             </div>
           )}
 
-          {/* Quantity Input with Quick Preset Increment Pills */}
+          {/* Quantity Input with Context-Aware Quick Preset Increment Pills */}
           {serviceSelect !== 'App Subscriptions' && (
             <div style={{ marginBottom: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -796,7 +816,7 @@ export default function BillingPage() {
                   Quantity ({pricingDetails.unitMeasure})
                 </label>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  {[10, 50, 100, 250].map((preset) => (
+                  {presetQuantities.map((preset) => (
                     <button
                       key={preset}
                       type="button"
@@ -845,8 +865,10 @@ export default function BillingPage() {
               <strong style={{ color: 'white' }}>₹{pricingDetails.baseRate.toFixed(2)} / {pricingDetails.unitMeasure}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Applied Volume Tier:</span>
-              <strong style={{ color: 'var(--success)' }}>{pricingDetails.discountPct}% [{pricingDetails.planType}]</strong>
+              <span style={{ color: 'var(--text-muted)' }}>Applied Tier Discount:</span>
+              <strong style={{ color: 'var(--success)' }}>
+                {pricingDetails.discountPct}% [{pricingDetails.planType} Tier]
+              </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Effective Rate:</span>

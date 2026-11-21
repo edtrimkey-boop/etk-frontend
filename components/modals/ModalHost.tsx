@@ -13,6 +13,7 @@ import JobChatModal from './JobChatModal';
 import UploadProgressModal from './UploadProgressModal';
 import ProfilePhotoModal from './ProfilePhotoModal';
 import BillingReceiptModal from './BillingReceiptModal';
+import FlowPaymentModal from './FlowPaymentModal';
 import SyncLoader from '@/components/shared/SyncLoader';
 
 export default function ModalHost() {
@@ -31,6 +32,7 @@ export default function ModalHost() {
       <TeacherEditModal />
       <JobChatModal />
       <BillingReceiptModal />
+      <FlowPaymentModal />
     </>
   );
 }
