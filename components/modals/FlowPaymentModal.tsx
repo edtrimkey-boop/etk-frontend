@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
+import { serverCall } from '@/lib/api-client';
 
 export interface FlowPaymentModalData {
   checkoutUrl: string;
@@ -12,7 +13,16 @@ export interface FlowPaymentModalData {
 }
 
 export default function FlowPaymentModal() {
-  const { activeModal, modalData, closeModal, refreshData, showAlert } = useDashboard();
+  const {
+    activeModal,
+    modalData,
+    closeModal,
+    refreshData,
+    showAlert,
+    openModal,
+    playNotificationSound,
+    user,
+  } = useDashboard();
   const isOpen = activeModal === 'flowPayment';
 
   const data: FlowPaymentModalData = (isOpen && modalData) ? modalData : {
@@ -49,31 +59,104 @@ export default function FlowPaymentModal() {
     };
   }, [isOpen, data.checkoutUrl]);
 
+  // Dual-channel reconciliation handshake with backend (confirmFlowPayment)
+  const handleReconcilePayment = useCallback(async (eventData?: any) => {
+    const pNum = eventData?.paymentNumber || eventData?.flow_payment_number || data.paymentNumber;
+    const provPayId = eventData?.provider_payment_id || eventData?.razorpay_payment_id || '';
+    const provOrdId = eventData?.provider_order_id || eventData?.razorpay_order_id || '';
+
+    try {
+      // 1. Dispatch backend reconciliation to increment quota and post ledger entry
+      const res = await serverCall('confirmFlowPayment', {
+        paymentNumber: pNum,
+        instCode: user?.code || 'KPS',
+        serviceType: data.serviceType || 'Admit Card',
+        amount: data.amount,
+        quantity: data.quantity || 1,
+        providerPaymentId: provPayId,
+        providerOrderId: provOrdId,
+      });
+
+      console.log('[Flow Reconciliation Success]:', res);
+
+      closeModal();
+      if (iframeRef.current) {
+        setTimeout(() => {
+          if (iframeRef.current) iframeRef.current.src = 'about:blank';
+        }, 300);
+      }
+
+      playNotificationSound('success');
+      showAlert('Payment Confirmed! Your subscription and quotas have been updated via Trim Key Flow.', 'Payment Settled');
+
+      // 2. Refresh dashboard quotas & transaction ledger
+      await refreshData(true);
+
+      // 3. Immediately display the Official Receipt Modal with the confirmed transaction
+      const ledId = res?.ledgerRef || (pNum ? (pNum.startsWith('LED-') ? pNum : `LED-${pNum}`) : `LED-TRX-${Date.now()}`);
+      openModal('billingReceipt', {
+        ledId,
+        date: new Date().toISOString(),
+        service: data.serviceType || 'Recharge',
+        amount: Number(data.amount || 0),
+        quantity: Number(data.quantity || 1),
+        unitPrice: Number(data.amount || 0) / Number(data.quantity || 1),
+        paymentNumber: pNum,
+        gatewayPaymentId: provPayId || 'pay_online_verified',
+        paymentGateway: 'Trim Key Flow',
+        paymentMethod: 'ONLINE',
+        customerName: user?.name || user?.full_name || 'Institute Admin',
+        customerEmail: user?.email || '',
+        customerPhone: user?.phone || '',
+        instName: user?.institute || 'Keystone Public School',
+        instCode: user?.code || 'KPS',
+        status: 'PAID',
+      });
+    } catch (err: any) {
+      console.warn('Reconciliation note:', err);
+      closeModal();
+      refreshData(true);
+    }
+  }, [data, user, closeModal, playNotificationSound, showAlert, refreshData, openModal]);
+
   // Listen to postMessage from Trim Key Flow or Payment Gateway
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       try {
         const msg = event.data;
         if (!msg) return;
 
+        // Instant handshake: Trim Key Flow page loaded and ready
+        if (msg.type === 'TK_FLOW_READY') {
+          setIsLoading(false);
+        }
+
+        // Confirmation of payment from Trim Key Flow
         if (
           msg === 'FLOW_PAYMENT_SUCCESS' ||
           msg.type === 'FLOW_PAYMENT_SUCCESS' ||
+          msg.type === 'TK_FLOW_PAYMENT_SUCCESS' ||
           msg.status === 'SUCCESS' ||
+          msg.event === 'payment.success' ||
           msg.action === 'PAYMENT_COMPLETE'
         ) {
-          handleVerifyPayment();
+          await handleReconcilePayment(msg);
         }
-      } catch {
-        // Ignore cross-origin non-serializable messages
+
+        // Modal close request from Trim Key Flow
+        if (msg.type === 'TK_FLOW_CLOSE_MODAL') {
+          handleClose();
+        }
+      } catch (err) {
+        console.warn('PostMessage error:', err);
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [isOpen]);
+  }, [isOpen, handleReconcilePayment]);
 
   const handleIframeLoaded = useCallback(() => {
     if (iframeSrc && iframeSrc !== 'about:blank') {
@@ -101,23 +184,33 @@ export default function FlowPaymentModal() {
     }
   };
 
-  // Exactly matching verifyPayment() in index.html line 5660
-  const handleVerifyPayment = () => {
+  // Close handler with fail-safe reconciliation
+  const handleClose = async () => {
+    if (data.paymentNumber && Number(data.amount) > 0) {
+      try {
+        // Dispatches reconciliation in case user completed payment and closed the window
+        await serverCall('confirmFlowPayment', {
+          paymentNumber: data.paymentNumber,
+          instCode: user?.code || 'KPS',
+          serviceType: data.serviceType || 'Admit Card',
+          amount: data.amount,
+          quantity: data.quantity || 1,
+        });
+      } catch (e) {
+        console.warn('Close reconciliation note:', e);
+      }
+    }
+
     closeModal();
-    const iframe = iframeRef.current;
-    if (iframe) {
+    if (iframeRef.current) {
       setTimeout(() => {
-        iframe.src = 'about:blank';
+        if (iframeRef.current) iframeRef.current.src = 'about:blank';
       }, 300);
     }
-    showAlert('Payment submitted for verification. Checking status with Trim Key Flow...', 'Verifying Payment');
+    showAlert('Checking status with Trim Key Flow and syncing your quota...', 'Verifying Payment');
     setTimeout(() => {
       refreshData(true);
-    }, 2000);
-  };
-
-  const handleClose = () => {
-    handleVerifyPayment();
+    }, 1500);
   };
 
   if (!isOpen) return null;

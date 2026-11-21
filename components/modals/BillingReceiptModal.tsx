@@ -27,7 +27,61 @@ export interface BillingReceiptRecord {
   instCode?: string;
 }
 
-export function generateReceiptPdf(rec: BillingReceiptRecord, user: any): jsPDF {
+let cachedReceiptLogoDataUrl: string | null = null;
+
+export async function preloadReceiptLogo(): Promise<string | null> {
+  if (cachedReceiptLogoDataUrl) return cachedReceiptLogoDataUrl;
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(null);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || 200;
+        canvas.height = img.naturalHeight || 200;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          cachedReceiptLogoDataUrl = canvas.toDataURL('image/png');
+          resolve(cachedReceiptLogoDataUrl);
+          return;
+        }
+      } catch (err) {
+        console.warn('[Receipt Logo]: Canvas conversion notice', err);
+      }
+      resolve(null);
+    };
+    img.onerror = () => {
+      const fb = new Image();
+      fb.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = fb.naturalWidth || 200;
+          canvas.height = fb.naturalHeight || 200;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(fb, 0, 0);
+            cachedReceiptLogoDataUrl = canvas.toDataURL('image/png');
+            resolve(cachedReceiptLogoDataUrl);
+            return;
+          }
+        } catch {}
+        resolve(null);
+      };
+      fb.onerror = () => resolve(null);
+      fb.src = '/etk-logo.png';
+    };
+    img.src = '/etk-logo.png';
+    setTimeout(() => resolve(cachedReceiptLogoDataUrl), 2000);
+  });
+}
+
+if (typeof window !== 'undefined') {
+  preloadReceiptLogo().catch(() => {});
+}
+
+export function generateReceiptPdf(rec: BillingReceiptRecord, user: any, logoDataUrl?: string): jsPDF {
   const doc = new jsPDF('p', 'pt', 'a4'); // 595.28 x 841.89 pt
   const ledId = rec.ledId || rec.id || 'LED-TRX';
   const amountVal = Number(rec.amount || 0).toFixed(2);
@@ -41,13 +95,30 @@ export function generateReceiptPdf(rec: BillingReceiptRecord, user: any): jsPDF 
   doc.setFillColor(15, 23, 42); // #0F172A
   doc.rect(0, 0, 595, 105, 'F');
 
-  // Brand Name & Title
-  doc.setFillColor(38, 195, 234);
-  doc.roundedRect(38, 20, 60, 60, 6, 6, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
-  doc.text('ETK', 52, 56);
+  // Brand Logo embedding - Exactly matching index.html lines 9612-9627
+  const logo = logoDataUrl || cachedReceiptLogoDataUrl;
+  if (logo) {
+    try {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(38, 20, 60, 60, 6, 6, 'F');
+      doc.addImage(logo, 'PNG', 42, 24, 52, 52);
+    } catch (e) {
+      console.warn('Logo embed notice:', e);
+      doc.setFillColor(38, 195, 234);
+      doc.roundedRect(38, 20, 60, 60, 6, 6, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.text('ETK', 52, 56);
+    }
+  } else {
+    doc.setFillColor(38, 195, 234);
+    doc.roundedRect(38, 20, 60, 60, 6, 6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text('ETK', 52, 56);
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
@@ -405,11 +476,16 @@ export default function BillingReceiptModal({
   const instCode = rec.instCode || user?.code || 'KPS';
   const serviceName = rec.service || 'Subscription';
   const gatewayId = rec.gatewayPaymentId || rec.ref || 'pay_online_verified';
-  const logoUrl = 'https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/new-ETK.png';
+  const logoUrl = '/etk-logo.png';
 
-  const handleDownloadPdf = () => {
+  React.useEffect(() => {
+    preloadReceiptLogo().catch(() => {});
+  }, []);
+
+  const handleDownloadPdf = async () => {
     try {
-      const doc = generateReceiptPdf(rec, user);
+      const logo = await preloadReceiptLogo();
+      const doc = generateReceiptPdf(rec, user, logo || undefined);
       doc.save(`EdTrimKey_Receipt_${ledId}.pdf`);
       showAlert('Official PDF Receipt downloaded successfully!', 'Success');
     } catch (err: any) {
@@ -417,9 +493,10 @@ export default function BillingReceiptModal({
     }
   };
 
-  const handleOpenPdf = () => {
+  const handleOpenPdf = async () => {
     try {
-      const doc = generateReceiptPdf(rec, user);
+      const logo = await preloadReceiptLogo();
+      const doc = generateReceiptPdf(rec, user, logo || undefined);
       const blobUrl = doc.output('bloburl');
       window.open(blobUrl, '_blank');
     } catch (err: any) {

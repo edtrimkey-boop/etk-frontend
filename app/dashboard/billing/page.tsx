@@ -5,7 +5,7 @@ import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton, OpticalSurface } from '@/components/ui/OpticalGlass';
 import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
-import { generateReceiptPdf, printReceipt } from '@/components/modals/BillingReceiptModal';
+import { generateReceiptPdf, printReceipt, preloadReceiptLogo } from '@/components/modals/BillingReceiptModal';
 
 import {
   PricingTier,
@@ -13,6 +13,8 @@ import {
   fetchLivePricingMaster,
   calculateServicePrice,
   CalculationResult,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
 } from '@/lib/pricing';
 
 export default function BillingPage() {
@@ -204,11 +206,90 @@ export default function BillingPage() {
 
   // ── 5. Activity Ledger & Receipts Table ─────────────────────────────────
   const rawBilling = payload?.data?.myBilling || payload?.myBilling || [];
+  const [dbLedger, setDbLedger] = useState<any[]>([]);
+  const [isReconciling, setIsReconciling] = useState<boolean>(false);
   const [filterType, setFilterType] = useState<'All' | 'Recharge' | 'Usage'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Fetch real-time billing records directly from Supabase billing_ledger
+  const loadLiveLedger = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/billing_ledger?select=*&order=created_at.desc&limit=60`,
+        {
+          method: 'GET',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store',
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setDbLedger(data);
+        }
+      }
+    } catch (e) {
+      console.warn('[Ledger] Live ledger fetch notice:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLiveLedger();
+  }, [loadLiveLedger]);
+
+  // Merge live Supabase ledger records with payload ledger records (deduplicated)
+  const combinedBilling = useMemo(() => {
+    const list: any[] = [];
+    const seenIds = new Set<string>();
+
+    // 1. Live database rows from Supabase
+    dbLedger.forEach((row) => {
+      const idKey = row.ledger_ref || row.id;
+      if (idKey && !seenIds.has(idKey)) {
+        seenIds.add(idKey);
+        const amt = Number(row.amount || 0);
+        const qty = Number(row.metadata?.quantity || 1);
+        list.push({
+          ledId: row.ledger_ref || row.id,
+          date: row.created_at,
+          type: row.direction === 'CREDIT' || amt > 0 ? 'Recharge' : (row.transaction_type || 'Usage'),
+          service: row.service_type || 'Top-up Service',
+          amount: amt,
+          quantity: qty,
+          unitPrice: qty > 0 ? amt / qty : amt,
+          status: row.status === 'POSTED' ? 'PAID' : (row.status || 'PAID'),
+          gatewayPaymentId: row.gateway_payment_id || row.payment_ref,
+          paymentNumber: row.payment_ref,
+          paymentGateway: row.payment_gateway || 'Trim Key Flow',
+          customerName: user?.name || user?.full_name || 'Institute Admin',
+          customerEmail: user?.email || '',
+          customerPhone: user?.phone || '',
+          instName: user?.institute || 'Keystone Public School',
+          instCode: user?.code || 'KPS',
+        });
+      }
+    });
+
+    // 2. Add raw payload records from gateway
+    if (Array.isArray(rawBilling)) {
+      rawBilling.forEach((row) => {
+        const idKey = row.ledId || row.id || row.ref;
+        if (idKey && !seenIds.has(idKey)) {
+          seenIds.add(idKey);
+          list.push(row);
+        }
+      });
+    }
+
+    return list;
+  }, [dbLedger, rawBilling, user]);
+
   const filteredBilling = useMemo(() => {
-    let list = Array.isArray(rawBilling) ? [...rawBilling] : [];
+    let list = [...combinedBilling];
 
     // Filter by type
     if (filterType === 'Recharge') {
@@ -228,7 +309,27 @@ export default function BillingPage() {
     }
 
     return list;
-  }, [rawBilling, filterType, searchQuery]);
+  }, [combinedBilling, filterType, searchQuery]);
+
+  // Instant Manual Reconciliation Handler
+  const handleManualReconcile = async () => {
+    setIsReconciling(true);
+    showLoader('RECONCILING WITH PAYMENT GATEWAY...');
+    try {
+      const res = await serverCall('confirmFlowPayment', {
+        instCode: user?.code || 'KPS',
+      });
+      console.log('[Manual Reconcile Result]:', res);
+      await refreshData(true);
+      await loadLiveLedger();
+      showAlert('Payment reconciled and institute quota updated successfully!', 'Reconciliation Complete');
+    } catch (err: any) {
+      showAlert('Reconciliation notice: ' + err.message, 'Notice');
+    } finally {
+      hideLoader();
+      setIsReconciling(false);
+    }
+  };
 
   const openReceiptModal = (record: any) => {
     openModal('billingReceipt', {
@@ -241,11 +342,12 @@ export default function BillingPage() {
     });
   };
 
-  const downloadReceiptDirect = (record: any) => {
+  const downloadReceiptDirect = async (record: any) => {
     try {
-      const doc = generateReceiptPdf(record, user);
+      const logo = await preloadReceiptLogo();
+      const doc = generateReceiptPdf(record, user, logo || undefined);
       doc.save(`EdTrimKey_Receipt_${record.ledId || 'TRX'}.pdf`);
-      showAlert('Official PDF Receipt downloaded!', 'Success');
+      showAlert('Official PDF Receipt downloaded successfully!', 'Success');
     } catch (err: any) {
       showAlert('PDF Generation error: ' + err.message, 'Error');
     }
@@ -962,10 +1064,47 @@ export default function BillingPage() {
                 color: 'white',
               }}
             >
-              <option value="All">All Transactions</option>
+              <option value="All">All Transactions ({combinedBilling.length})</option>
               <option value="Recharge">Recharges (+)</option>
               <option value="Usage">Usage Deductions (-)</option>
             </select>
+
+            {/* Reconcile & Refresh Button */}
+            <button
+              type="button"
+              onClick={handleManualReconcile}
+              disabled={isReconciling}
+              title="Click to reconcile recent payments directly with Trim Key Flow"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                background: 'rgba(0, 245, 160, 0.12)',
+                border: '1px solid rgba(0, 245, 160, 0.35)',
+                color: '#00F5A0',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: isReconciling ? 'wait' : 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ animation: isReconciling ? 'spin 1s linear infinite' : 'none' }}
+              >
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+              </svg>
+              {isReconciling ? 'Syncing...' : 'Reconcile & Refresh'}
+            </button>
           </div>
         </div>
 
