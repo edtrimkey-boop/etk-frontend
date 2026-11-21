@@ -8,19 +8,25 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
   themeColor: '#0B111E',
+  interactiveWidget: 'resizes-content',
 };
 
 export const metadata: Metadata = {
-  title: 'Ed-Trim Key — Academic Operations Platform',
+  title: 'ED TRIMKEY OS — Academic Operations Platform',
   description: 'Enterprise Academic Digital Workflow System powered by Trim Key',
+  applicationName: 'ED TRIMKEY OS',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Ed-Trim Key',
+    title: 'ED TRIMKEY OS',
+  },
+  formatDetection: {
+    telephone: false,
   },
   icons: {
-    icon: 'https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/apple-ETK-icon.png',
-    apple: 'https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/apple-ETK-icon.png',
+    icon: '/etk-logo.png',
+    apple: '/etk-logo.png',
   },
 };
 
@@ -32,6 +38,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-touch-fullscreen" content="yes" />
+        <link rel="apple-touch-icon" href="/etk-logo.png" />
+        <link rel="manifest" href="/manifest.json" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -40,6 +50,17 @@ export default function RootLayout({
         />
         <link rel="preconnect" href="https://flow.trimkey.in" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://flow.trimkey.in" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function() {});
+                });
+              }
+            `,
+          }}
+        />
       </head>
       <body>
         {/* TRUE LIQUID REFRACTION SVG FILTER ENGINE */}

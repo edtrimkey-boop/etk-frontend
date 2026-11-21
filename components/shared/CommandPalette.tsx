@@ -540,7 +540,7 @@ export default function CommandPalette() {
               border: 'none',
               outline: 'none',
               color: 'white',
-              fontSize: '15px',
+              fontSize: '16px', // 16px prevents iOS Safari auto-zoom
               fontWeight: 600,
               padding: 0,
               boxShadow: 'none',

@@ -278,9 +278,32 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; filter:
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(38, 195, 234, 0.45), 0 0 14px rgba(38, 195, 234, 0.25) !important;
 }
-.header-scrim { position: fixed; top: 0; left: 0; width: 100%; height: 140px; background: linear-gradient(to bottom, rgba(11, 17, 30, 70%) 0%, rgba(11, 17, 30, 30%) 30%, transparent 100%); pointer-events: none; z-index: 90; }
+.header-scrim { 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: calc(140px + env(safe-area-inset-top, 0px)); 
+  background: linear-gradient(to bottom, rgba(11, 17, 30, 85%) 0%, rgba(11, 17, 30, 35%) 50%, transparent 100%); 
+  pointer-events: none; 
+  z-index: 90; 
+}
 
-.top-bar { height: 75px; flex-shrink: 0; background: transparent; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; position: sticky; top: 0; z-index: 100;}
+.top-bar { 
+  min-height: 72px; 
+  height: calc(72px + env(safe-area-inset-top, 0px)); 
+  padding-top: env(safe-area-inset-top, 0px); 
+  padding-left: max(24px, env(safe-area-inset-left, 0px)); 
+  padding-right: max(24px, env(safe-area-inset-right, 0px)); 
+  flex-shrink: 0; 
+  background: transparent; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  position: sticky; 
+  top: 0; 
+  z-index: 100;
+}
 
 /* 🔥 FIX 3: Perfectly Spaced Header Icons */
 .brandRow { display: flex; align-items: center; gap: 20px !important; }
@@ -1361,18 +1384,18 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   .top-bar .brandRow button { display: none !important; } 
   .content-area { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; } 
 
-  /* 1. Transparent layout wrapper */
+  /* 1. Transparent layout wrapper - Centered across all mobile, phablet & tablet sizes */
   #mobile-nav-bar {
       position: fixed; 
-      bottom: calc(20px + env(safe-area-inset-bottom)); 
-      left: 15px; 
-      width: calc(100% - 30px); 
-      height: 65px;
+      bottom: calc(16px + env(safe-area-inset-bottom, 0px)); 
+      left: 50%; 
+      transform: translateX(-50%) translate3d(0, 0, 0); 
+      -webkit-transform: translateX(-50%) translate3d(0, 0, 0); 
+      width: min(calc(100% - 24px), 520px); 
+      height: 64px;
       display: flex; justify-content: space-between; align-items: center;
       z-index: 5000;
       pointer-events: none; /* Lets clicks pass through the empty gaps */
-      -webkit-transform: translate3d(0, 0, 0);
-      transform: translate3d(0, 0, 0);
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
       will-change: transform;
@@ -2447,6 +2470,14 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
     top: 52px !important;
   }
 
+  /* Hide Sara AI floating button when FAB menu sheet is open to prevent touch collisions */
+  body:has(#fab-action-sheet.active) #sara-chat-widget #sara-chat-btn,
+  #fab-action-sheet.active ~ #sara-chat-widget #sara-chat-btn {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: scale(0.6) !important;
+  }
+
   /* =======================================================
      PHASE 3: MOBILE BOTTOM SHEET MODALS & NATIVE GESTURES
      ======================================================= */
@@ -2503,10 +2534,53 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   }
 }
 
+/* =====================================================================
+   EVERY DEVICE SIZE MOBILE & PWA ENGINES (768px, 600px, 480px, 360px)
+   ===================================================================== */
+
+/* 1. TABLETS & PHABLETS (<= 768px) */
+@media (max-width: 768px) {
+  /* CRITICAL PWA/IOS RULE: 16px input font size stops iOS Safari auto-zooming page */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+    min-height: 44px !important; /* Apple HIG standard touch target */
+  }
+
+  /* Touch Callout Suppression on Shell Chrome */
+  .sidebar,
+  .top-bar,
+  #mobile-nav-bar,
+  .mobile-action-row,
+  .btn,
+  button {
+    -webkit-touch-callout: none !important;
+  }
+
+  /* Table cards action buttons formatting */
+  .tk-sleek-table td[data-label="ACTION"],
+  .tk-sleek-table td[data-label="ACTIONS"],
+  .tk-sleek-table td[data-label="RECEIPT"],
+  .tk-sleek-table td:last-child {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding-top: 12px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-bottom: none !important;
+  }
+}
+
+/* 2. STANDARD SMARTPHONES (<= 600px) */
 @media (max-width: 600px) {
   .top-bar {
-    padding: 0 16px !important;
-    height: 68px !important;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(16px, env(safe-area-inset-right, 0px)) !important;
+    min-height: 64px !important;
+    height: calc(64px + env(safe-area-inset-top, 0px)) !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
   }
   .brandRow {
     gap: 10px !important;
@@ -2515,29 +2589,157 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
     gap: 10px !important;
   }
   .content-area {
-    padding: 16px 16px calc(120px + env(safe-area-inset-bottom)) 16px !important;
+    padding: 16px max(14px, env(safe-area-inset-right, 0px)) calc(115px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)) !important;
   }
   .panel {
     padding: 20px 16px !important;
     margin-bottom: 18px !important;
   }
+
+  /* Single column cards so activity boxes never squish */
   .cards {
-    gap: 10px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
   }
   .activity {
-    padding: 16px 8px !important;
+    padding: 18px 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    text-align: left !important;
   }
   .activity h2 {
     font-size: 22px !important;
+    margin-bottom: 0 !important;
   }
   .activity span {
-    font-size: 11px !important;
+    font-size: 12px !important;
   }
+
   .kpi-card {
     padding: 18px 14px !important;
   }
   .kpi-card h2 {
-    font-size: 22px !important;
+    font-size: 24px !important;
+  }
+
+  /* Table load capacity bar */
+  .tk-table-capacity-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    text-align: center !important;
+    gap: 10px !important;
+  }
+  .tk-load-more-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+/* 3. COMPACT MOBILE SCREENS (<= 480px) */
+@media (max-width: 480px) {
+  .grid-kpis {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .kpi-card {
+    padding: 14px 12px !important;
+  }
+  .kpi-card h4 {
+    font-size: 9.5px !important;
+    letter-spacing: 0.5px !important;
+  }
+  .kpi-card h2 {
+    font-size: 20px !important;
+  }
+  .filter-select {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+  .cb-container {
+    gap: 8px !important;
+  }
+  .cb-pill {
+    padding: 8px 10px !important;
+    font-size: 10px !important;
+  }
+  .loginBox {
+    padding: 35px 20px !important;
+    width: 95% !important;
+    max-width: 380px !important;
+  }
+}
+
+/* 4. ULTRA-COMPACT MOBILE (<= 360px: iPhone SE 1st gen, Galaxy Fold cover, 320px screens) */
+@media (max-width: 360px) {
+  .top-bar {
+    min-height: 56px !important;
+    height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+    padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
+  }
+  .brandRow {
+    gap: 6px !important;
+  }
+  .glass-title-pill {
+    padding: 4px 8px 4px 3px !important;
+    max-width: 130px !important;
+    height: 42px !important;
+  }
+  .glass-title-pill img,
+  .logo {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .notification-wrapper {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .user-profile-container {
+    padding: 3px 6px 3px 3px !important;
+  }
+  .avatar-circle {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 12px !important;
+    margin-right: 2px !important;
+  }
+
+  /* Ultra-compact Centered Floating Nav Dock */
+  #mobile-nav-bar {
+    width: calc(100% - 16px) !important;
+    height: 56px !important;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .nav-pill-box {
+    height: 52px !important;
+    margin-right: 8px !important;
+    padding: 0 2px !important;
+    border-radius: 28px !important;
+  }
+  .nav-tab {
+    height: 44px !important;
+    font-size: 8px !important;
+    gap: 2px !important;
+    margin: 0 !important;
+  }
+  .nav-tab svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+  .fab-dock {
+    width: 52px !important;
+    height: 52px !important;
+  }
+  .fab-dock svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  /* Single Column KPIs on tiny screens */
+  .grid-kpis {
+    grid-template-columns: 1fr !important;
   }
 }
 
