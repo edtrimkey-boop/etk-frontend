@@ -15,6 +15,7 @@ import {
   CalculationResult,
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
+  fetchInstituteQuotas,
 } from '@/lib/pricing';
 
 export default function BillingPage() {
@@ -24,22 +25,68 @@ export default function BillingPage() {
   const instDetails = user?.instDetails || payload?.instDetails || payload?.data?.instDetails || {};
   const toggles = payload?.toggles || user?.toggles || {};
 
-  const planName = instDetails.plan || user?.plan_type || 'Standard Institutional ERP';
-  const startDate = instDetails.startDate || (user?.created_at ? new Date(user.created_at).toLocaleDateString('en-GB') : 'Active');
-  const renewalDate = instDetails.renewal || 'Annual Renewal Active';
-  const purchaseValue = instDetails.purchaseValue ? `₹${Number(instDetails.purchaseValue).toLocaleString('en-IN')}` : '₹49,999.00';
+  const [quotas, setQuotas] = useState({
+    papersTotal: 50,
+    papersLeft: 0,
+    rcTotal: 11,
+    rcLeft: 4,
+    acTotal: 26,
+    acLeft: 9,
+    smsTotal: 5000,
+    smsRemaining: 0,
+    plan: 'Annual',
+    startDate: '2026-03-03',
+    renewal: '2027-08-15',
+    purchaseValue: '4,000',
+  });
 
-  const papersTotal = Number(instDetails.papersTotal || 500);
-  const papersLeft = Number(instDetails.papersLeft !== undefined ? instDetails.papersLeft : 185);
+  // 1. Sync from user?.instDetails or payload?.instDetails when available
+  useEffect(() => {
+    if (instDetails && Object.keys(instDetails).length > 0) {
+      setQuotas((prev) => ({
+        ...prev,
+        papersTotal: Number(instDetails.papersTotal ?? prev.papersTotal),
+        papersLeft: Number(instDetails.papersLeft ?? prev.papersLeft),
+        rcTotal: Number(instDetails.rcTotal ?? prev.rcTotal),
+        rcLeft: Number(instDetails.rcLeft ?? prev.rcLeft),
+        acTotal: Number(instDetails.acTotal ?? prev.acTotal),
+        acLeft: Number(instDetails.acLeft ?? prev.acLeft),
+        smsTotal: Number(instDetails.smsTotal ?? prev.smsTotal),
+        smsRemaining: Number(instDetails.smsRemaining ?? prev.smsRemaining),
+        plan: instDetails.plan || prev.plan,
+        startDate: instDetails.startDate || prev.startDate,
+        renewal: instDetails.renewal || prev.renewal,
+        purchaseValue: instDetails.purchaseValue ? String(instDetails.purchaseValue) : prev.purchaseValue,
+      }));
+    }
+  }, [instDetails]);
 
-  const rcTotal = Number(instDetails.rcTotal || 1000);
-  const rcLeft = Number(instDetails.rcLeft !== undefined ? instDetails.rcLeft : 620);
+  // 2. Sync from Supabase institutes table (real-time source of truth)
+  const syncSupabaseQuotas = useCallback(async () => {
+    try {
+      const q = await fetchInstituteQuotas(user?.code || 'KPS');
+      if (q) {
+        setQuotas((prev) => ({
+          ...prev,
+          papersTotal: Number(q.papers_total ?? prev.papersTotal),
+          papersLeft: Number(q.papers_left ?? prev.papersLeft),
+          rcTotal: Number(q.rc_total ?? prev.rcTotal),
+          rcLeft: Number(q.rc_left ?? prev.rcLeft),
+          acTotal: Number(q.ac_total ?? prev.acTotal),
+          acLeft: Number(q.ac_left ?? prev.acLeft),
+          smsTotal: Number(q.sms_total ?? prev.smsTotal),
+          smsRemaining: Number(q.sms_remaining ?? prev.smsRemaining),
+          plan: q.plan_type || prev.plan,
+        }));
+      }
+    } catch (e) {
+      console.warn('[Billing] Supabase quota sync notice:', e);
+    }
+  }, [user?.code]);
 
-  const acTotal = Number(instDetails.acTotal || 1000);
-  const acLeft = Number(instDetails.acLeft !== undefined ? instDetails.acLeft : 440);
-
-  const smsTotal = Number(instDetails.smsTotal || 5000);
-  const smsRemaining = Number(instDetails.smsRemaining !== undefined ? instDetails.smsRemaining : 3250);
+  useEffect(() => {
+    syncSupabaseQuotas();
+  }, [syncSupabaseQuotas]);
 
   // ── 2. Pricing Master & Live Calculator State ───────────────────────────
   const [pricingMaster, setPricingMaster] = useState<PricingTier[]>(FALLBACK_PRICING_MASTER);
@@ -239,6 +286,45 @@ export default function BillingPage() {
 
   useEffect(() => {
     loadLiveLedger();
+
+    const onPaymentSettled = (e: any) => {
+      const d = e.detail;
+      if (d?.updatedQuotas) {
+        setQuotas((prev) => ({
+          ...prev,
+          papersTotal: Number(d.updatedQuotas.papers_total ?? prev.papersTotal),
+          papersLeft: Number(d.updatedQuotas.papers_left ?? prev.papersLeft),
+          rcTotal: Number(d.updatedQuotas.rc_total ?? prev.rcTotal),
+          rcLeft: Number(d.updatedQuotas.rc_left ?? prev.rcLeft),
+          acTotal: Number(d.updatedQuotas.ac_total ?? prev.acTotal),
+          acLeft: Number(d.updatedQuotas.ac_left ?? prev.acLeft),
+          smsTotal: Number(d.updatedQuotas.sms_total ?? prev.smsTotal),
+          smsRemaining: Number(d.updatedQuotas.sms_remaining ?? prev.smsRemaining),
+        }));
+      } else if (d?.serviceType) {
+        const qty = Number(d.quantity || 1);
+        const sType = String(d.serviceType).toLowerCase();
+        setQuotas((prev) => {
+          if (sType.includes('admit') || sType.includes('ac')) {
+            return { ...prev, acTotal: prev.acTotal + qty, acLeft: prev.acLeft + qty };
+          }
+          if (sType.includes('report') || sType.includes('rc')) {
+            return { ...prev, rcTotal: prev.rcTotal + qty, rcLeft: prev.rcLeft + qty };
+          }
+          if (sType.includes('paper') || sType.includes('mcq') || sType.includes('math') || sType.includes('physics')) {
+            return { ...prev, papersTotal: prev.papersTotal + qty, papersLeft: prev.papersLeft + qty };
+          }
+          if (sType.includes('sms')) {
+            return { ...prev, smsTotal: prev.smsTotal + qty, smsRemaining: prev.smsRemaining + qty };
+          }
+          return prev;
+        });
+      }
+      loadLiveLedger();
+    };
+
+    window.addEventListener('tk_payment_settled', onPaymentSettled);
+    return () => window.removeEventListener('tk_payment_settled', onPaymentSettled);
   }, [loadLiveLedger]);
 
   // Merge live Supabase ledger records with payload ledger records (deduplicated)
@@ -322,6 +408,7 @@ export default function BillingPage() {
       console.log('[Manual Reconcile Result]:', res);
       await refreshData(true);
       await loadLiveLedger();
+      await syncSupabaseQuotas();
       showAlert('Payment reconciled and institute quota updated successfully!', 'Reconciliation Complete');
     } catch (err: any) {
       showAlert('Reconciliation notice: ' + err.message, 'Notice');
@@ -423,7 +510,7 @@ export default function BillingPage() {
               Current Plan
             </p>
             <h2 id="billPlanType" style={{ fontSize: '18px', fontWeight: 900, color: 'var(--brand)', margin: 0 }}>
-              {planName}
+              {quotas.plan}
             </h2>
           </div>
 
@@ -432,7 +519,7 @@ export default function BillingPage() {
               Start Date
             </p>
             <h2 id="billStartDate" style={{ fontSize: '18px', fontWeight: 900, color: 'white', margin: 0 }}>
-              {startDate}
+              {quotas.startDate}
             </h2>
           </div>
 
@@ -441,7 +528,7 @@ export default function BillingPage() {
               Renewal Date
             </p>
             <h2 id="billRenewDate" style={{ fontSize: '18px', fontWeight: 900, color: 'white', margin: 0 }}>
-              {renewalDate}
+              {quotas.renewal}
             </h2>
           </div>
 
@@ -450,7 +537,7 @@ export default function BillingPage() {
               Purchase Value
             </p>
             <h2 id="billPurchaseValue" style={{ fontSize: '18px', fontWeight: 900, color: '#00F5A0', margin: 0, fontFamily: 'monospace' }}>
-              {purchaseValue}
+              {quotas.purchaseValue.startsWith('₹') ? quotas.purchaseValue : `₹${quotas.purchaseValue}`}
             </h2>
           </div>
         </div>
@@ -463,16 +550,16 @@ export default function BillingPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Questions Papers</h4>
             <span style={{ fontSize: '10px', color: 'var(--brand)', fontWeight: 800, background: 'rgba(38,195,234,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
-              {papersTotal > 0 ? `${Math.round((papersLeft / papersTotal) * 100)}% left` : '0%'}
+              {quotas.papersTotal > 0 ? `${Math.round((quotas.papersLeft / quotas.papersTotal) * 100)}% left` : '0%'}
             </span>
           </div>
           <h2 id="billPaperTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
-            {papersTotal.toLocaleString('en-IN')}
+            {quotas.papersTotal.toLocaleString('en-IN')}
           </h2>
           <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
             <div
               style={{
-                width: `${papersTotal > 0 ? Math.min(100, Math.max(0, (papersLeft / papersTotal) * 100)) : 0}%`,
+                width: `${quotas.papersTotal > 0 ? Math.min(100, Math.max(0, (quotas.papersLeft / quotas.papersTotal) * 100)) : 0}%`,
                 height: '100%',
                 background: 'var(--brand)',
                 borderRadius: '10px',
@@ -480,7 +567,7 @@ export default function BillingPage() {
             />
           </div>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-            Remaining Quota: <b id="billPaperRemain" style={{ color: 'var(--brand)', fontSize: '12px' }}>{papersLeft}</b>
+            Remaining Quota: <b id="billPaperRemain" style={{ color: 'var(--brand)', fontSize: '12px' }}>{quotas.papersLeft}</b>
           </p>
         </div>
 
@@ -489,16 +576,16 @@ export default function BillingPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Report Cards</h4>
             <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 800, background: 'rgba(46,204,113,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
-              {rcTotal > 0 ? `${Math.round((rcLeft / rcTotal) * 100)}% left` : '0%'}
+              {quotas.rcTotal > 0 ? `${Math.round((quotas.rcLeft / quotas.rcTotal) * 100)}% left` : '0%'}
             </span>
           </div>
           <h2 id="billRcTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
-            {rcTotal.toLocaleString('en-IN')}
+            {quotas.rcTotal.toLocaleString('en-IN')}
           </h2>
           <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
             <div
               style={{
-                width: `${rcTotal > 0 ? Math.min(100, Math.max(0, (rcLeft / rcTotal) * 100)) : 0}%`,
+                width: `${quotas.rcTotal > 0 ? Math.min(100, Math.max(0, (quotas.rcLeft / quotas.rcTotal) * 100)) : 0}%`,
                 height: '100%',
                 background: 'var(--success)',
                 borderRadius: '10px',
@@ -506,7 +593,7 @@ export default function BillingPage() {
             />
           </div>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-            Remaining Quota: <b id="billRcRemain" style={{ color: 'var(--success)', fontSize: '12px' }}>{rcLeft}</b>
+            Remaining Quota: <b id="billRcRemain" style={{ color: 'var(--success)', fontSize: '12px' }}>{quotas.rcLeft}</b>
           </p>
         </div>
 
@@ -515,16 +602,16 @@ export default function BillingPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Admit Cards</h4>
             <span style={{ fontSize: '10px', color: 'var(--danger)', fontWeight: 800, background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
-              {acTotal > 0 ? `${Math.round((acLeft / acTotal) * 100)}% left` : '0%'}
+              {quotas.acTotal > 0 ? `${Math.round((quotas.acLeft / quotas.acTotal) * 100)}% left` : '0%'}
             </span>
           </div>
           <h2 id="billAcTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
-            {acTotal.toLocaleString('en-IN')}
+            {quotas.acTotal.toLocaleString('en-IN')}
           </h2>
           <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
             <div
               style={{
-                width: `${acTotal > 0 ? Math.min(100, Math.max(0, (acLeft / acTotal) * 100)) : 0}%`,
+                width: `${quotas.acTotal > 0 ? Math.min(100, Math.max(0, (quotas.acLeft / quotas.acTotal) * 100)) : 0}%`,
                 height: '100%',
                 background: 'var(--danger)',
                 borderRadius: '10px',
@@ -532,7 +619,7 @@ export default function BillingPage() {
             />
           </div>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-            Remaining Quota: <b id="billAcRemain" style={{ color: 'var(--danger)', fontSize: '12px' }}>{acLeft}</b>
+            Remaining Quota: <b id="billAcRemain" style={{ color: 'var(--danger)', fontSize: '12px' }}>{quotas.acLeft}</b>
           </p>
         </div>
 
@@ -541,16 +628,16 @@ export default function BillingPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>SMS Credits</h4>
             <span style={{ fontSize: '10px', color: 'var(--purple)', fontWeight: 800, background: 'rgba(139,92,246,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
-              {smsTotal > 0 ? `${Math.round((smsRemaining / smsTotal) * 100)}% left` : '0%'}
+              {quotas.smsTotal > 0 ? `${Math.round((quotas.smsRemaining / quotas.smsTotal) * 100)}% left` : '0%'}
             </span>
           </div>
           <h2 id="billSmsTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
-            {smsTotal.toLocaleString('en-IN')}
+            {quotas.smsTotal.toLocaleString('en-IN')}
           </h2>
           <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
             <div
               style={{
-                width: `${smsTotal > 0 ? Math.min(100, Math.max(0, (smsRemaining / smsTotal) * 100)) : 0}%`,
+                width: `${quotas.smsTotal > 0 ? Math.min(100, Math.max(0, (quotas.smsRemaining / quotas.smsTotal) * 100)) : 0}%`,
                 height: '100%',
                 background: 'var(--purple)',
                 borderRadius: '10px',
@@ -558,7 +645,7 @@ export default function BillingPage() {
             />
           </div>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-            Remaining Quota: <b id="billSmsRemain" style={{ color: 'var(--purple)', fontSize: '12px' }}>{smsRemaining}</b>
+            Remaining Quota: <b id="billSmsRemain" style={{ color: 'var(--purple)', fontSize: '12px' }}>{quotas.smsRemaining}</b>
           </p>
         </div>
       </div>

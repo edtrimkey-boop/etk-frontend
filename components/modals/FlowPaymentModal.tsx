@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
+import { incrementInstituteQuota } from '@/lib/pricing';
 
 export interface FlowPaymentModalData {
   checkoutUrl: string;
@@ -78,6 +79,29 @@ export default function FlowPaymentModal() {
       });
 
       console.log('[Flow Reconciliation Success]:', res);
+
+      // Increment Supabase quota directly in realtime
+      const updatedQuotas = await incrementInstituteQuota(
+        user?.code || 'KPS',
+        data.serviceType || 'Admit Card',
+        Number(data.quantity || 1)
+      );
+
+      // Broadcast payment settlement so BillingPage instantly updates ledger and KPIs
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('tk_payment_settled', {
+            detail: {
+              serviceType: data.serviceType,
+              quantity: data.quantity,
+              amount: data.amount,
+              paymentNumber: pNum,
+              ledgerRef: res?.ledgerRef,
+              updatedQuotas,
+            },
+          })
+        );
+      }
 
       closeModal();
       if (iframeRef.current) {
@@ -196,6 +220,19 @@ export default function FlowPaymentModal() {
           amount: data.amount,
           quantity: data.quantity || 1,
         });
+        await incrementInstituteQuota(user?.code || 'KPS', data.serviceType || 'Admit Card', Number(data.quantity || 1));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('tk_payment_settled', {
+              detail: {
+                serviceType: data.serviceType,
+                quantity: data.quantity,
+                amount: data.amount,
+                paymentNumber: data.paymentNumber,
+              },
+            })
+          );
+        }
       } catch (e) {
         console.warn('Close reconciliation note:', e);
       }

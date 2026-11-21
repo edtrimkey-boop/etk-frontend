@@ -4,6 +4,7 @@ import React from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import { jsPDF } from 'jspdf';
+import { ETK_LOGO_BASE64 } from '@/lib/logo-base64';
 
 export interface BillingReceiptRecord {
   ledId?: string;
@@ -27,54 +28,10 @@ export interface BillingReceiptRecord {
   instCode?: string;
 }
 
-let cachedReceiptLogoDataUrl: string | null = null;
+let cachedReceiptLogoDataUrl: string = ETK_LOGO_BASE64;
 
-export async function preloadReceiptLogo(): Promise<string | null> {
-  if (cachedReceiptLogoDataUrl) return cachedReceiptLogoDataUrl;
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve(null);
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || 200;
-        canvas.height = img.naturalHeight || 200;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          cachedReceiptLogoDataUrl = canvas.toDataURL('image/png');
-          resolve(cachedReceiptLogoDataUrl);
-          return;
-        }
-      } catch (err) {
-        console.warn('[Receipt Logo]: Canvas conversion notice', err);
-      }
-      resolve(null);
-    };
-    img.onerror = () => {
-      const fb = new Image();
-      fb.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = fb.naturalWidth || 200;
-          canvas.height = fb.naturalHeight || 200;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(fb, 0, 0);
-            cachedReceiptLogoDataUrl = canvas.toDataURL('image/png');
-            resolve(cachedReceiptLogoDataUrl);
-            return;
-          }
-        } catch {}
-        resolve(null);
-      };
-      fb.onerror = () => resolve(null);
-      fb.src = '/etk-logo.png';
-    };
-    img.src = '/etk-logo.png';
-    setTimeout(() => resolve(cachedReceiptLogoDataUrl), 2000);
-  });
+export async function preloadReceiptLogo(): Promise<string> {
+  return cachedReceiptLogoDataUrl || ETK_LOGO_BASE64;
 }
 
 if (typeof window !== 'undefined') {
@@ -476,7 +433,7 @@ export default function BillingReceiptModal({
   const instCode = rec.instCode || user?.code || 'KPS';
   const serviceName = rec.service || 'Subscription';
   const gatewayId = rec.gatewayPaymentId || rec.ref || 'pay_online_verified';
-  const logoUrl = '/etk-logo.png';
+  const logoUrl = ETK_LOGO_BASE64;
 
   React.useEffect(() => {
     preloadReceiptLogo().catch(() => {});
