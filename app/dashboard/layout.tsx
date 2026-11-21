@@ -103,9 +103,6 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
       {/* 3. Sara AI Chat Widget */}
       <SaraWidget />
 
-      {/* Mobile Bottom Scrim to softly fade scrolling cards under floating dock */}
-      <div className="mobile-bottom-scrim" />
-
       {/* 4. iOS Mobile Navigation */}
       <MobileNav
         userRole={user?.role || 'admin'}

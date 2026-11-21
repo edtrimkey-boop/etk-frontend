@@ -278,37 +278,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; filter:
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(38, 195, 234, 0.45), 0 0 14px rgba(38, 195, 234, 0.25) !important;
 }
-.header-scrim { 
-  position: fixed; 
-  top: 0; 
-  left: 0; 
-  width: 100%; 
-  height: calc(140px + env(safe-area-inset-top, 0px)); 
-  background: linear-gradient(to bottom, rgba(11, 17, 30, 85%) 0%, rgba(11, 17, 30, 35%) 50%, transparent 100%); 
-  pointer-events: none; 
-  z-index: 90; 
-}
+.header-scrim { position: fixed; top: 0; left: 0; width: 100%; height: 140px; background: linear-gradient(to bottom, rgba(11, 17, 30, 70%) 0%, rgba(11, 17, 30, 30%) 30%, transparent 100%); pointer-events: none; z-index: 90; }
 
-.top-bar { 
-  min-height: 72px; 
-  height: auto; 
-  padding-top: max(env(safe-area-inset-top, 0px), 12px); 
-  padding-bottom: 12px;
-  padding-left: max(24px, env(safe-area-inset-left, 0px)); 
-  padding-right: max(24px, env(safe-area-inset-right, 0px)); 
-  flex-shrink: 0; 
-  background: rgba(11, 17, 30, 0.88); 
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  position: sticky; 
-  top: 0; 
-  z-index: 1000;
-  box-sizing: border-box;
-}
+.top-bar { height: 75px; flex-shrink: 0; background: transparent; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; position: sticky; top: 0; z-index: 100;}
 
 /* 🔥 FIX 3: Perfectly Spaced Header Icons */
 .brandRow { display: flex; align-items: center; gap: 20px !important; }
@@ -1310,212 +1282,455 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 }
 
 /* =======================================================
-   11. THE MASTER MOBILE RESPONSIVE ENGINE
+   11. THE MASTER MOBILE RESPONSIVE ENGINE (STRICT <= 950px)
    ======================================================= */
 @media (max-width: 950px) { 
+  /* 2. Shell, Header & Safe-Area Clearance */
   .sidebar { 
-      position: fixed; 
-      left: 0; top: 0; bottom: 0;
-      transform: translateX(-100%); 
-      z-index: 3000;
-      background: var(--bg) !important;
-      box-shadow: 0 0 0 rgba(0,0,0,0); /* 🔥 FIX: No shadow when closed */
-      /* 🔥 FIX: Apple-style spring animation */
-      transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.5s ease, opacity 0.5s ease;
+    display: none !important; 
   } 
-  .sidebar.open { 
-      transform: translateX(0); 
-      opacity: 1; 
-      pointer-events: auto; 
-      box-shadow: 15px 0 40px rgba(0,0,0,0.4); /* 🔥 FIX: Shadow only applies when open */
-  }
-  
   .mobile-close-btn { 
-      display: flex; 
-      justify-content: center; align-items: center;
-      width: 40px; height: 40px;
-      background: rgba(255,255,255,0.05); border-radius: var(--radius-sm);
+    display: none !important; 
+  }
+  .top-bar .brandRow button,
+  .top-bar .brandRow .sidebar-toggle-btn { 
+    display: none !important; 
   } 
-  
-  .desktop-only { display: none !important; }
-  .grid-2 { grid-template-columns: 1fr; }
-  .grid-kpis { grid-template-columns: repeat(2, 1fr); }
-  .checkbox-grid { grid-template-columns: repeat(2, 1fr); }
-  
-  #top-title { display: none !important; }
-  .filter-select { width: 100% !important; min-width: 100% !important; margin-bottom: 10px !important; }
-  
-  .op-split-container { flex-direction: column; height: auto; overflow: visible; }
-  .op-left-pane { width: 100%; height: 50vh; min-height: 400px; }
-  .op-right-pane { width: 100%; height: 70vh; min-height: 400px; max-height: 700px !important; }
-  
-  /* Mobile Data Table Cards */
-  .tk-sleek-table thead { display: none; }
-  .tk-sleek-table, .tk-sleek-table tbody, .tk-sleek-table tr, .tk-sleek-table td { display: block; width: 100%; }
-  
-  .tk-sleek-table tr { 
-      background: var(--card) !important;
-      border: 1px solid rgba(255, 255, 255, 0.08) !important; 
-      border-radius: var(--radius-lg) !important; 
-      margin-bottom: 18px; 
-      padding: 18px; 
-      box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  #top-title,
+  .title-separator,
+  .desktop-only { 
+    display: none !important; 
   }
-  
-  .tk-sleek-table td { 
-      border: none !important; 
-      padding: 12px 0 !important; 
-      background: transparent !important; 
-      display: flex; justify-content: space-between; align-items: center; 
-      text-align: right;
-      border-bottom: 1px dashed rgba(255,255,255,0.05) !important;
-  }
-  .tk-sleek-table td:last-child { border-bottom: none !important; margin-top: 5px; display: block; }
-  
-  .tk-sleek-table td:before { 
-      content: attr(data-label); 
-      font-size: 10px; color: var(--text-muted); font-weight: 800; 
-      text-transform: uppercase; text-align: left; flex-shrink: 0; margin-right: 15px;
-  }
-  .tk-sleek-table td > div { text-align: right !important; }
+  .content-area { 
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; 
+  } 
 
-  .mobile-action-row { display: flex !important; flex-direction: row !important; justify-content: stretch !important; gap: 10px; width: 100%; }
-  .mobile-action-row button { flex: 1; padding: 12px 10px !important; font-size: 11px !important; justify-content: center; }
+  /* Compact circular logo pill in sticky top bar */
+  .glass-title-pill {
+    padding: 7px !important;
+    gap: 0 !important;
+    height: 48px !important;
+  }
+  .apple-glass-optical-wrap.glass-title-pill > .apple-glass-inner {
+    padding: 7px !important;
+    gap: 0 !important;
+    height: 48px !important;
+  }
 
- /* =======================================================
-     🍏 PREMIUM iOS SEPARATED PILL & FLOATING FAB ENGINE
+  /* Compact profile pill in sticky top bar */
+  .user-profile-container {
+    padding: 5px 10px 5px 5px !important;
+  }
+  .apple-glass-optical-wrap.user-profile-container > .apple-glass-inner {
+    padding: 5px 10px 5px 5px !important;
+  }
+  .user-profile-container .avatar-circle {
+    margin-right: 4px !important;
+  }
+  .user-profile-container .profile-chevron {
+    margin-left: 2px !important;
+  }
+
+  /* Notification Bell & Dropdowns */
+  #bellWrapper .notification-badge {
+    display: flex !important;
+  }
+  .notif-dropdown {
+    right: -65px !important;
+    width: min(310px, calc(100vw - 24px)) !important;
+    top: 52px !important;
+  }
+  .profile-dropdown {
+    right: 0 !important;
+    width: min(260px, calc(100vw - 24px)) !important;
+    top: 52px !important;
+  }
+
+  /* =======================================================
+     3. FLOATING iOS PILL & SEPARATED FAB ENGINE
      ======================================================= */
-  .sidebar { display: none !important; } 
-  .top-bar .brandRow button { display: none !important; } 
-  .content-area { padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important; } 
-
-  /* Soft bottom gradient scrim to prevent cards peeking abruptly behind floating dock */
-  .mobile-bottom-scrim {
-      display: block;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: calc(85px + env(safe-area-inset-bottom, 0px));
-      background: linear-gradient(to top, rgba(11, 17, 30, 0.95) 0%, rgba(11, 17, 30, 0.7) 50%, transparent 100%);
-      pointer-events: none;
-      z-index: 4990;
-  }
-
-  /* 1. Transparent layout wrapper - Centered across all mobile, phablet & tablet sizes */
+  /* Outer Wrapper */
   #mobile-nav-bar {
-      position: fixed; 
-      bottom: calc(16px + env(safe-area-inset-bottom, 0px)); 
-      left: 50%; 
-      transform: translateX(-50%) translate3d(0, 0, 0); 
-      -webkit-transform: translateX(-50%) translate3d(0, 0, 0); 
-      width: min(calc(100% - 24px), 520px); 
-      height: 64px;
-      display: flex; justify-content: space-between; align-items: center;
-      z-index: 5000;
-      pointer-events: none; /* Lets clicks pass through the empty gaps */
-      -webkit-backface-visibility: hidden;
-      backface-visibility: hidden;
-      will-change: transform;
+    position: fixed; 
+    bottom: calc(20px + env(safe-area-inset-bottom)); 
+    left: 15px; 
+    width: calc(100% - 30px); 
+    height: 65px;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    z-index: 5000;
+    pointer-events: none; /* Lets clicks pass through the empty gaps */
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform;
   }
 
-  /* 2. The Main Tab Pill */
- .nav-pill-box {
-      flex: 1;
-      height: 100%;
-      border-radius: 35px; 
-      display: flex; justify-content: space-evenly; align-items: center;
-      padding: 0 5px;
-      margin-right: 15px; 
-      pointer-events: auto;
-      
-      /* Apply Universal Physics */
-      background: var(--glass-bg); 
-      backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-      border: var(--glass-border);
-      box-shadow: var(--glass-shadow), var(--glass-highlight);
+  /* Main Tab Pill */
+  .nav-pill-box {
+    flex: 1;
+    height: 100%;
+    border-radius: 35px; 
+    padding: 0 5px;
+    margin-right: 15px; 
+    pointer-events: auto;
+    display: flex; 
+    justify-content: space-evenly; 
+    align-items: center;
+    background: var(--glass-bg); 
+    backdrop-filter: var(--glass-blur); 
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+  }
+  .apple-glass-optical-wrap.nav-pill-box {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    height: 65px !important;
+    margin-right: 15px !important;
+    pointer-events: auto !important;
+    border-radius: 35px !important;
+  }
+  .apple-glass-optical-wrap.nav-pill-box > .apple-glass-inner {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    justify-content: space-evenly !important;
+    align-items: center !important;
+    padding: 0 5px !important;
   }
 
-  /* 3. The Tabs (Apple highlighted area style) */
+  /* Navigation Tabs */
   .nav-tab {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      color: var(--text-muted) !important; 
-      font-size: 10px !important; 
-      font-weight: 700 !important; 
-      gap: 4px;
-      transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-      text-decoration: none !important; 
-      -webkit-tap-highlight-color: transparent;
-      height: 55px; /* Fits inside the 65px pill */
-      border-radius: 28px; /* Inner pill shape for the active state */
-      margin: 0 2px;
+    flex: 1; 
+    height: 55px; 
+    border-radius: 28px; 
+    margin: 0 2px;
+    gap: 4px;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    color: var(--text-muted) !important; 
+    font-size: 10px !important; 
+    font-weight: 700 !important; 
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    text-decoration: none !important; 
+    -webkit-tap-highlight-color: transparent;
   }
-  
   .nav-tab svg { 
-      width: 20px !important; height: 20px !important; 
-      transition: 0.3s ease; stroke: currentColor !important; margin: 0 !important; 
+    width: 20px !important; 
+    height: 20px !important; 
+    display: block !important;
+    stroke: currentColor !important; 
+    transition: 0.3s ease; 
+    margin: 0 !important; 
   }
-  
-  /* 🔥 THE NEW FULL-AREA ACTIVE HIGHLIGHT */
   .nav-tab.active { 
-      background: rgba(255, 255, 255, 0.1) !important; /* Highlights the whole button */
-      color: var(--brand) !important; 
-      box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    background: rgba(255, 255, 255, 0.1) !important; 
+    color: var(--brand) !important; 
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
   }
-  .nav-tab.active svg {  transform: scale(1.1); }
+  .nav-tab.active svg { 
+    filter: drop-shadow(0 0 5px var(--brand-glow)); 
+    transform: scale(1.1); 
+  }
 
-  /* 4. The Separated FAB Dock */
+  /* Separated FAB Dock */
   .fab-dock {
-      width: 60px !important; height: 60px !important; 
-      flex-shrink: 0 !important;
-      
-      border-radius: 50% !important; display: flex; align-items: center; justify-content: center;
-      box-shadow: var(--glass-shadow), var(--glass-highlight);
-      color: var(--brand) !important; cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      pointer-events: auto;
-
-      background: var(--glass-bg); 
-      backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-      border: var(--glass-border);
-      box-shadow: var(--glass-shadow), var(--glass-highlight);
+    width: 60px !important; 
+    height: 60px !important; 
+    flex-shrink: 0 !important;
+    border-radius: 50% !important; 
+    pointer-events: auto;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    cursor: pointer; 
+    color: var(--brand) !important; 
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--glass-bg); 
+    backdrop-filter: var(--glass-blur); 
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
   }
-  .fab-dock:active { transform: scale(0.9); }
-  .fab-dock svg:not([data-lg-layer]) { width: 26px !important; height: 26px !important; transition: transform 0.4s ease; stroke: currentColor !important; }
-  .fab-dock.open svg:not([data-lg-layer]) { transform: rotate(45deg); }
-
-  /* 5. Floating List Modal (Replaces Bottom Sheet) */
- #fab-action-sheet {
-      position: fixed; 
-      bottom: calc(100px + env(safe-area-inset-bottom)); 
-      right: 24px; 
-      width: 220px;
-      border-radius: 20px; 
-      padding: 10px; z-index: 4999;
-      transform: scale(0.9) translateY(20px); opacity: 0; pointer-events: none;
-      transition: all 0.4s var(--ios-spring);
-      transform-origin: bottom right; 
-
-      /* Apply Universal Physics */
-      background: var(--glass-bg) !important; 
-      backdrop-filter: var(--glass-blur) !important; -webkit-backdrop-filter: var(--glass-blur) !important;
-      border: var(--glass-border);
-      box-shadow: var(--glass-shadow), var(--glass-highlight);
+  .apple-glass-optical-wrap.fab-dock {
+    display: flex !important;
+    width: 60px !important;
+    height: 60px !important;
+    flex-shrink: 0 !important;
+    pointer-events: auto !important;
+    border-radius: 50% !important;
   }
-  
-  #fab-action-sheet.active { transform: scale(1) translateY(0); opacity: 1; pointer-events: auto; }
-  
-  /* Hides the old sheet drag-handle line */
-  #fab-action-sheet > div:first-child { display: none !important; }
+  .apple-glass-optical-wrap.fab-dock > .apple-glass-inner {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .fab-dock:active { 
+    transform: scale(0.9); 
+  }
+  .fab-dock svg:not([data-lg-layer]) { 
+    width: 26px !important; 
+    height: 26px !important; 
+    transition: transform 0.4s var(--ios-spring); 
+    stroke: currentColor !important; 
+  }
+  .fab-dock.open svg:not([data-lg-layer]) { 
+    transform: rotate(45deg); 
+  }
 
-  /* List Layout for Items */
-  .fab-grid { display: flex; flex-direction: column; gap: 4px; }
+  /* Floating Action Sheet & Backdrop */
+  #fab-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(4, 7, 13, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 4998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  #fab-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #fab-action-sheet {
+    position: fixed; 
+    bottom: calc(100px + env(safe-area-inset-bottom)); 
+    right: 24px; 
+    width: 220px;
+    border-radius: 20px; 
+    padding: 10px; 
+    z-index: 4999;
+    transform: scale(0.9) translateY(20px); 
+    opacity: 0; 
+    pointer-events: none;
+    transition: all 0.35s var(--ios-spring);
+    transform-origin: bottom right; 
+    background: var(--glass-bg) !important; 
+    backdrop-filter: var(--glass-blur) !important; 
+    -webkit-backdrop-filter: var(--glass-blur) !important; 
+    border: var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+  }
+  #fab-action-sheet.active { 
+    transform: scale(1) translateY(0); 
+    opacity: 1; 
+    pointer-events: auto; 
+  }
+  #fab-action-sheet > div:first-child { 
+    display: none !important; 
+  }
+  .fab-grid { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 4px; 
+  }
   .fab-item { 
-      display: flex; flex-direction: row; align-items: center; gap: 12px; 
-      color: white; font-size: 13px; font-weight: 700; text-align: left; 
-      cursor: pointer; padding: 12px 14px; border-radius: 12px; transition: 0.2s;
+    display: flex; 
+    flex-direction: row; 
+    align-items: center; 
+    gap: 12px; 
+    color: white; 
+    font-size: 13px; 
+    font-weight: 700; 
+    text-align: left; 
+    cursor: pointer; 
+    padding: 12px 14px; 
+    border-radius: 12px; 
+    transition: 0.2s;
+    background: transparent;
+    border: none;
+    width: 100%;
   }
-  .fab-item:active, .fab-item:hover { background: rgba(255, 255, 255, 0.08); }
-  .fab-item svg { width: 18px; height: 18px; }
+  .fab-item svg { 
+    width: 18px; 
+    height: 18px; 
+    flex-shrink: 0;
+  }
+  .fab-item:active, 
+  .fab-item:hover { 
+    background: rgba(255, 255, 255, 0.08); 
+  }
+
+  /* =======================================================
+     4. DATA TABLES TO STACKED CARDS (.tk-sleek-table)
+     ======================================================= */
+  .tk-sleek-table thead { 
+    display: none !important; 
+  }
+  .tk-sleek-table, 
+  .tk-sleek-table tbody, 
+  .tk-sleek-table tr, 
+  .tk-sleek-table td { 
+    display: block !important; 
+    width: 100% !important; 
+  }
+  .tk-sleek-table tbody tr { 
+    background: linear-gradient(145deg, var(--card), #0B111E) !important;
+    border: 1px solid var(--border) !important; 
+    border-radius: var(--radius-lg) !important; 
+    margin-bottom: 20px !important; 
+    padding: 16px !important; 
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+    transform: none !important;
+  }
+  .tk-sleek-table td { 
+    display: flex !important; 
+    justify-content: space-between !important; 
+    align-items: center !important; 
+    text-align: right !important; 
+    padding: 12px 0 !important; 
+    background: transparent !important; 
+    border: none !important; 
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05) !important;
+    border-radius: 0 !important;
+  }
+  .tk-sleek-table td:before { 
+    content: attr(data-label); 
+    font-size: 10px; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+    color: var(--text-muted); 
+    margin-right: 15px; 
+    text-align: left; 
+    flex-shrink: 0; 
+    letter-spacing: 0.5px;
+  }
+  .tk-sleek-table td > div { 
+    text-align: right !important; 
+  }
+  .tk-sleek-table td:last-child { 
+    border-bottom: none !important; 
+    margin-top: 5px; 
+    display: block !important; 
+    padding-bottom: 0 !important;
+  }
+  .tk-sleek-table td:last-child:before { 
+    display: none !important; 
+  }
+  .tk-sleek-table .mobile-action-row { 
+    display: flex !important; 
+    flex-direction: row !important; 
+    justify-content: stretch !important; 
+    gap: 10px !important; 
+    width: 100% !important; 
+  }
+  .tk-sleek-table .mobile-action-row > * { 
+    flex: 1 !important; 
+    padding: 12px 10px !important; 
+    font-size: 11px !important; 
+    justify-content: center !important; 
+    margin: 0 !important;
+  }
+  .tk-sleek-table td[colspan] {
+    display: block !important;
+    text-align: center !important;
+    border-bottom: none !important;
+  }
+  .tk-sleek-table td[colspan]:before {
+    display: none !important;
+    content: none !important;
+  }
+
+  /* =======================================================
+     5. GRIDS, FILTERS & OPERATOR SPLIT-VIEW
+     ======================================================= */
+  .grid-2 { 
+    grid-template-columns: 1fr !important; 
+  }
+  .grid-kpis { 
+    grid-template-columns: repeat(2, 1fr) !important; 
+  }
+  .checkbox-grid { 
+    grid-template-columns: repeat(2, 1fr) !important; 
+  }
+  .filter-select { 
+    width: 100% !important; 
+    min-width: 100% !important; 
+    margin-bottom: 10px !important; 
+  }
+  .op-split-container { 
+    flex-direction: column !important; 
+    height: auto !important; 
+    overflow: visible !important; 
+  }
+  .op-left-pane { 
+    width: 100% !important; 
+    height: 50vh !important; 
+    min-height: 400px !important; 
+  }
+  .op-right-pane { 
+    width: 100% !important; 
+    height: 70vh !important; 
+    min-height: 400px !important; 
+    max-height: 700px !important; 
+  }
+  /* =======================================================
+     6. MOBILE BOTTOM SHEET MODALS & NATIVE GESTURES
+     ======================================================= */
+  .glass-overlay {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .glass-overlay .glass-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 28px 28px 0 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    max-height: 88dvh !important;
+    padding: 16px 20px calc(28px + env(safe-area-inset-bottom, 0px)) 20px !important;
+    animation: nativeSheetSlideUp 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+    overscroll-behavior: contain !important;
+  }
+
+  /* Apple Grab Indicator Handle at top of Mobile Bottom Sheet */
+  .glass-overlay .glass-box::before {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 0 auto 14px auto;
+  }
+
+  /* Modal Sticky Header adapts inside bottom sheet */
+  .glass-overlay .glass-box .premium-sticky-header {
+    top: -16px !important;
+    margin: -16px -20px 16px -20px !important;
+    padding: 10px 20px !important;
+    border-radius: 28px 28px 0 0 !important;
+  }
+}
+
+@keyframes nativeSheetSlideUp {
+  0% {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 
@@ -2382,252 +2597,10 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   display: flex;
 }
 
-/* =====================================================================
-   MOBILE RESPONSIVE PARITY WITH index.html (<= 950px & <= 600px)
-   ===================================================================== */
-@media (max-width: 950px) {
-  /* Hide desktop sidebar toggle button cleanly (mobile uses floating pill + FAB) */
-  .top-bar .brandRow .sidebar-toggle-btn {
-    display: none !important;
-  }
-
-  /* Sticky Frosted TopBar with Full iPhone Notch / Status Bar Clearance */
-  .top-bar {
-    min-height: calc(50px + max(env(safe-area-inset-top, 0px), 52px)) !important;
-    height: auto !important;
-    padding-top: max(env(safe-area-inset-top, 0px), 52px) !important;
-    padding-bottom: 10px !important;
-    padding-left: max(14px, env(safe-area-inset-left, 0px)) !important;
-    padding-right: max(14px, env(safe-area-inset-right, 0px)) !important;
-    background: rgba(11, 17, 30, 0.94) !important;
-    backdrop-filter: blur(24px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 1000 !important;
-  }
-
-  /* Hide floating Sara button on mobile so it never obscures cards or text */
-  #sara-chat-widget #sara-chat-btn {
-    display: none !important;
-  }
-
-  /* Content area scroll padding to clear bottom navigation dock */
-  .content-area {
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-
-  /* Compact circular logo pill on mobile when inst name & title are hidden */
-  .glass-title-pill {
-    padding: 7px !important;
-    gap: 0 !important;
-    height: 48px !important;
-  }
-  .apple-glass-optical-wrap.glass-title-pill > .apple-glass-inner {
-    padding: 7px !important;
-    gap: 0 !important;
-    height: 48px !important;
-  }
-
-  /* Compact Profile Pill on mobile when user name is hidden */
-  .user-profile-container {
-    padding: 5px 10px 5px 5px !important;
-  }
-  .apple-glass-optical-wrap.user-profile-container > .apple-glass-inner {
-    padding: 5px 10px 5px 5px !important;
-  }
-  .user-profile-container .avatar-circle {
-    margin-right: 4px !important;
-  }
-  .user-profile-container .profile-chevron {
-    margin-left: 2px !important;
-  }
-
-  /* Ensure floating bottom pill & FAB are clickable and full-stretch like index.html (incl. Safari WebKit) */
-  .apple-glass-optical-wrap.nav-pill-box {
-    display: flex !important;
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    height: 65px !important;
-    margin-right: 15px !important;
-    pointer-events: auto !important;
-    border-radius: 35px !important;
-  }
-  .apple-glass-optical-wrap.nav-pill-box > .apple-glass-inner {
-    width: 100% !important;
-    height: 100% !important;
-    display: flex !important;
-    justify-content: space-evenly !important;
-    align-items: center !important;
-    padding: 0 5px !important;
-  }
-
-  .apple-glass-optical-wrap.fab-dock {
-    display: flex !important;
-    width: 60px !important;
-    height: 60px !important;
-    flex-shrink: 0 !important;
-    pointer-events: auto !important;
-    border-radius: 50% !important;
-  }
-  .apple-glass-optical-wrap.fab-dock > .apple-glass-inner {
-    width: 100% !important;
-    height: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  /* Ensure empty/loading colspan rows center cleanly on mobile card tables */
-  .tk-sleek-table td[colspan] {
-    display: block !important;
-    text-align: center !important;
-    border-bottom: none !important;
-  }
-  .tk-sleek-table td[colspan]:before {
-    display: none !important;
-    content: none !important;
-  }
-
-  /* Rich Apple Liquid Glass FAB action sheet (works in both Safari & Chrome) */
-  #fab-action-sheet {
-    max-height: calc(100dvh - 150px);
-    overflow-y: auto;
-    background: rgba(16, 24, 42, 0.78) !important;
-    backdrop-filter: blur(26px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(26px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.16) !important;
-    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0.75px rgba(255, 255, 255, 0.35) !important;
-  }
-
-  /* Keep notification dropdown cleanly inside phone screen */
-  .notif-dropdown {
-    right: -65px !important;
-    width: min(310px, calc(100vw - 24px)) !important;
-    top: 52px !important;
-  }
-
-  /* Keep profile dropdown cleanly inside phone screen */
-  .profile-dropdown {
-    right: 0 !important;
-    width: min(260px, calc(100vw - 24px)) !important;
-    top: 52px !important;
-  }
-
-  /* Hide Sara AI floating button when FAB menu sheet is open to prevent touch collisions */
-  body:has(#fab-action-sheet.active) #sara-chat-widget #sara-chat-btn,
-  #fab-action-sheet.active ~ #sara-chat-widget #sara-chat-btn {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    transform: scale(0.6) !important;
-  }
-
-  /* =======================================================
-     PHASE 3: MOBILE BOTTOM SHEET MODALS & NATIVE GESTURES
-     ======================================================= */
-  .glass-overlay {
-    align-items: flex-end !important;
-    justify-content: center !important;
-    padding: 0 !important;
-  }
-
-  .glass-overlay .glass-box {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    border-radius: 28px 28px 0 0 !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-bottom: none !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
-    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-    max-height: 88dvh !important;
-    padding: 16px 20px calc(28px + env(safe-area-inset-bottom, 0px)) 20px !important;
-    animation: nativeSheetSlideUp 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
-    overscroll-behavior: contain !important;
-  }
-
-  /* Apple Grab Indicator Handle at top of Mobile Bottom Sheet */
-  .glass-overlay .glass-box::before {
-    content: "";
-    display: block;
-    width: 44px;
-    height: 5px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.3);
-    margin: 0 auto 14px auto;
-  }
-
-  /* Modal Sticky Header adapts inside bottom sheet */
-  .glass-overlay .glass-box .premium-sticky-header {
-    top: -16px !important;
-    margin: -16px -20px 16px -20px !important;
-    padding: 10px 20px !important;
-    border-radius: 28px 28px 0 0 !important;
-  }
-}
-
-@keyframes nativeSheetSlideUp {
-  0% {
-    transform: translateY(100%);
-    opacity: 0.6;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* =====================================================================
-   EVERY DEVICE SIZE MOBILE & PWA ENGINES (768px, 600px, 480px, 360px)
-   ===================================================================== */
-
-/* 1. TABLETS & PHABLETS (<= 768px) */
-@media (max-width: 768px) {
-  /* CRITICAL PWA/IOS RULE: 16px input font size stops iOS Safari auto-zooming page */
-  input:not([type="checkbox"]):not([type="radio"]),
-  select,
-  textarea {
-    font-size: 16px !important;
-    min-height: 44px !important; /* Apple HIG standard touch target */
-  }
-
-  /* Touch Callout Suppression on Shell Chrome */
-  .sidebar,
-  .top-bar,
-  #mobile-nav-bar,
-  .mobile-action-row,
-  .btn,
-  button {
-    -webkit-touch-callout: none !important;
-  }
-
-  /* Table cards action buttons formatting */
-  .tk-sleek-table td[data-label="ACTION"],
-  .tk-sleek-table td[data-label="ACTIONS"],
-  .tk-sleek-table td[data-label="RECEIPT"],
-  .tk-sleek-table td:last-child {
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-    width: 100% !important;
-    padding-top: 12px !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
-    border-bottom: none !important;
-  }
-}
-
-/* 2. STANDARD SMARTPHONES (<= 600px) */
 @media (max-width: 600px) {
   .top-bar {
-    padding-left: max(14px, env(safe-area-inset-left, 0px)) !important;
-    padding-right: max(14px, env(safe-area-inset-right, 0px)) !important;
-    padding-top: max(env(safe-area-inset-top, 0px), 52px) !important;
-    padding-bottom: 10px !important;
-    min-height: calc(48px + max(env(safe-area-inset-top, 0px), 52px)) !important;
-    height: auto !important;
+    padding: 0 16px !important;
+    height: 68px !important;
   }
   .brandRow {
     gap: 10px !important;
@@ -2636,159 +2609,29 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
     gap: 10px !important;
   }
   .content-area {
-    padding: 16px max(14px, env(safe-area-inset-right, 0px)) calc(150px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)) !important;
+    padding: 16px 16px calc(120px + env(safe-area-inset-bottom)) 16px !important;
   }
   .panel {
     padding: 20px 16px !important;
     margin-bottom: 18px !important;
   }
-
-  /* Single column cards so activity boxes never squish */
   .cards {
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 12px !important;
+    gap: 10px !important;
   }
   .activity {
-    padding: 18px 14px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    text-align: left !important;
+    padding: 16px 8px !important;
   }
   .activity h2 {
     font-size: 22px !important;
-    margin-bottom: 0 !important;
   }
   .activity span {
-    font-size: 12px !important;
+    font-size: 11px !important;
   }
-
   .kpi-card {
     padding: 18px 14px !important;
   }
   .kpi-card h2 {
-    font-size: 24px !important;
-  }
-
-  /* Table load capacity bar */
-  .tk-table-capacity-bar {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    text-align: center !important;
-    gap: 10px !important;
-  }
-  .tk-load-more-btn {
-    width: 100% !important;
-    justify-content: center !important;
-  }
-}
-
-/* 3. COMPACT MOBILE SCREENS (<= 480px) */
-@media (max-width: 480px) {
-  .grid-kpis {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 10px !important;
-  }
-  .kpi-card {
-    padding: 14px 12px !important;
-  }
-  .kpi-card h4 {
-    font-size: 9.5px !important;
-    letter-spacing: 0.5px !important;
-  }
-  .kpi-card h2 {
-    font-size: 20px !important;
-  }
-  .filter-select {
-    width: 100% !important;
-    min-width: 100% !important;
-  }
-  .cb-container {
-    gap: 8px !important;
-  }
-  .cb-pill {
-    padding: 8px 10px !important;
-    font-size: 10px !important;
-  }
-  .loginBox {
-    padding: 35px 20px !important;
-    width: 95% !important;
-    max-width: 380px !important;
-  }
-}
-
-/* 4. ULTRA-COMPACT MOBILE (<= 360px: iPhone SE 1st gen, Galaxy Fold cover, 320px screens) */
-@media (max-width: 360px) {
-  .top-bar {
-    min-height: calc(44px + max(env(safe-area-inset-top, 0px), 48px)) !important;
-    height: auto !important;
-    padding-top: max(env(safe-area-inset-top, 0px), 48px) !important;
-    padding-bottom: 8px !important;
-    padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
-    padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
-  }
-  .brandRow {
-    gap: 6px !important;
-  }
-  .glass-title-pill {
-    padding: 4px 8px 4px 3px !important;
-    max-width: 130px !important;
-    height: 42px !important;
-  }
-  .glass-title-pill img,
-  .logo {
-    width: 28px !important;
-    height: 28px !important;
-  }
-  .notification-wrapper {
-    width: 36px !important;
-    height: 36px !important;
-  }
-  .user-profile-container {
-    padding: 3px 6px 3px 3px !important;
-  }
-  .avatar-circle {
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 12px !important;
-    margin-right: 2px !important;
-  }
-
-  /* Ultra-compact Centered Floating Nav Dock */
-  #mobile-nav-bar {
-    width: calc(100% - 16px) !important;
-    height: 56px !important;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-  .nav-pill-box {
-    height: 52px !important;
-    margin-right: 8px !important;
-    padding: 0 2px !important;
-    border-radius: 28px !important;
-  }
-  .nav-tab {
-    height: 44px !important;
-    font-size: 8px !important;
-    gap: 2px !important;
-    margin: 0 !important;
-  }
-  .nav-tab svg {
-    width: 16px !important;
-    height: 16px !important;
-  }
-  .fab-dock {
-    width: 52px !important;
-    height: 52px !important;
-  }
-  .fab-dock svg {
-    width: 22px !important;
-    height: 22px !important;
-  }
-
-  /* Single Column KPIs on tiny screens */
-  .grid-kpis {
-    grid-template-columns: 1fr !important;
+    font-size: 22px !important;
   }
 }
 
