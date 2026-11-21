@@ -1,9 +1,10 @@
 {
   "name": "etk-frontend",
-  "version": "2.5.0",
+  "version": "2.9.20",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/bump-version.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

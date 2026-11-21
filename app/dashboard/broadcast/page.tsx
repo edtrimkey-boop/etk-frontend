@@ -16,6 +16,8 @@ interface QuickTemplate {
   icon: string;
   title: string;
   message: string;
+  targetAudience?: string;
+  badge?: string;
 }
 
 // 1. Institute Admin Templates (School & Campus wide)
@@ -26,6 +28,8 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'high',
     label: 'Fee Due Notice',
     icon: '💰',
+    badge: 'Campus',
+    targetAudience: 'inst_students',
     title: 'Academic Fee Installment Due Notice',
     message:
       'Dear Parents, this is a gentle reminder that the academic fee installment for the current term is due. Kindly clear before the 10th of this month via the Ed-Trim Key Fee Portal to ensure uninterrupted student services.',
@@ -36,6 +40,8 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'urgent',
     label: 'Exam Schedule & Admit Card',
     icon: '📝',
+    badge: 'Campus',
+    targetAudience: 'inst_students',
     title: 'Term Examination Schedule & Admit Cards Released',
     message:
       'Dear Students & Parents, the final Examination Date Sheet and digitally signed Admit Cards / Hall Tickets have been released. Please download and print your verified Admit Card from the student portal.',
@@ -46,6 +52,8 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'urgent',
     label: 'Weather / Sudden Holiday',
     icon: '🌧️',
+    badge: 'Emergency',
+    targetAudience: 'inst_emergency',
     title: 'Urgent Notice: Unscheduled School Closure',
     message:
       'Urgent Notice: As per district administration directives regarding severe weather conditions, the school campus will remain closed tomorrow. Online revision and doubt-clearing sessions will continue on schedule.',
@@ -56,6 +64,8 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'normal',
     label: 'Parent-Teacher Meeting (PTM)',
     icon: '👨‍👩‍👧',
+    badge: 'Campus',
+    targetAudience: 'inst_students',
     title: 'Invitation: Comprehensive Parent-Teacher Meeting (PTM)',
     message:
       'Dear Parents, our upcoming Parent-Teacher Meeting (PTM) to review term academic progress and holistic evaluation is scheduled for Saturday, 09:30 AM to 01:00 PM. Your presence is cordially requested.',
@@ -66,6 +76,8 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'high',
     label: 'Bus Route / Delay Notice',
     icon: '🚌',
+    badge: 'Transport',
+    targetAudience: 'inst_students',
     title: 'School Transport & Bus Route Operational Update',
     message:
       'Notice to Parents: Due to city traffic diversions and road maintenance, school bus routes may experience a brief delay of 15-20 minutes today. All students are in transit safely under institutional care.',
@@ -76,9 +88,23 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'normal',
     label: 'Official Academic Circular',
     icon: '📜',
+    badge: 'Campus',
+    targetAudience: 'inst_students',
     title: 'Important Academic Guidelines & Schedule Update',
     message:
       'Circular to All Students & Staff: Please review the updated academic guidelines, upcoming project deadlines, and uniform requirements. Strict adherence to school hours is required.',
+  },
+  {
+    id: 'faculty_staff_meeting',
+    category: 'Academic',
+    priority: 'high',
+    label: 'Faculty Staff Meeting',
+    icon: '👩‍🏫',
+    badge: 'Staff',
+    targetAudience: 'inst_teachers',
+    title: 'Mandatory Faculty Academic & Review Meeting',
+    message:
+      'Notice to All Teaching Faculty: A comprehensive staff review meeting is scheduled for 03:30 PM today in the Conference Hall to finalize term question paper moderation and syllabus audit.',
   },
 ];
 
@@ -90,6 +116,8 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'high',
     label: 'System Maintenance',
     icon: '🛠️',
+    badge: 'Global',
+    targetAudience: 'global',
     title: 'Scheduled System Maintenance Advisory',
     message:
       'Attention All Administrators & Operators: Ed-Trim Key cloud services will undergo scheduled infrastructure optimization on Sunday between 02:00 AM and 04:00 AM IST. All databases will remain read-only during this window.',
@@ -100,6 +128,8 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'normal',
     label: 'New Feature Release',
     icon: '🚀',
+    badge: 'Platform',
+    targetAudience: 'all_admins',
     title: 'Ed-Trim Key V2.9.2 Engine Update Released',
     message:
       'Announcement: We have deployed real-time pricing synchronization, in-app checkout modals, and granular class-specific broadcast targeting. Refresh your dashboard to utilize the latest features.',
@@ -110,6 +140,8 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'urgent',
     label: 'Security Advisory',
     icon: '🛡️',
+    badge: 'Security',
+    targetAudience: 'global',
     title: 'Mandatory Security & Credential Compliance Notice',
     message:
       'Important Security Circular: In accordance with data privacy standards, all institutional staff and operators are requested to verify their two-factor contact details and audit active session tokens.',
@@ -120,20 +152,87 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     priority: 'high',
     label: 'Operator Queue Notice',
     icon: '💻',
+    badge: 'Operators',
+    targetAudience: 'all_operators',
     title: 'Urgent: High Volume Examination Typesetting Queue',
     message:
       'Notice to All Production Operators: Multiple schools have submitted term examination papers. Please prioritize MCQ Formatting and Question Paper proofreading jobs with expedited deadlines.',
   },
 ];
 
-// 3. Teacher Templates (Class & Student specific)
+// 3. Teacher Templates (Pre-filled to Institute Admin + Assigned Classes)
 const TEACHER_TEMPLATES: QuickTemplate[] = [
+  // ── PRE-FILLED TO INSTITUTE ADMIN ─────────────────────────────
+  {
+    id: 'note_to_admin',
+    category: 'Administrative',
+    priority: 'normal',
+    label: 'Note to Admin: Syllabus Progress',
+    icon: '🏫',
+    badge: 'To Admin',
+    targetAudience: 'notice_to_admin',
+    title: 'Faculty Academic Note: Syllabus Progress & Schedule Update',
+    message:
+      'Respected Institute Administrator / Principal, the academic syllabus for my assigned classes has progressed in alignment with the institutional term calendar. Requesting administrative sanction for upcoming revision schedules and laboratory practical slots.',
+  },
+  {
+    id: 'paper_submission_admin',
+    category: 'Administrative',
+    priority: 'high',
+    label: 'Paper Ready for Vetting',
+    icon: '📄',
+    badge: 'To Admin',
+    targetAudience: 'notice_to_admin',
+    title: 'Term Question Paper Ready for Institutional Vetting',
+    message:
+      'Attention School Administration: The question paper draft with marks allocation, syllabus blueprint, and answer key has been submitted for term exam typesetting. Kindly review and approve for production dispatch.',
+  },
+  {
+    id: 'leave_handover_admin',
+    category: 'Administrative',
+    priority: 'high',
+    label: 'Leave Notice & Duty Handover',
+    icon: '🗓️',
+    badge: 'To Admin',
+    targetAudience: 'notice_to_admin',
+    title: 'Faculty Leave Application & Class Duty Substitution Handover',
+    message:
+      'Respected Admin, submitting official leave application for [Date/Duration]. I have assigned student coursework and coordinated class substitution duties with department colleagues to ensure seamless learning continuity.',
+  },
+  {
+    id: 'student_report_admin',
+    category: 'Administrative',
+    priority: 'normal',
+    label: 'Student Counseling Advisory',
+    icon: '⚠️',
+    badge: 'To Admin',
+    targetAudience: 'notice_to_admin',
+    title: 'Student Academic Review & Parent Counseling Advisory',
+    message:
+      'Attention Institute Admin: Recommending structured academic intervention and parent-teacher counseling for identified students in Class [Grade]. Performance analysis sheet submitted to office.',
+  },
+  {
+    id: 'lab_supplies_admin',
+    category: 'Administrative',
+    priority: 'normal',
+    label: 'Stationery & Exam Requisition',
+    icon: '📦',
+    badge: 'To Admin',
+    targetAudience: 'notice_to_admin',
+    title: 'Requisition: Academic Stationery & Exam Materials',
+    message:
+      'Respected Administration, requesting allocation of exam answer booklets, graph sheets, and departmental laboratory consumables for the upcoming assessments.',
+  },
+
+  // ── CLASSROOM & STUDENT ANNOUNCEMENTS ─────────────────────────
   {
     id: 'homework_notice',
     category: 'Academic',
     priority: 'normal',
     label: 'Homework & Assignment',
     icon: '📚',
+    badge: 'Classroom',
+    targetAudience: 'inst_specific_class',
     title: 'Class Assignment & Homework Submission Guidelines',
     message:
       'Dear Students, please complete Chapter Exercises 4.1 to 4.3 in your revision notebook. The completed assignment must be submitted during tomorrow morning roll call.',
@@ -144,6 +243,8 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     priority: 'high',
     label: 'Unit Test Announcement',
     icon: '📝',
+    badge: 'Classroom',
+    targetAudience: 'inst_specific_class',
     title: 'Announcement: Upcoming Class Unit Assessment',
     message:
       'Notice to Class Students: A 25-mark Unit Assessment will be conducted this Thursday during the second period. The syllabus covers Sections 1 through 3. Please prepare thoroughly.',
@@ -154,19 +255,52 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     priority: 'normal',
     label: 'Extra Revision Class',
     icon: '⏰',
+    badge: 'Classroom',
+    targetAudience: 'inst_specific_class',
     title: 'Special Doubt-Clearing & Revision Class Schedule',
     message:
       'Notice: An optional revision and numerical doubt-clearing session will be held tomorrow after school hours from 02:30 PM to 03:30 PM. All interested students are welcome to attend.',
   },
+];
+
+// 4. Full Omnipresent Institute Admin Suite (Admin is also a Teacher with 100% full campus access)
+const ALL_INSTITUTE_TEMPLATES: QuickTemplate[] = [
+  ...INST_ADMIN_TEMPLATES,
   {
-    id: 'note_to_admin',
-    category: 'Administrative',
+    id: 'homework_notice_admin',
+    category: 'Academic',
     priority: 'normal',
-    label: 'Note to Principal / Admin',
-    icon: '🏫',
-    title: 'Faculty Academic Note & Schedule Update',
+    label: 'Class Homework Assignment',
+    icon: '📚',
+    badge: 'Classroom',
+    targetAudience: 'inst_specific_class',
+    title: 'Class Assignment & Homework Submission Guidelines',
     message:
-      'Respectful Note to School Administration: The mid-term syllabus for our assigned grades has been completed on schedule. Requesting administrative approval for laboratory practical timetables.',
+      'Dear Students, please complete Chapter Exercises 4.1 to 4.3 in your revision notebook. The completed assignment must be submitted during tomorrow morning roll call.',
+  },
+  {
+    id: 'unit_test_admin',
+    category: 'Examination',
+    priority: 'high',
+    label: 'Class Unit Assessment',
+    icon: '📝',
+    badge: 'Classroom',
+    targetAudience: 'inst_specific_class',
+    title: 'Announcement: Upcoming Class Unit Assessment',
+    message:
+      'Notice to Class Students: A 25-mark Unit Assessment will be conducted this Thursday during the second period. The syllabus covers Sections 1 through 3. Please prepare thoroughly.',
+  },
+  {
+    id: 'extra_class_admin',
+    category: 'Academic',
+    priority: 'normal',
+    label: 'Extra Revision Class',
+    icon: '⏰',
+    badge: 'Classroom',
+    targetAudience: 'inst_specific_class',
+    title: 'Special Doubt-Clearing & Revision Class Schedule',
+    message:
+      'Notice: An optional revision and numerical doubt-clearing session will be held tomorrow after school hours from 02:30 PM to 03:30 PM. All interested students are welcome to attend.',
   },
 ];
 
@@ -479,19 +613,22 @@ export default function BroadcastPage() {
   const estimatedSmsCost = channels.includes('sms') ? estimatedReach * smsUnitsPerRecipient : 0;
   const smsRemaining = user?.instDetails?.smsRemaining ?? payload?.data?.instDetails?.smsRemaining ?? 5000;
 
-  // Active templates based on role
+  // Active templates based on role (Institute Admin has full access to ALL templates)
   const activeTemplates = useMemo(() => {
     if (isSuperAdmin) return SUPER_ADMIN_TEMPLATES;
     if (isTeacher) return TEACHER_TEMPLATES;
-    return INST_ADMIN_TEMPLATES;
+    return ALL_INSTITUTE_TEMPLATES;
   }, [isSuperAdmin, isTeacher]);
 
-  // Apply Quick Template
+  // Apply Quick Template with audience synchronization
   const applyTemplate = (tpl: QuickTemplate) => {
     setTitle(tpl.title);
     setMessage(tpl.message);
     setCategory(tpl.category);
     setPriority(tpl.priority);
+    if (tpl.targetAudience) {
+      setTarget(tpl.targetAudience);
+    }
   };
 
   // Launch Broadcast Dispatch Handler
@@ -938,8 +1075,8 @@ export default function BroadcastPage() {
                     </>
                   ) : isTeacher ? (
                     <>
+                      <option value="notice_to_admin">🏫 Pre-filled Note / Requisition to Institute Admin (Principal)</option>
                       <option value="inst_specific_class">🎯 My Assigned Class / Grade (Select Grade Below)</option>
-                      <option value="notice_to_admin">🏫 Official Note to School Administration</option>
                     </>
                   ) : (
                     <>
@@ -948,6 +1085,7 @@ export default function BroadcastPage() {
                       <option value="inst_teachers">👩‍🏫 All Faculty &amp; Teaching Staff ({teachersList.length || 18} teachers)</option>
                       <option value="inst_staff">🏢 Administrative &amp; Support Staff Only</option>
                       <option value="inst_emergency">🚨 Emergency Broadcast (All Students, Parents &amp; Faculty)</option>
+                      <option value="notice_to_admin">📋 Internal Admin &amp; Academic Log (Self / Co-Admins)</option>
                     </>
                   )}
                 </select>
@@ -1191,25 +1329,26 @@ export default function BroadcastPage() {
                   >
                     <option value="Academic">📚 Academic Circular</option>
                     <option value="Examination">📝 Examination &amp; Admit Cards</option>
+                    {(isInstAdmin || isTeacher) && <option value="Homework">📖 Homework &amp; Classwork</option>}
                     {isInstAdmin && <option value="Fee">💰 Fee Collection &amp; Due</option>}
                     {isInstAdmin && <option value="Holiday">🌧️ Holiday &amp; Weather Notice</option>}
                     {isInstAdmin && <option value="PTM &amp; Events">👨‍👩‍👧 PTM &amp; School Events</option>}
                     {isInstAdmin && <option value="Transport">🚌 School Transport &amp; Bus</option>}
+                    {(isInstAdmin || isTeacher) && <option value="Administrative">🏫 Administrative Notes &amp; Requests</option>}
                     {isSuperAdmin && <option value="System">🛠️ System Maintenance &amp; API</option>}
-                    {isTeacher && <option value="Homework">📖 Homework &amp; Assignment</option>}
                   </select>
                 </div>
               </div>
 
               {/* Quick Role-Specific Templates Chips */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <label className="label-text" style={{ fontSize: '11px', fontWeight: 800, margin: 0 }}>
                     {isSuperAdmin
-                      ? 'Super Admin Quick Directives'
+                      ? 'Super Admin Platform Directives'
                       : isTeacher
-                      ? 'Teacher Classroom Templates'
-                      : 'Institutional Campus Templates'}
+                      ? 'Teacher Templates (Pre-filled to Admin & Classes)'
+                      : 'Institute Templates (Full Campus & Classroom Suite)'}
                   </label>
                   <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Click to auto-fill</span>
                 </div>
@@ -1219,22 +1358,50 @@ export default function BroadcastPage() {
                       key={tpl.id}
                       type="button"
                       onClick={() => applyTemplate(tpl)}
+                      title={`Load: ${tpl.title}`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '4px',
-                        padding: '4px 9px',
+                        gap: '6px',
+                        padding: '5px 10px',
                         borderRadius: '8px',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        color: 'var(--text-muted)',
+                        background: tpl.badge === 'To Admin'
+                          ? 'rgba(245, 158, 11, 0.12)'
+                          : tpl.badge === 'Emergency'
+                          ? 'rgba(239, 68, 68, 0.12)'
+                          : 'rgba(255, 255, 255, 0.04)',
+                        border: tpl.badge === 'To Admin'
+                          ? '1px solid rgba(245, 158, 11, 0.35)'
+                          : tpl.badge === 'Emergency'
+                          ? '1px solid rgba(239, 68, 68, 0.35)'
+                          : '1px solid rgba(255, 255, 255, 0.08)',
+                        color: tpl.badge === 'To Admin'
+                          ? '#F59E0B'
+                          : tpl.badge === 'Emergency'
+                          ? '#EF4444'
+                          : 'var(--text-muted)',
                         fontSize: '11px',
                         fontWeight: 600,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      <span>{tpl.icon}</span> {tpl.label}
+                      <span>{tpl.icon}</span>
+                      <span>{tpl.label}</span>
+                      {tpl.badge && (
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {tpl.badge}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

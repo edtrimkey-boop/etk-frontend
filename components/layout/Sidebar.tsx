@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
+import { normalizeRole, UserRole } from '@/lib/rbac';
+import { SYSTEM_VERSION_STRING } from '@/lib/version';
 
 interface SidebarProps {
   userRole?: string;
@@ -22,10 +23,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
 
-  // Strict Normalized RBAC Roles matching index.html
+  // Strict role normalization matching index.html
   const normRole: UserRole = normalizeRole(userRole);
-  const roleBadge = getRoleBadge(userRole);
-
   const isSysAdmin = normRole === 'super_admin';
   const isInstAdmin = normRole === 'admin';
   const isTeacher = normRole === 'teacher';
@@ -49,7 +48,7 @@ export default function Sidebar({
       <div
         className="brandRow"
         style={{
-          marginBottom: '30px',
+          marginBottom: '40px',
           padding: '0 25px',
           display: 'flex',
           justifyContent: 'space-between',
@@ -64,22 +63,8 @@ export default function Sidebar({
             src="https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/EKT_GIF.gif"
             alt="Ed-Trim Key"
           />
-          <div>
-            <div className="brand" style={{ fontSize: '17px', lineHeight: 1.1 }}>
-              Ed-Trim Key
-            </div>
-            <div
-              style={{
-                fontSize: '9px',
-                fontWeight: 800,
-                color: roleBadge.color,
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                marginTop: '2px',
-              }}
-            >
-              {roleBadge.label}
-            </div>
+          <div className="brand" style={{ fontSize: '18px' }}>
+            Ed-Trim Key
           </div>
         </div>
         <button
@@ -103,7 +88,7 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* ── 1. COMMON: Dashboard Overview ──────────────────────────── */}
+      {/* Navigation Items — Exactly matching index.html lines 2913-2936 */}
       <div
         id="nav-overview"
         className={`nav-item ${isActive('overview', '/dashboard') ? 'active' : ''}`}
@@ -115,7 +100,6 @@ export default function Sidebar({
         Dashboard Overview
       </div>
 
-      {/* ── 2. ACADEMIC SUITE (Institute Admin, Teachers, Super Admin) ─ */}
       {!isOperator && (
         <>
           <div
@@ -151,8 +135,8 @@ export default function Sidebar({
         </>
       )}
 
-      {/* ── 3. CONNECTED WEB APPS (Teachers & Institute Admins) ──────── */}
-      {(isInstAdmin || isTeacher) && (
+      {/* Dynamic Sub-Apps Links (Fees, Admission, Attendance) */}
+      {!isOperator && (
         <div id="sidebar-dynamic-apps">
           <Link
             href="/fees"
@@ -171,8 +155,10 @@ export default function Sidebar({
             style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <line x1="20" y1="8" x2="20" y2="14" />
+              <line x1="23" y1="11" x2="17" y2="11" />
             </svg>
             Admission Portal
           </Link>
@@ -192,7 +178,7 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* ── 4. BROADCAST CENTER (Super Admin, Institute Admin, Teachers) ─ */}
+      {/* Broadcast Center — exact original tab name */}
       {!isOperator && (
         <div
           id="nav-notifications"
@@ -202,11 +188,11 @@ export default function Sidebar({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
           </svg>
-          {isTeacher ? 'Class Announcements' : 'Broadcast Center'}
+          Broadcast Center
         </div>
       )}
 
-      {/* ── 5. INSTITUTE ADMIN ONLY: Billing, Teachers, Students ──────── */}
+      {/* Institute Admin Specific Tabs */}
       {isInstAdmin && (
         <>
           <div
@@ -232,22 +218,26 @@ export default function Sidebar({
             </svg>
             Teachers Directory
           </div>
-          <div
-            id="nav-inst-students"
-            className={`nav-item ${isActive('inst-students', '/dashboard/students') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('inst-students', e)}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
-              <path d="M22 10v6" />
-              <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
-            </svg>
-            Students Database
-          </div>
         </>
       )}
 
-      {/* ── 6. SUPER ADMIN ONLY: Global Institutes, Global Ledger, Operators ─ */}
+      {/* Students Database (Institute Admin & Teacher) */}
+      {(isInstAdmin || isTeacher) && (
+        <div
+          id="nav-inst-students"
+          className={`nav-item ${isActive('inst-students', '/dashboard/students') ? 'active' : ''}`}
+          onClick={(e) => handleNavClick('inst-students', e)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
+            <path d="M22 10v6" />
+            <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
+          </svg>
+          Students Database
+        </div>
+      )}
+
+      {/* Super Admin Specific Tabs */}
       {isSysAdmin && (
         <>
           <div
@@ -291,7 +281,7 @@ export default function Sidebar({
         </>
       )}
 
-      {/* ── 7. OPERATOR SUITE (Operators & Super Admin) ──────────────── */}
+      {/* Operator Workspace & Tools */}
       {(isOperator || isSysAdmin) && (
         <>
           <div
@@ -334,7 +324,7 @@ export default function Sidebar({
         </>
       )}
 
-      {/* ── 8. COMMON: Master Settings ──────────────────────────────── */}
+      {/* Master Settings */}
       <div
         id="nav-settings"
         className={`nav-item ${isActive('settings', '/dashboard/settings') ? 'active' : ''}`}
@@ -347,32 +337,18 @@ export default function Sidebar({
         Master Settings
       </div>
 
+      {/* Dynamic Version display — Exactly matching index.html format */}
       <div
         style={{
           marginTop: 'auto',
-          padding: '20px 25px',
+          padding: '20px 30px',
           fontSize: '11px',
           color: 'var(--text-muted)',
           fontWeight: 600,
           borderTop: '1px solid var(--border)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
         }}
       >
-        <span>ED TRIMKEY OS</span>
-        <span
-          style={{
-            fontSize: '9px',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            background: roleBadge.bg,
-            color: roleBadge.color,
-            fontWeight: 800,
-          }}
-        >
-          {roleBadge.label}
-        </span>
+        {SYSTEM_VERSION_STRING}
       </div>
     </div>
   );
