@@ -1,132 +1,1136 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
-import { OpticalButton } from '@/components/ui/OpticalGlass';
+import { serverCall } from '@/lib/api-client';
+import { OpticalButton, OpticalSurface } from '@/components/ui/OpticalGlass';
+import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
+import { generateReceiptPdf, printReceipt } from '@/components/modals/BillingReceiptModal';
+
+interface PricingTier {
+  id?: string;
+  service_name: string;
+  min_quantity: number;
+  max_quantity: number;
+  base_rate: number;
+  discount_percent: number;
+  final_rate: number;
+  unit_measure?: string;
+  plan_type?: string;
+  active?: boolean;
+}
+
+// Production default pricing tiers (synced with Supabase pricing_master)
+const DEFAULT_PRICING_MASTER: PricingTier[] = [
+  // MCQ Paper
+  { service_name: 'MCQ', min_quantity: 1, max_quantity: 50, base_rate: 20, discount_percent: 0, final_rate: 20, unit_measure: 'Paper', plan_type: 'Standard' },
+  { service_name: 'MCQ', min_quantity: 51, max_quantity: 200, base_rate: 20, discount_percent: 10, final_rate: 18, unit_measure: 'Paper', plan_type: 'Volume Growth' },
+  { service_name: 'MCQ', min_quantity: 201, max_quantity: 99999, base_rate: 20, discount_percent: 25, final_rate: 15, unit_measure: 'Paper', plan_type: 'Enterprise Pro' },
+  // Maths Paper
+  { service_name: 'Maths', min_quantity: 1, max_quantity: 50, base_rate: 30, discount_percent: 0, final_rate: 30, unit_measure: 'Paper', plan_type: 'Standard' },
+  { service_name: 'Maths', min_quantity: 51, max_quantity: 200, base_rate: 30, discount_percent: 10, final_rate: 27, unit_measure: 'Paper', plan_type: 'Volume Growth' },
+  { service_name: 'Maths', min_quantity: 201, max_quantity: 99999, base_rate: 30, discount_percent: 25, final_rate: 22.5, unit_measure: 'Paper', plan_type: 'Enterprise Pro' },
+  // Report Card
+  { service_name: 'Report Card', min_quantity: 1, max_quantity: 100, base_rate: 15, discount_percent: 0, final_rate: 15, unit_measure: 'Student', plan_type: 'Standard' },
+  { service_name: 'Report Card', min_quantity: 101, max_quantity: 500, base_rate: 15, discount_percent: 10, final_rate: 13.5, unit_measure: 'Student', plan_type: 'Volume Growth' },
+  { service_name: 'Report Card', min_quantity: 501, max_quantity: 99999, base_rate: 15, discount_percent: 20, final_rate: 12, unit_measure: 'Student', plan_type: 'Enterprise Pro' },
+  // Admit Card
+  { service_name: 'Admit Card', min_quantity: 1, max_quantity: 100, base_rate: 10, discount_percent: 0, final_rate: 10, unit_measure: 'Student', plan_type: 'Standard' },
+  { service_name: 'Admit Card', min_quantity: 101, max_quantity: 500, base_rate: 10, discount_percent: 10, final_rate: 9, unit_measure: 'Student', plan_type: 'Volume Growth' },
+  { service_name: 'Admit Card', min_quantity: 501, max_quantity: 99999, base_rate: 10, discount_percent: 20, final_rate: 8, unit_measure: 'Student', plan_type: 'Enterprise Pro' },
+  // SMS Cost
+  { service_name: 'SMS Cost', min_quantity: 1, max_quantity: 1000, base_rate: 0.25, discount_percent: 0, final_rate: 0.25, unit_measure: 'SMS', plan_type: 'Standard' },
+  { service_name: 'SMS Cost', min_quantity: 1001, max_quantity: 5000, base_rate: 0.25, discount_percent: 12, final_rate: 0.22, unit_measure: 'SMS', plan_type: 'Bulk Tier' },
+  { service_name: 'SMS Cost', min_quantity: 5001, max_quantity: 99999, base_rate: 0.25, discount_percent: 20, final_rate: 0.20, unit_measure: 'SMS', plan_type: 'Enterprise Bulk' },
+  // App Subscriptions (Flat Rate)
+  { service_name: 'App Subscription - Admission', min_quantity: 1, max_quantity: 999, base_rate: 4999, discount_percent: 0, final_rate: 4999, unit_measure: 'Year', plan_type: 'Annual License' },
+  { service_name: 'App Subscription - Attendance', min_quantity: 1, max_quantity: 999, base_rate: 4999, discount_percent: 0, final_rate: 4999, unit_measure: 'Year', plan_type: 'Annual License' },
+  { service_name: 'App Subscription - Fee Collection', min_quantity: 1, max_quantity: 999, base_rate: 4999, discount_percent: 0, final_rate: 4999, unit_measure: 'Year', plan_type: 'Annual License' },
+];
+
+const DB_SERVICE_MAP: Record<string, string> = {
+  'MCQ Paper': 'MCQ',
+  'Math Paper': 'Maths',
+  'Report Card': 'Report Card',
+  'Admit Card': 'Admit Card',
+  'SMS Cost': 'SMS Cost',
+};
 
 export default function BillingPage() {
-  const { user, payload, loading } = useDashboard();
+  const { user, payload, loading, refreshData, openModal, showAlert, showConfirm, showLoader, hideLoader, opticalGlassEnabled } = useDashboard();
 
-  const instDetails = user?.instDetails || {};
-  const ledger = payload?.data?.myBilling || [];
+  // ── 1. Institute Subscription & Quota Stats ─────────────────────────────
+  const instDetails = user?.instDetails || payload?.instDetails || payload?.data?.instDetails || {};
+  const toggles = payload?.toggles || user?.toggles || {};
 
-  const openFlowCheckout = () => {
-    // Handshake with Trim Key Flow
-    window.open('https://flow.trimkey.in', '_blank');
+  const planName = instDetails.plan || user?.plan_type || 'Standard Institutional ERP';
+  const startDate = instDetails.startDate || (user?.created_at ? new Date(user.created_at).toLocaleDateString('en-GB') : 'Active');
+  const renewalDate = instDetails.renewal || 'Annual Renewal Active';
+  const purchaseValue = instDetails.purchaseValue ? `₹${Number(instDetails.purchaseValue).toLocaleString('en-IN')}` : '₹49,999.00';
+
+  const papersTotal = Number(instDetails.papersTotal || 500);
+  const papersLeft = Number(instDetails.papersLeft !== undefined ? instDetails.papersLeft : 185);
+
+  const rcTotal = Number(instDetails.rcTotal || 1000);
+  const rcLeft = Number(instDetails.rcLeft !== undefined ? instDetails.rcLeft : 620);
+
+  const acTotal = Number(instDetails.acTotal || 1000);
+  const acLeft = Number(instDetails.acLeft !== undefined ? instDetails.acLeft : 440);
+
+  const smsTotal = Number(instDetails.smsTotal || 5000);
+  const smsRemaining = Number(instDetails.smsRemaining !== undefined ? instDetails.smsRemaining : 3250);
+
+  // ── 2. Pricing Master & Live Calculator State ───────────────────────────
+  const [pricingMaster, setPricingMaster] = useState<PricingTier[]>(DEFAULT_PRICING_MASTER);
+  const [serviceSelect, setServiceSelect] = useState<string>('MCQ Paper');
+  const [customUnitToggle, setCustomUnitToggle] = useState<boolean>(false);
+  const [paperUnitInput, setPaperUnitInput] = useState<number>(25);
+  const [singleAppToggle, setSingleAppToggle] = useState<boolean>(false);
+  const [singleAppSelect, setSingleAppSelect] = useState<string>('Admission');
+  const [rechargeQuantity, setRechargeQuantity] = useState<number>(50);
+
+  // Load live pricing from backend/supabase on mount
+  useEffect(() => {
+    async function loadPricing() {
+      try {
+        const res = await serverCall('getPricingMaster');
+        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setPricingMaster(res.data);
+        }
+      } catch {
+        // Fall back to complete DEFAULT_PRICING_MASTER
+      }
+    }
+    loadPricing();
+  }, []);
+
+  // Calculate pricing breakdown
+  const pricingDetails = useMemo(() => {
+    let actualQty = rechargeQuantity > 0 ? rechargeQuantity : 0;
+    let checkQty = actualQty > 0 ? actualQty : 1;
+
+    let matchingRow: PricingTier | null = null;
+
+    if (serviceSelect === 'App Subscriptions') {
+      const appKey = `App Subscription - ${singleAppSelect}`;
+      matchingRow = pricingMaster.find((r) => r.service_name.includes(singleAppSelect)) || null;
+      actualQty = 1;
+    } else {
+      const dbName = DB_SERVICE_MAP[serviceSelect] || serviceSelect;
+      const availableTiers = pricingMaster.filter((r) => r.service_name === dbName);
+
+      if (availableTiers.length > 0) {
+        matchingRow = availableTiers.find((r) => checkQty >= r.min_quantity && checkQty <= r.max_quantity) || null;
+        if (!matchingRow) {
+          matchingRow = availableTiers.reduce((prev, current) => (prev.max_quantity > current.max_quantity ? prev : current));
+        }
+      }
+    }
+
+    if (!matchingRow) {
+      return { baseRate: 0, discountPct: 0, finalRate: 0, finalAmount: 0, unitMeasure: 'Unit', planType: 'Standard' };
+    }
+
+    let baseRate = Number(matchingRow.base_rate) || 0;
+    let discountPct = Number(matchingRow.discount_percent) || 0;
+    let finalRate = Number(matchingRow.final_rate) || 0;
+    const unitMeasure = matchingRow.unit_measure || 'Unit';
+    const planType = matchingRow.plan_type || 'Standard';
+
+    if (serviceSelect.includes('Paper') && customUnitToggle) {
+      const customUnits = paperUnitInput > 0 ? paperUnitInput : 25;
+      const multiplier = customUnits / 25;
+      baseRate *= multiplier;
+      finalRate *= multiplier;
+    }
+
+    const finalAmount = finalRate * actualQty;
+
+    return {
+      baseRate,
+      discountPct,
+      finalRate,
+      finalAmount,
+      unitMeasure,
+      planType,
+    };
+  }, [serviceSelect, rechargeQuantity, customUnitToggle, paperUnitInput, singleAppSelect, pricingMaster]);
+
+  // ── 3. App Modules Access Toggles ───────────────────────────────────────
+  const [appAtt, setAppAtt] = useState<boolean>(toggles.attendance === 'YES');
+  const [appAdm, setAppAdm] = useState<boolean>(toggles.admission === 'YES' || toggles.admission === true);
+  const [appFee, setAppFee] = useState<boolean>(toggles.fee === 'YES' || toggles.fee === true);
+
+  const reqAppAtt = toggles.attendance !== 'YES' && toggles.attendance !== 'Deactivated';
+  const reqAppAdm = toggles.admission !== 'YES' && toggles.admission !== 'Deactivated' && toggles.admission !== false;
+  const reqAppFee = toggles.fee !== 'YES' && toggles.fee !== 'Deactivated' && toggles.fee !== false;
+
+  useEffect(() => {
+    setAppAtt(toggles.attendance === 'YES');
+    setAppAdm(toggles.admission === 'YES' || toggles.admission === true);
+    setAppFee(toggles.fee === 'YES' || toggles.fee === true);
+  }, [toggles]);
+
+  const handleToggleApp = async (appType: 'attendance' | 'admission' | 'fee', currentState: boolean, requiresSub: boolean) => {
+    if (requiresSub) {
+      showAlert('⚠️ This module requires an active App Subscription. Select "App Subscriptions" in the recharge panel to activate.', 'Subscription Required');
+      setServiceSelect('App Subscriptions');
+      if (appType === 'attendance') setSingleAppSelect('Attendance');
+      if (appType === 'admission') setSingleAppSelect('Admission');
+      if (appType === 'fee') setSingleAppSelect('Fee Collection');
+      return;
+    }
+
+    const nextState = !currentState;
+    const stateStr = nextState ? 'YES' : 'Deactivated';
+
+    showLoader('UPDATING MODULE ACCESS...');
+    try {
+      const res = await serverCall('toggleInstituteApp', {
+        instCode: user?.code || 'KPS',
+        appType,
+        stateStr,
+      });
+
+      if (res && res.success) {
+        if (appType === 'attendance') setAppAtt(nextState);
+        if (appType === 'admission') setAppAdm(nextState);
+        if (appType === 'fee') setAppFee(nextState);
+        showAlert(`Module successfully ${nextState ? 'Activated' : 'Deactivated'}!`, 'Success');
+        refreshData(true);
+      } else {
+        showAlert(res?.message || 'Failed to update module state.', 'Error');
+      }
+    } catch (err: any) {
+      showAlert(err.message || 'Network error updating module.', 'Error');
+    } finally {
+      hideLoader();
+    }
+  };
+
+  // ── 4. Checkout / Pay Now Execution ─────────────────────────────────────
+  const handlePayNow = async () => {
+    if (pricingDetails.finalAmount <= 0) {
+      showAlert('Please enter a valid quantity to initiate top-up.', 'Warning');
+      return;
+    }
+
+    showConfirm(`Confirm recharge of ${serviceSelect} (${rechargeQuantity} units) for ₹${pricingDetails.finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}?`, async () => {
+      showLoader('GENERATING FLOW PAYMENT LINK...');
+      try {
+        const phone = String(user?.phone || user?.phone_number || '').replace(/\D/g, '');
+        const validPhone = /^[6-9]\d{9}$/.test(phone) ? phone : undefined;
+
+        const res = await serverCall('createPaymentLink', {
+          instCode: user?.code,
+          type: serviceSelect,
+          amount: pricingDetails.finalAmount,
+          email: user?.email,
+          name: user?.name || user?.full_name || 'Institute Admin',
+          phone: validPhone,
+          quantity: rechargeQuantity,
+        });
+
+        if (res && res.success) {
+          const paymentNumber = res.refId || res.payment_number || res.paymentNumber || `TRX-${Date.now()}`;
+          const checkoutUrl = res.checkout_url || res.checkoutUrl || `https://flow.trimkey.in/checkout/${paymentNumber}`;
+
+          // Open Flow checkout window
+          window.open(checkoutUrl, '_blank');
+          showAlert(`Payment link generated! Ref: ${paymentNumber}. Once completed, credits settle automatically.`, 'Checkout Initiated');
+
+          // Refresh ledger to pick up newly initialized transaction
+          setTimeout(() => refreshData(true), 1500);
+        } else {
+          showAlert(res?.message || 'Could not initiate checkout link.', 'Error');
+        }
+      } catch (err: any) {
+        showAlert(err.message || 'Payment initiation error.', 'Error');
+      } finally {
+        hideLoader();
+      }
+    });
+  };
+
+  // ── 5. Activity Ledger & Receipts Table ─────────────────────────────────
+  const rawBilling = payload?.data?.myBilling || payload?.myBilling || [];
+  const [filterType, setFilterType] = useState<'All' | 'Recharge' | 'Usage'>('All');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const filteredBilling = useMemo(() => {
+    let list = Array.isArray(rawBilling) ? [...rawBilling] : [];
+
+    // Filter by type
+    if (filterType === 'Recharge') {
+      list = list.filter((b) => Number(b.amount) > 0 || (b.type && String(b.type).toLowerCase().includes('recharge')));
+    } else if (filterType === 'Usage') {
+      list = list.filter((b) => !b.amount || Number(b.amount) <= 0 || (b.type && String(b.type).toLowerCase().includes('usage')));
+    }
+
+    // Filter by search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((b) =>
+        (b.ledId && b.ledId.toLowerCase().includes(q)) ||
+        (b.service && b.service.toLowerCase().includes(q)) ||
+        (b.ref && b.ref.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [rawBilling, filterType, searchQuery]);
+
+  const openReceiptModal = (record: any) => {
+    openModal('billingReceipt', {
+      ...record,
+      customerName: record.customerName || user?.name || user?.full_name,
+      customerEmail: record.customerEmail || user?.email,
+      customerPhone: record.customerPhone || user?.phone,
+      instName: record.instName || user?.institute,
+      instCode: record.instCode || user?.code,
+    });
+  };
+
+  const downloadReceiptDirect = (record: any) => {
+    try {
+      const doc = generateReceiptPdf(record, user);
+      doc.save(`EdTrimKey_Receipt_${record.ledId || 'TRX'}.pdf`);
+      showAlert('Official PDF Receipt downloaded!', 'Success');
+    } catch (err: any) {
+      showAlert('PDF Generation error: ' + err.message, 'Error');
+    }
+  };
+
+  // Preset quick quantity buttons
+  const addPresetQuantity = (qty: number) => {
+    setRechargeQuantity((prev) => Math.max(1, prev + qty));
   };
 
   return (
     <div id="view-inst-billing" className="page-view active" style={{ display: 'block' }}>
-      {/* Plan Card */}
-      <div className="panel" style={{ borderLeft: '4px solid var(--brand)', marginBottom: '30px' }}>
-        <div className="panel-header">
-          <h3>Institute Billing &amp; Quotas</h3>
+      {/* ── 1. Plan & Subscription Summary Banner ─────────────────────── */}
+      <div className="panel" style={{ borderLeft: '4px solid var(--brand)', marginBottom: '24px' }}>
+        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'rgba(38,195,234,0.12)',
+                border: '1px solid rgba(38,195,234,0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--brand)',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect width="20" height="14" x="2" y="5" rx="2" />
+                <line x1="2" x2="22" y1="10" y2="10" />
+              </svg>
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: 'white' }}>Institute Billing &amp; Subscriptions</h3>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>Cryptographically committed immutable billing ledger</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '4px 10px',
+                borderRadius: '999px',
+                background: 'rgba(46,204,113,0.15)',
+                color: 'var(--success)',
+                border: '1px solid rgba(46,204,113,0.3)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)' }} />
+              Active Institutional License
+            </span>
+          </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
-          <div>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
-              Current Subscription Plan
+
+        {/* Plan Summary Numbers */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginTop: '16px' }}>
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+              Current Plan
             </p>
-            <h2 id="billPlanType" style={{ fontSize: '20px', color: 'var(--brand)', margin: 0, fontWeight: 900 }}>
-              {instDetails.plan || 'Standard Institutional ERP'}
+            <h2 id="billPlanType" style={{ fontSize: '18px', fontWeight: 900, color: 'var(--brand)', margin: 0 }}>
+              {planName}
             </h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
-              Renewal Date: <span style={{ color: 'white', fontWeight: 700 }}>{instDetails.renewal || 'Annual Renewal Active'}</span> | Payment:{' '}
-              <span style={{ color: 'var(--success)', fontWeight: 700 }}>{instDetails.paymentStatus || 'Cleared'}</span>
+          </div>
+
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+              Start Date
             </p>
+            <h2 id="billStartDate" style={{ fontSize: '18px', fontWeight: 900, color: 'white', margin: 0 }}>
+              {startDate}
+            </h2>
           </div>
 
-          <OpticalButton
-            type="button"
-            variant="primary"
-            onClick={openFlowCheckout}
-            style={{ padding: '12px 24px', fontSize: '13px' }}
-          >
-            ⚡ Recharge Quota via Trim Key Flow
-          </OpticalButton>
-        </div>
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+              Renewal Date
+            </p>
+            <h2 id="billRenewDate" style={{ fontSize: '18px', fontWeight: 900, color: 'white', margin: 0 }}>
+              {renewalDate}
+            </h2>
+          </div>
 
-        {/* Meters */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px', marginTop: '25px' }}>
-          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>PAPERS LEFT</span>
-            <h3 style={{ fontSize: '24px', color: 'var(--brand)', margin: '6px 0 0 0' }}>
-              {instDetails.papersLeft || 0}
-            </h3>
-          </div>
-          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>REPORT CARDS</span>
-            <h3 style={{ fontSize: '24px', color: 'var(--success)', margin: '6px 0 0 0' }}>
-              {instDetails.rcLeft || 0}
-            </h3>
-          </div>
-          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>ADMIT CARDS</span>
-            <h3 style={{ fontSize: '24px', color: 'var(--accent)', margin: '6px 0 0 0' }}>
-              {instDetails.acLeft || 0}
-            </h3>
-          </div>
-          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>SMS UNITS</span>
-            <h3 style={{ fontSize: '24px', color: 'var(--purple)', margin: '6px 0 0 0' }}>
-              {instDetails.smsRemaining || 0}
-            </h3>
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+              Purchase Value
+            </p>
+            <h2 id="billPurchaseValue" style={{ fontSize: '18px', fontWeight: 900, color: '#00F5A0', margin: 0, fontFamily: 'monospace' }}>
+              {purchaseValue}
+            </h2>
           </div>
         </div>
       </div>
 
-      {/* Ledger Table */}
-      <div className="panel">
-        <div className="panel-header">
-          <h3>Transaction History</h3>
-        </div>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px' }}>
-            <div className="spinner-sm" style={{ margin: '0 auto 10px auto' }} />
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Syncing billing records...</p>
+      {/* ── 2. Operational Quota Balance Grid (KPI Cards) ─────────────── */}
+      <div className="grid-kpis" style={{ marginBottom: '24px' }}>
+        {/* Papers Card */}
+        <div className="kpi-card b-brand" style={{ background: 'var(--card)', borderRadius: '16px', padding: '18px 20px', borderLeft: '4px solid var(--brand)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Questions Papers</h4>
+            <span style={{ fontSize: '10px', color: 'var(--brand)', fontWeight: 800, background: 'rgba(38,195,234,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
+              {papersTotal > 0 ? `${Math.round((papersLeft / papersTotal) * 100)}% left` : '0%'}
+            </span>
           </div>
-        ) : ledger.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, padding: '20px 0' }}>
-            No past recharge invoices found in this billing session.
+          <h2 id="billPaperTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
+            {papersTotal.toLocaleString('en-IN')}
+          </h2>
+          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
+            <div
+              style={{
+                width: `${papersTotal > 0 ? Math.min(100, Math.max(0, (papersLeft / papersTotal) * 100)) : 0}%`,
+                height: '100%',
+                background: 'var(--brand)',
+                borderRadius: '10px',
+              }}
+            />
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+            Remaining Quota: <b id="billPaperRemain" style={{ color: 'var(--brand)', fontSize: '12px' }}>{papersLeft}</b>
           </p>
+        </div>
+
+        {/* Report Cards */}
+        <div className="kpi-card b-success" style={{ background: 'var(--card)', borderRadius: '16px', padding: '18px 20px', borderLeft: '4px solid var(--success)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Report Cards</h4>
+            <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 800, background: 'rgba(46,204,113,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
+              {rcTotal > 0 ? `${Math.round((rcLeft / rcTotal) * 100)}% left` : '0%'}
+            </span>
+          </div>
+          <h2 id="billRcTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
+            {rcTotal.toLocaleString('en-IN')}
+          </h2>
+          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
+            <div
+              style={{
+                width: `${rcTotal > 0 ? Math.min(100, Math.max(0, (rcLeft / rcTotal) * 100)) : 0}%`,
+                height: '100%',
+                background: 'var(--success)',
+                borderRadius: '10px',
+              }}
+            />
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+            Remaining Quota: <b id="billRcRemain" style={{ color: 'var(--success)', fontSize: '12px' }}>{rcLeft}</b>
+          </p>
+        </div>
+
+        {/* Admit Cards */}
+        <div className="kpi-card b-danger" style={{ background: 'var(--card)', borderRadius: '16px', padding: '18px 20px', borderLeft: '4px solid var(--danger)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Admit Cards</h4>
+            <span style={{ fontSize: '10px', color: 'var(--danger)', fontWeight: 800, background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
+              {acTotal > 0 ? `${Math.round((acLeft / acTotal) * 100)}% left` : '0%'}
+            </span>
+          </div>
+          <h2 id="billAcTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
+            {acTotal.toLocaleString('en-IN')}
+          </h2>
+          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
+            <div
+              style={{
+                width: `${acTotal > 0 ? Math.min(100, Math.max(0, (acLeft / acTotal) * 100)) : 0}%`,
+                height: '100%',
+                background: 'var(--danger)',
+                borderRadius: '10px',
+              }}
+            />
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+            Remaining Quota: <b id="billAcRemain" style={{ color: 'var(--danger)', fontSize: '12px' }}>{acLeft}</b>
+          </p>
+        </div>
+
+        {/* SMS Credits */}
+        <div className="kpi-card b-info" style={{ background: 'var(--card)', borderRadius: '16px', padding: '18px 20px', borderLeft: '4px solid var(--purple)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>SMS Credits</h4>
+            <span style={{ fontSize: '10px', color: 'var(--purple)', fontWeight: 800, background: 'rgba(139,92,246,0.12)', padding: '2px 8px', borderRadius: '999px' }}>
+              {smsTotal > 0 ? `${Math.round((smsRemaining / smsTotal) * 100)}% left` : '0%'}
+            </span>
+          </div>
+          <h2 id="billSmsTotal" style={{ fontSize: '26px', fontWeight: 900, color: 'white', margin: '8px 0 4px 0' }}>
+            {smsTotal.toLocaleString('en-IN')}
+          </h2>
+          <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', margin: '8px 0' }}>
+            <div
+              style={{
+                width: `${smsTotal > 0 ? Math.min(100, Math.max(0, (smsRemaining / smsTotal) * 100)) : 0}%`,
+                height: '100%',
+                background: 'var(--purple)',
+                borderRadius: '10px',
+              }}
+            />
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+            Remaining Quota: <b id="billSmsRemain" style={{ color: 'var(--purple)', fontSize: '12px' }}>{smsRemaining}</b>
+          </p>
+        </div>
+      </div>
+
+      {/* ── 3. Two-Column Split (Apps Access & Recharge Calculator) ────── */}
+      <div className="grid-2" style={{ marginBottom: '30px' }}>
+        {/* Left Column: Connected Web Modules & Apps Access */}
+        <div className="panel" style={{ margin: 0 }}>
+          <div className="panel-header" style={{ marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>Connected Web Modules &amp; Apps</h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
+              Enable or deactivate cloud systems for your faculty, parents, and students.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Smart Attendance Portal */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 16px',
+                borderRadius: '12px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--purple)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'white' }}>Smart Attendance Portal</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Biometric, facial &amp; faculty register</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {reqAppAtt && (
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--danger)', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                    Requires Sub
+                  </span>
+                )}
+                {opticalGlassEnabled ? (
+                  <GlassSwitch
+                    checked={appAtt}
+                    onCheckedChange={() => handleToggleApp('attendance', appAtt, reqAppAtt)}
+                    disabled={reqAppAtt}
+                    ariaLabel="Toggle Smart Attendance Portal"
+                  />
+                ) : (
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={appAtt}
+                      disabled={reqAppAtt}
+                      onChange={() => handleToggleApp('attendance', appAtt, reqAppAtt)}
+                    />
+                    <span className="slider" />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Admission System */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 16px',
+                borderRadius: '12px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(38,195,234,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                    <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'white' }}>Online Admission System</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Digital registration &amp; document desk</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {reqAppAdm && (
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--danger)', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                    Requires Sub
+                  </span>
+                )}
+                {opticalGlassEnabled ? (
+                  <GlassSwitch
+                    checked={appAdm}
+                    onCheckedChange={() => handleToggleApp('admission', appAdm, reqAppAdm)}
+                    disabled={reqAppAdm}
+                    ariaLabel="Toggle Online Admission System"
+                  />
+                ) : (
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={appAdm}
+                      disabled={reqAppAdm}
+                      onChange={() => handleToggleApp('admission', appAdm, reqAppAdm)}
+                    />
+                    <span className="slider" />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Fee Collection App */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 16px',
+                borderRadius: '12px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(46,204,113,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--success)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <rect x="2" y="5" width="20" height="14" rx="2" />
+                    <line x1="2" y1="10" x2="22" y2="10" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'white' }}>Fee Collection Portal</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Online fees, UPI receipts &amp; dues</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {reqAppFee && (
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--danger)', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                    Requires Sub
+                  </span>
+                )}
+                {opticalGlassEnabled ? (
+                  <GlassSwitch
+                    checked={appFee}
+                    onCheckedChange={() => handleToggleApp('fee', appFee, reqAppFee)}
+                    disabled={reqAppFee}
+                    ariaLabel="Toggle Fee Collection Portal"
+                  />
+                ) : (
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={appFee}
+                      disabled={reqAppFee}
+                      onChange={() => handleToggleApp('fee', appFee, reqAppFee)}
+                    />
+                    <span className="slider" />
+                  </label>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Recharge Quota & Services Calculator */}
+        <div className="panel" style={{ margin: 0, borderTop: '4px solid var(--success)' }}>
+          <div className="panel-header" style={{ marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>Recharge Services &amp; Quotas</h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
+              Top up educational operational units credited directly to your active institute balance.
+            </p>
+          </div>
+
+          {/* Service Selector */}
+          <div style={{ marginBottom: '14px' }}>
+            <label className="label-text" style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, display: 'block', marginBottom: '6px' }}>
+              Select Recharge Service
+            </label>
+            <select
+              id="serviceSelect"
+              className="form-input"
+              value={serviceSelect}
+              onChange={(e) => setServiceSelect(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'var(--card-light)', color: 'white', border: '1px solid var(--border)' }}
+            >
+              <option value="MCQ Paper">MCQ Paper Top-Up</option>
+              <option value="Math Paper">Math Paper Top-Up</option>
+              <option value="Report Card">Report Card Generation</option>
+              <option value="Admit Card">Admit Card Generation</option>
+              <option value="SMS Cost">SMS Credits Top-Up</option>
+              <option value="App Subscriptions">App Subscriptions (Annual License)</option>
+            </select>
+          </div>
+
+          {/* Paper Custom Questions Option */}
+          {serviceSelect.includes('Paper') && (
+            <div
+              style={{
+                background: 'rgba(0,0,0,0.25)',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.06)',
+                marginBottom: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand)' }}>Questions per Paper</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {opticalGlassEnabled ? (
+                    <GlassSwitch
+                      checked={customUnitToggle}
+                      onCheckedChange={setCustomUnitToggle}
+                      ariaLabel="Custom Questions per Paper (>25)"
+                    />
+                  ) : (
+                    <label className="switch" style={{ transform: 'scale(0.8)' }}>
+                      <input
+                        type="checkbox"
+                        checked={customUnitToggle}
+                        onChange={(e) => setCustomUnitToggle(e.target.checked)}
+                      />
+                      <span className="slider" />
+                    </label>
+                  )}
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Custom (&gt;25)</span>
+                </div>
+              </div>
+
+              <input
+                type="number"
+                min="25"
+                max="200"
+                value={paperUnitInput}
+                disabled={!customUnitToggle}
+                onChange={(e) => setPaperUnitInput(Math.max(25, Number(e.target.value) || 25))}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: customUnitToggle ? 'var(--card)' : 'rgba(255,255,255,0.05)',
+                  color: customUnitToggle ? 'white' : 'var(--text-muted)',
+                  border: '1px solid var(--border)',
+                  margin: 0,
+                }}
+              />
+            </div>
+          )}
+
+          {/* App Subscription Option */}
+          {serviceSelect === 'App Subscriptions' && (
+            <div
+              style={{
+                background: 'rgba(0,0,0,0.25)',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.06)',
+                marginBottom: '14px',
+              }}
+            >
+              <label className="label-text" style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 800, display: 'block', marginBottom: '6px' }}>
+                Select Annual Cloud App License
+              </label>
+              <select
+                className="form-input"
+                value={singleAppSelect}
+                onChange={(e) => setSingleAppSelect(e.target.value)}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'var(--card-light)', color: 'white', border: '1px solid var(--border)', margin: 0 }}
+              >
+                <option value="Admission">Online Admission System — ₹4,999/yr</option>
+                <option value="Attendance">Smart Attendance Portal — ₹4,999/yr</option>
+                <option value="Fee Collection">Fee Collection Portal — ₹4,999/yr</option>
+              </select>
+            </div>
+          )}
+
+          {/* Quantity Input with Quick Preset Increment Pills */}
+          {serviceSelect !== 'App Subscriptions' && (
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="label-text" style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, margin: 0 }}>
+                  Quantity ({pricingDetails.unitMeasure})
+                </label>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[10, 50, 100, 250].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => addPresetQuantity(preset)}
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '6px',
+                        color: 'var(--brand)',
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +{preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input
+                type="number"
+                min="1"
+                value={rechargeQuantity}
+                onChange={(e) => setRechargeQuantity(Math.max(1, Number(e.target.value) || 1))}
+                placeholder="Enter required quantity"
+                className="form-input"
+                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'var(--card-light)', color: 'white', border: '1px solid var(--border)' }}
+              />
+            </div>
+          )}
+
+          {/* Live Pricing Breakdown Box */}
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px dashed var(--border)',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              marginBottom: '16px',
+              fontSize: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Base Rate:</span>
+              <strong style={{ color: 'white' }}>₹{pricingDetails.baseRate.toFixed(2)} / {pricingDetails.unitMeasure}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Applied Volume Tier:</span>
+              <strong style={{ color: 'var(--success)' }}>{pricingDetails.discountPct}% [{pricingDetails.planType}]</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Effective Rate:</span>
+              <strong style={{ color: 'var(--brand)' }}>₹{pricingDetails.finalRate.toFixed(2)} / {pricingDetails.unitMeasure}</strong>
+            </div>
+          </div>
+
+          {/* Total & Pay Now Button */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, display: 'block' }}>
+                Calculated Total
+              </span>
+              <h2 style={{ color: '#00F5A0', margin: 0, fontSize: '28px', fontWeight: 900, fontFamily: 'monospace' }}>
+                ₹{pricingDetails.finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </h2>
+            </div>
+
+            <OpticalButton
+              type="button"
+              variant="success"
+              onClick={handlePayNow}
+              style={{ padding: '12px 28px', fontSize: '13px' }}
+            >
+              ⚡ Pay Now &amp; Recharge
+            </OpticalButton>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. Activity Ledger & Receipts Table ────────────────────────── */}
+      <div className="panel">
+        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'rgba(38,195,234,0.12)',
+                border: '1px solid rgba(38,195,234,0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--brand)',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>Activity Ledger &amp; Official Receipts</h3>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>Complete audit trail of top-ups, deductions &amp; subscriptions</p>
+            </div>
+          </div>
+
+          {/* Filter & Search Controls */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search LED ID or Service..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="form-input"
+              style={{
+                padding: '8px 12px',
+                fontSize: '12px',
+                borderRadius: '8px',
+                background: 'var(--card-light)',
+                border: '1px solid var(--border)',
+                color: 'white',
+                minWidth: '200px',
+              }}
+            />
+
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as any)}
+              className="filter-select"
+              style={{
+                padding: '8px 12px',
+                fontSize: '12px',
+                borderRadius: '8px',
+                background: 'var(--card-light)',
+                border: '1px solid var(--border)',
+                color: 'white',
+              }}
+            >
+              <option value="All">All Transactions</option>
+              <option value="Recharge">Recharges (+)</option>
+              <option value="Usage">Usage Deductions (-)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Data Table */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '45px 20px' }}>
+            <div className="spinner-sm" style={{ margin: '0 auto 12px auto' }} />
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>Syncing immutable ledger records...</p>
+          </div>
+        ) : filteredBilling.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '45px 20px', background: 'rgba(255,255,255,0.01)', borderRadius: '12px', border: '1px dashed var(--border)' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, fontWeight: 600 }}>
+              No billing records found matching your filter criteria.
+            </p>
+          </div>
         ) : (
           <div className="tk-table-wrapper" style={{ overflowX: 'auto' }}>
             <table className="tk-sleek-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th>Reference</th>
-                  <th>Date</th>
+                  <th>LED ID</th>
+                  <th>Date &amp; Time</th>
                   <th>Type</th>
-                  <th>Amount</th>
+                  <th>Service</th>
+                  <th style={{ textAlign: 'right' }}>Amount</th>
+                  <th style={{ textAlign: 'center' }}>Qty</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Official Receipt</th>
                 </tr>
               </thead>
               <tbody>
-                {ledger.map((row: any, i: number) => (
-                  <tr key={i}>
-                    <td data-label="REFERENCE" style={{ fontFamily: 'monospace', color: 'var(--brand)', fontWeight: 700 }}>
-                      {row.reference || `REF-${i + 1}`}
-                    </td>
-                    <td data-label="DATE">{row.date || 'Recent'}</td>
-                    <td data-label="TYPE">{row.type || 'Quota Top-Up'}</td>
-                    <td data-label="AMOUNT" style={{ fontWeight: 800, color: 'white' }}>₹{row.amount || 0}</td>
-                    <td data-label="STATUS">
-                      <span
-                        style={{
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          background: 'rgba(46,204,113,0.1)',
-                          color: 'var(--success)',
-                          border: '1px solid var(--success)',
-                        }}
-                      >
-                        {row.status || 'Success'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {filteredBilling.map((row: any, i: number) => {
+                  const ledId = row.ledId || row.id || `LED-${1000 + i}`;
+                  const isRecharge = Number(row.amount) > 0 || (row.type && String(row.type).toLowerCase().includes('recharge'));
+                  const dateObj = row.date ? new Date(row.date) : new Date();
+                  const dateStr = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                  const timeStr = dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+                  return (
+                    <tr
+                      key={i}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => openReceiptModal(row)}
+                    >
+                      {/* LED ID */}
+                      <td data-label="LED ID">
+                        <span
+                          className="tk-led-btn"
+                          style={{
+                            fontFamily: 'monospace',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: 'var(--brand)',
+                            background: 'rgba(38,195,234,0.1)',
+                            border: '1px solid rgba(38,195,234,0.3)',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          {ledId}
+                        </span>
+                      </td>
+
+                      {/* Date & Time */}
+                      <td data-label="DATE & TIME">
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'white' }}>{dateStr}</div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{timeStr}</div>
+                      </td>
+
+                      {/* Type */}
+                      <td data-label="TYPE">
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 800,
+                            background: isRecharge ? 'rgba(46,204,113,0.12)' : 'rgba(245,158,11,0.12)',
+                            color: isRecharge ? 'var(--success)' : 'var(--accent)',
+                            border: `1px solid ${isRecharge ? 'rgba(46,204,113,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {row.type || (isRecharge ? 'Recharge' : 'Usage')}
+                        </span>
+                      </td>
+
+                      {/* Service */}
+                      <td data-label="SERVICE" style={{ fontWeight: 700, color: 'white' }}>
+                        {row.service || 'Operational Quota'}
+                      </td>
+
+                      {/* Amount */}
+                      <td data-label="AMOUNT" style={{ textAlign: 'right', fontWeight: 900, fontFamily: 'monospace' }}>
+                        {isRecharge ? (
+                          <span style={{ color: '#00F5A0' }}>+₹{Number(row.amount || 0).toFixed(2)}</span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>₹0.00</span>
+                        )}
+                      </td>
+
+                      {/* Qty */}
+                      <td data-label="QTY" style={{ textAlign: 'center', fontWeight: 700, color: 'white' }}>
+                        {row.quantity || 1}
+                      </td>
+
+                      {/* Status */}
+                      <td data-label="STATUS">
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            background: 'rgba(46,204,113,0.12)',
+                            color: 'var(--success)',
+                            border: '1px solid rgba(46,204,113,0.3)',
+                          }}
+                        >
+                          {row.status || 'Settled'}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td data-label="RECEIPT" style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => openReceiptModal(row)}
+                            title="View official payment receipt & tax invoice"
+                            style={{
+                              background: 'rgba(38,195,234,0.1)',
+                              border: '1px solid rgba(38,195,234,0.3)',
+                              borderRadius: '6px',
+                              color: 'var(--brand)',
+                              padding: '5px 10px',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            View
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => downloadReceiptDirect(row)}
+                            title="Download official PDF receipt"
+                            style={{
+                              background: 'rgba(46,204,113,0.1)',
+                              border: '1px solid rgba(46,204,113,0.3)',
+                              borderRadius: '6px',
+                              color: 'var(--success)',
+                              padding: '5px 8px',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                            }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            PDF
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
