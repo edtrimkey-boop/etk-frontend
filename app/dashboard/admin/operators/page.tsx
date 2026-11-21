@@ -6,14 +6,22 @@ import { useDashboard } from '@/lib/dashboard-context';
 export default function AdminOperatorsPage() {
   const { payload } = useDashboard();
   const [search, setSearch] = useState('');
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
 
   const operatorList = payload?.superAdmin?.operatorList || [];
+
+  React.useEffect(() => {
+    setDisplayLimit(30);
+  }, [search]);
 
   const filtered = operatorList.filter((op: any) => {
     const name = (op.name || op.full_name || '').toLowerCase();
     const q = search.toLowerCase();
     return name.includes(q);
   });
+
+  const visible = filtered.slice(0, displayLimit);
+  const hasMore = displayLimit < filtered.length;
 
   return (
     <div id="view-operators" className="page-view active" style={{ display: 'block' }}>
@@ -46,7 +54,7 @@ export default function AdminOperatorsPage() {
           </div>
         </div>
 
-        <div className="tk-table-wrapper" style={{ marginTop: '20px', overflowX: 'auto' }}>
+        <div className="tk-table-wrapper" style={{ marginTop: '20px' }}>
           <table className="tk-sleek-table" style={{ width: '100%' }}>
             <thead>
               <tr>
@@ -66,7 +74,7 @@ export default function AdminOperatorsPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((op: any, idx: number) => (
+                visible.map((op: any, idx: number) => (
                   <tr key={idx}>
                     <td style={{ fontWeight: 800, color: 'white' }}>{op.name || op.full_name}</td>
                     <td>
@@ -104,6 +112,29 @@ export default function AdminOperatorsPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Load Capacity Bar & Load More Action */}
+        <div className="tk-table-capacity-bar">
+          <div className="tk-capacity-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+            </svg>
+            Showing <b style={{ color: 'white' }}>{visible.length}</b> of <b style={{ color: 'white' }}>{filtered.length}</b> operators (Load Capacity: 30 / batch)
+          </div>
+          {hasMore && (
+            <button
+              type="button"
+              className="tk-load-more-btn"
+              onClick={() => setDisplayLimit((prev) => prev + 30)}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Load More (+30)...
+            </button>
+          )}
         </div>
       </div>
     </div>

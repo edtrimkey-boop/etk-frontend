@@ -7,8 +7,13 @@ export default function AdminInstitutesPage() {
   const { payload } = useDashboard();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
 
   const institutes = payload?.superAdmin?.institutes || [];
+
+  React.useEffect(() => {
+    setDisplayLimit(30);
+  }, [search, statusFilter]);
 
   const filtered = institutes.filter((inst: any) => {
     const name = (inst.name || '').toLowerCase();
@@ -18,6 +23,9 @@ export default function AdminInstitutesPage() {
     const matchesStatus = statusFilter === 'all' || (inst.status || '').toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
+
+  const visible = filtered.slice(0, displayLimit);
+  const hasMore = displayLimit < filtered.length;
 
   return (
     <div id="view-institutes" className="page-view active" style={{ display: 'block' }}>
@@ -62,7 +70,7 @@ export default function AdminInstitutesPage() {
           </div>
         </div>
 
-        <div className="tk-table-wrapper" style={{ marginTop: '20px', overflowX: 'auto' }}>
+        <div className="tk-table-wrapper" style={{ marginTop: '20px' }}>
           <table className="tk-sleek-table" style={{ width: '100%' }}>
             <thead>
               <tr>
@@ -82,7 +90,7 @@ export default function AdminInstitutesPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((inst: any, idx: number) => (
+                visible.map((inst: any, idx: number) => (
                   <tr key={idx}>
                     <td>
                       <span style={{ fontWeight: 800, color: 'var(--brand)', fontFamily: 'monospace' }}>
@@ -131,6 +139,29 @@ export default function AdminInstitutesPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Load Capacity Bar & Load More Action */}
+        <div className="tk-table-capacity-bar">
+          <div className="tk-capacity-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <rect width="20" height="14" x="2" y="5" rx="2" />
+              <line x1="2" y1="10" x2="22" y2="10" />
+            </svg>
+            Showing <b style={{ color: 'white' }}>{visible.length}</b> of <b style={{ color: 'white' }}>{filtered.length}</b> institutes (Load Capacity: 30 / batch)
+          </div>
+          {hasMore && (
+            <button
+              type="button"
+              className="tk-load-more-btn"
+              onClick={() => setDisplayLimit((prev) => prev + 30)}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Load More (+30)...
+            </button>
+          )}
         </div>
       </div>
     </div>

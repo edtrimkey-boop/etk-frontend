@@ -33,6 +33,11 @@ export default function SleekJobsTable({
   onOpenAction,
 }: SleekJobsTableProps) {
   const [now, setNow] = useState(Date.now());
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [searchQuery, data.length]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -46,6 +51,9 @@ export default function SleekJobsTable({
   );
   const isOperator = String(userRole).toLowerCase().trim() === 'operator';
   const showInst = isSuperAdmin || isOperator;
+
+  const visibleData = data.slice(0, displayLimit);
+  const hasMore = displayLimit < data.length;
 
   // Status Badge Helper
   const renderStatusBadge = (st: string) => {
@@ -180,7 +188,8 @@ export default function SleekJobsTable({
   }
 
   return (
-    <div className="tk-table-wrapper" style={{ margin: '15px 0' }}>
+    <>
+      <div className="tk-table-wrapper" style={{ margin: '15px 0' }}>
       <table className="tk-sleek-table">
         <thead>
           <tr>
@@ -223,7 +232,7 @@ export default function SleekJobsTable({
           </tr>
         </thead>
         <tbody>
-          {data.map((r, idx) => {
+          {visibleData.map((r, idx) => {
             const st = String(r.status || 'Pending').trim();
             const rawClass = String(r.class || '-').toUpperCase().trim();
             let classString = rawClass;
@@ -390,5 +399,30 @@ export default function SleekJobsTable({
         </tbody>
       </table>
     </div>
-  );
+
+    {/* Load Capacity Bar & Load More */}
+    <div className="tk-table-capacity-bar">
+      <div className="tk-capacity-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+        Showing <b style={{ color: 'white' }}>{visibleData.length}</b> of <b style={{ color: 'white' }}>{data.length}</b> {type === 'papers' ? 'question papers' : 'academic documents'} (Load Capacity: 30 / batch)
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          className="tk-load-more-btn"
+          onClick={() => setDisplayLimit((prev) => prev + 30)}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Load More (+30)...
+        </button>
+      )}
+    </div>
+  </>
+);
 }

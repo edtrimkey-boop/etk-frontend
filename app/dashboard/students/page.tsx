@@ -48,6 +48,12 @@ export default function StudentsPage() {
   // Extract unique classes
   const classes = Array.from(new Set(students.map((s) => s.class_name || s.class).filter(Boolean))).sort();
 
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [search, classFilter]);
+
   const filtered = students.filter((s) => {
     const name = (s.student_name || s.name || '').toLowerCase();
     const father = (s.father_name || s.father || '').toLowerCase();
@@ -64,6 +70,9 @@ export default function StudentsPage() {
 
     return matchesSearch && matchesClass;
   });
+
+  const visible = filtered.slice(0, displayLimit);
+  const hasMore = displayLimit < filtered.length;
 
   return (
     <div id="view-inst-students" className="page-view active" style={{ display: 'block' }}>
@@ -158,10 +167,25 @@ export default function StudentsPage() {
               <option key={c} value={c}>Class {c}</option>
             ))}
           </select>
+
+          <span
+            id="studentCountBadge"
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            Showing <b style={{ color: 'white' }}>{visible.length}</b> of <b style={{ color: 'white' }}>{filtered.length}</b> students
+          </span>
         </div>
 
-        {/* Students Table */}
-        <div className="tk-table-wrapper" style={{ overflowX: 'auto' }}>
+        {/* Students Table with Vertical Scroll Containment & Sticky Headers */}
+        <div className="tk-table-wrapper">
           <table className="tk-sleek-table" style={{ width: '100%' }}>
             <thead>
               <tr>
@@ -201,7 +225,7 @@ export default function StudentsPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((s, idx) => (
+                visible.map((s, idx) => (
                   <tr key={s.id || idx}>
                     <td data-label="ADM / ROLL NO">
                       <span style={{ fontWeight: 800, color: 'var(--brand)', fontFamily: 'monospace' }}>
@@ -256,6 +280,29 @@ export default function StudentsPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Load Capacity Bar & Load More Action */}
+        <div className="tk-table-capacity-bar">
+          <div className="tk-capacity-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+            </svg>
+            Showing <b style={{ color: 'white' }}>{visible.length}</b> of <b style={{ color: 'white' }}>{filtered.length}</b> students (Load Capacity: 30 / batch)
+          </div>
+          {hasMore && (
+            <button
+              type="button"
+              className="tk-load-more-btn"
+              onClick={() => setDisplayLimit((prev) => prev + 30)}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Load More Students... (+30)
+            </button>
+          )}
         </div>
       </div>
     </div>

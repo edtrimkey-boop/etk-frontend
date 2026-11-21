@@ -605,9 +605,86 @@ input:disabled + .slider { cursor: not-allowed; opacity: 0.4; filter: grayscale(
 .bg-purple { background: rgba(139, 92, 246, 0.1); color: var(--purple); border: 1px solid rgba(139, 92, 246, 0.2); }
 .bg-delivered { background: var(--success); color: #05080F; border: none; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); } 
 
-.tk-table-wrapper { width: 100%; overflow-x: auto; padding: 5px; }
-.tk-sleek-table { width: 100%; border-collapse: separate; border-spacing: 0 12px; }
-.tk-sleek-table th { padding: 12px 20px; font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; border: none; text-align: left; letter-spacing: 0.5px; }
+.tk-table-wrapper { 
+    width: 100%; 
+    overflow-x: auto; 
+    overflow-y: auto; 
+    max-height: clamp(380px, 60vh, 640px);
+    padding: 0 4px 6px 4px; 
+    position: relative;
+    border-radius: var(--radius-md);
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Custom sleek scrollbar for isolated vertical & horizontal table scrolling */
+.tk-table-wrapper::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.tk-table-wrapper::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+}
+.tk-table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(38, 195, 234, 0.28);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.tk-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(38, 195, 234, 0.6);
+}
+
+.tk-sleek-table { 
+    width: 100%; 
+    border-collapse: separate; 
+    border-spacing: 0 12px; 
+}
+
+.tk-sleek-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.tk-sleek-table thead th,
+.tk-sleek-table th { 
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 13px 20px; 
+    font-size: 11px; 
+    font-weight: 800; 
+    color: var(--text-muted); 
+    text-transform: uppercase; 
+    border: none; 
+    text-align: left; 
+    letter-spacing: 0.5px; 
+    background: #0B111E;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.tk-sleek-table thead th:first-child,
+.tk-sleek-table th:first-child { 
+    border-top-left-radius: 12px; 
+    border-bottom-left-radius: 12px; 
+}
+.tk-sleek-table thead th:last-child,
+.tk-sleek-table th:last-child { 
+    border-top-right-radius: 12px; 
+    border-bottom-right-radius: 12px; 
+}
+
+/* Light Theme support */
+[data-theme="light"] .tk-sleek-table thead th,
+[data-theme="light"] .tk-sleek-table th {
+    background: #F8FAFC;
+    color: var(--text-muted);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
 
 .tk-sleek-table td { 
     padding: 18px 22px; 
@@ -623,6 +700,80 @@ input:disabled + .slider { cursor: not-allowed; opacity: 0.4; filter: grayscale(
 .tk-sleek-table tbody tr { transition: all 0.3s ease; cursor: default; }
 .tk-sleek-table tbody tr:hover { transform: scale(1.005) translateY(-2px); box-shadow: 0 12px 35px rgba(0,0,0,0.4); }
 .tk-sleek-table tbody tr:hover td { background: linear-gradient(90deg, rgba(38,195,234,0.05) 0%, rgba(38,195,234,0.02) 100%); border-color: rgba(38,195,234,0.2); }
+
+/* Table Load Capacity Bar & Load More */
+.tk-table-capacity-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    margin-top: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tk-load-more-btn {
+    padding: 8px 20px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--brand);
+    border: 1px solid rgba(38, 195, 234, 0.4);
+    background: rgba(38, 195, 234, 0.1);
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+.tk-load-more-btn:hover {
+    background: rgba(38, 195, 234, 0.2);
+    border-color: var(--brand);
+    transform: translateY(-1px);
+}
+.tk-capacity-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Old System Admin Tables with Scroll Containment */
+.table-container,
+.admin-table-container {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: clamp(380px, 60vh, 640px);
+    border-radius: var(--radius-md);
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+.table-container::-webkit-scrollbar,
+.admin-table-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.table-container::-webkit-scrollbar-thumb,
+.admin-table-container::-webkit-scrollbar-thumb {
+    background: rgba(38, 195, 234, 0.28);
+    border-radius: 4px;
+}
+table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #0B111E;
+}
+[data-theme="light"] table thead th {
+    background: #F8FAFC;
+}
 
 /* Old System Admin Tables */
 table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; white-space: nowrap;}

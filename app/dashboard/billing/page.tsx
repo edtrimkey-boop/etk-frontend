@@ -397,6 +397,17 @@ export default function BillingPage() {
     return list;
   }, [combinedBilling, filterType, searchQuery]);
 
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [filterType, searchQuery]);
+
+  const visibleBilling = useMemo(() => {
+    return filteredBilling.slice(0, displayLimit);
+  }, [filteredBilling, displayLimit]);
+  const hasMoreBilling = displayLimit < filteredBilling.length;
+
   // Instant Manual Reconciliation Handler
   const handleManualReconcile = async () => {
     setIsReconciling(true);
@@ -1208,7 +1219,8 @@ export default function BillingPage() {
             </p>
           </div>
         ) : (
-          <div className="tk-table-wrapper" style={{ overflowX: 'auto' }}>
+          <>
+            <div className="tk-table-wrapper">
             <table className="tk-sleek-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
@@ -1223,7 +1235,7 @@ export default function BillingPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredBilling.map((row: any, i: number) => {
+                {visibleBilling.map((row: any, i: number) => {
                   const ledId = row.ledId || row.id || `LED-${1000 + i}`;
                   const isRecharge = Number(row.amount) > 0 || (row.type && String(row.type).toLowerCase().includes('recharge'));
                   const dateObj = row.date ? new Date(row.date) : new Date();
@@ -1382,7 +1394,31 @@ export default function BillingPage() {
               </tbody>
             </table>
           </div>
-        )}
+
+          {/* Load Capacity Bar & Load More Action */}
+          <div className="tk-table-capacity-bar">
+            <div className="tk-capacity-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <rect width="20" height="14" x="2" y="5" rx="2" />
+                <line x1="2" x2="22" y1="10" y2="10" />
+              </svg>
+              Showing <b style={{ color: 'white' }}>{visibleBilling.length}</b> of <b style={{ color: 'white' }}>{filteredBilling.length}</b> records (Load Capacity: 30 / batch)
+            </div>
+            {hasMoreBilling && (
+              <button
+                type="button"
+                className="tk-load-more-btn"
+                onClick={() => setDisplayLimit((prev) => prev + 30)}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Load More Transactions... (+30)
+              </button>
+            )}
+          </div>
+        </>
+      )}
       </div>
     </div>
   );

@@ -92,12 +92,21 @@ export default function TeachersPage() {
     });
   };
 
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [search]);
+
   const filtered = teachers.filter((t) => {
     const name = (t.full_name || t.name || '').toLowerCase();
     const email = (t.email || '').toLowerCase();
     const q = search.toLowerCase();
     return name.includes(q) || email.includes(q);
   });
+
+  const visible = filtered.slice(0, displayLimit);
+  const hasMore = displayLimit < filtered.length;
 
   return (
     <div id="view-inst-teachers" className="page-view active" style={{ display: 'block' }}>
@@ -159,13 +168,13 @@ export default function TeachersPage() {
           </div>
         </div>
 
-        {/* Sleek Data Table Wrapper */}
-        <div className="tk-table-wrapper" style={{ marginTop: '20px', overflowX: 'auto' }}>
+        {/* Sleek Data Table Wrapper with Vertical Scroll Containment & Sticky Headers */}
+        <div className="tk-table-wrapper" style={{ marginTop: '20px' }}>
           <table className="tk-sleek-table" style={{ width: '100%' }}>
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Subject & Class</th>
+                <th>Subject &amp; Class</th>
                 <th>Contact No</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Action</th>
@@ -202,7 +211,7 @@ export default function TeachersPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((t, idx) => {
+                visible.map((t, idx) => {
                   const prof = t.teacher_profiles?.[0] || t.teacher_profiles || {};
                   const assignedClass = prof.assigned_class || t.assigned_class || '-';
                   let subjects: string[] = [];
@@ -321,6 +330,29 @@ export default function TeachersPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Load Capacity Bar & Load More Action */}
+        <div className="tk-table-capacity-bar">
+          <div className="tk-capacity-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+            </svg>
+            Showing <b style={{ color: 'white' }}>{visible.length}</b> of <b style={{ color: 'white' }}>{filtered.length}</b> faculty members (Load Capacity: 30 / batch)
+          </div>
+          {hasMore && (
+            <button
+              type="button"
+              className="tk-load-more-btn"
+              onClick={() => setDisplayLimit((prev) => prev + 30)}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Load More Teachers... (+30)
+            </button>
+          )}
         </div>
       </div>
     </div>
