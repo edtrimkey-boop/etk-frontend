@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
+import IOSSpinner from '@/components/ui/IOSSpinner';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/pricing';
 import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
 
@@ -20,6 +21,163 @@ interface QuickTemplate {
   badge?: string;
 }
 
+function renderTemplateSvg(icon: string) {
+  switch (icon) {
+    case 'fee':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+          <path d="M12 18V6" />
+        </svg>
+      );
+    case 'exam':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+      );
+    case 'holiday':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+          <line x1="8" y1="19" x2="8" y2="21" />
+          <line x1="12" y1="19" x2="12" y2="21" />
+          <line x1="16" y1="19" x2="16" y2="21" />
+        </svg>
+      );
+    case 'ptm':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case 'bus':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="14" rx="3" />
+          <circle cx="7" cy="18" r="2" />
+          <circle cx="17" cy="18" r="2" />
+          <path d="M3 9h18" />
+          <path d="M3 13h18" />
+        </svg>
+      );
+    case 'circular':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+      );
+    case 'staff':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case 'system':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+        </svg>
+      );
+    case 'release':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+        </svg>
+      );
+    case 'security':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      );
+    case 'operator':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+      );
+    case 'admin':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      );
+    case 'paper':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+        </svg>
+      );
+    case 'leave':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+      );
+    case 'counsel':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      );
+    case 'supplies':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m7.5 4.27 9 5.15" />
+          <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+          <path d="m3.3 7 8.7 5 8.7-5" />
+          <path d="M12 22V12" />
+        </svg>
+      );
+    case 'homework':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+        </svg>
+      );
+    case 'revision':
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      );
+    default:
+      return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      );
+  }
+}
+
 // 1. Institute Admin Templates (School & Campus wide)
 const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
   {
@@ -27,7 +185,7 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Fee',
     priority: 'high',
     label: 'Fee Due Notice',
-    icon: '💰',
+    icon: 'fee',
     badge: 'Campus',
     targetAudience: 'inst_students',
     title: 'Academic Fee Installment Due Notice',
@@ -39,7 +197,7 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Examination',
     priority: 'urgent',
     label: 'Exam Schedule & Admit Card',
-    icon: '📝',
+    icon: 'exam',
     badge: 'Campus',
     targetAudience: 'inst_students',
     title: 'Term Examination Schedule & Admit Cards Released',
@@ -51,7 +209,7 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Holiday',
     priority: 'urgent',
     label: 'Weather / Sudden Holiday',
-    icon: '🌧️',
+    icon: 'holiday',
     badge: 'Emergency',
     targetAudience: 'inst_emergency',
     title: 'Urgent Notice: Unscheduled School Closure',
@@ -63,7 +221,7 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'PTM & Events',
     priority: 'normal',
     label: 'Parent-Teacher Meeting (PTM)',
-    icon: '👨‍👩‍👧',
+    icon: 'ptm',
     badge: 'Campus',
     targetAudience: 'inst_students',
     title: 'Invitation: Comprehensive Parent-Teacher Meeting (PTM)',
@@ -75,7 +233,7 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Transport',
     priority: 'high',
     label: 'Bus Route / Delay Notice',
-    icon: '🚌',
+    icon: 'bus',
     badge: 'Transport',
     targetAudience: 'inst_students',
     title: 'School Transport & Bus Route Operational Update',
@@ -87,7 +245,7 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Academic',
     priority: 'normal',
     label: 'Official Academic Circular',
-    icon: '📜',
+    icon: 'circular',
     badge: 'Campus',
     targetAudience: 'inst_students',
     title: 'Important Academic Guidelines & Schedule Update',
@@ -99,7 +257,7 @@ const INST_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Academic',
     priority: 'high',
     label: 'Faculty Staff Meeting',
-    icon: '👩‍🏫',
+    icon: 'staff',
     badge: 'Staff',
     targetAudience: 'inst_teachers',
     title: 'Mandatory Faculty Academic & Review Meeting',
@@ -115,7 +273,7 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'System',
     priority: 'high',
     label: 'System Maintenance',
-    icon: '🛠️',
+    icon: 'system',
     badge: 'Global',
     targetAudience: 'global',
     title: 'Scheduled System Maintenance Advisory',
@@ -127,7 +285,7 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Platform',
     priority: 'normal',
     label: 'New Feature Release',
-    icon: '🚀',
+    icon: 'release',
     badge: 'Platform',
     targetAudience: 'all_admins',
     title: 'Ed-Trim Key V2.9.2 Engine Update Released',
@@ -139,7 +297,7 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Security',
     priority: 'urgent',
     label: 'Security Advisory',
-    icon: '🛡️',
+    icon: 'security',
     badge: 'Security',
     targetAudience: 'global',
     title: 'Mandatory Security & Credential Compliance Notice',
@@ -151,7 +309,7 @@ const SUPER_ADMIN_TEMPLATES: QuickTemplate[] = [
     category: 'Operations',
     priority: 'high',
     label: 'Operator Queue Notice',
-    icon: '💻',
+    icon: 'operator',
     badge: 'Operators',
     targetAudience: 'all_operators',
     title: 'Urgent: High Volume Examination Typesetting Queue',
@@ -168,7 +326,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Administrative',
     priority: 'normal',
     label: 'Note to Admin: Syllabus Progress',
-    icon: '🏫',
+    icon: 'admin',
     badge: 'To Admin',
     targetAudience: 'notice_to_admin',
     title: 'Faculty Academic Note: Syllabus Progress & Schedule Update',
@@ -180,7 +338,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Administrative',
     priority: 'high',
     label: 'Paper Ready for Vetting',
-    icon: '📄',
+    icon: 'paper',
     badge: 'To Admin',
     targetAudience: 'notice_to_admin',
     title: 'Term Question Paper Ready for Institutional Vetting',
@@ -192,7 +350,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Administrative',
     priority: 'high',
     label: 'Leave Notice & Duty Handover',
-    icon: '🗓️',
+    icon: 'leave',
     badge: 'To Admin',
     targetAudience: 'notice_to_admin',
     title: 'Faculty Leave Application & Class Duty Substitution Handover',
@@ -204,7 +362,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Administrative',
     priority: 'normal',
     label: 'Student Counseling Advisory',
-    icon: '⚠️',
+    icon: 'counsel',
     badge: 'To Admin',
     targetAudience: 'notice_to_admin',
     title: 'Student Academic Review & Parent Counseling Advisory',
@@ -216,7 +374,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Administrative',
     priority: 'normal',
     label: 'Stationery & Exam Requisition',
-    icon: '📦',
+    icon: 'supplies',
     badge: 'To Admin',
     targetAudience: 'notice_to_admin',
     title: 'Requisition: Academic Stationery & Exam Materials',
@@ -230,7 +388,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Academic',
     priority: 'normal',
     label: 'Homework & Assignment',
-    icon: '📚',
+    icon: 'homework',
     badge: 'Classroom',
     targetAudience: 'inst_specific_class',
     title: 'Class Assignment & Homework Submission Guidelines',
@@ -242,7 +400,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Examination',
     priority: 'high',
     label: 'Unit Test Announcement',
-    icon: '📝',
+    icon: 'exam',
     badge: 'Classroom',
     targetAudience: 'inst_specific_class',
     title: 'Announcement: Upcoming Class Unit Assessment',
@@ -254,7 +412,7 @@ const TEACHER_TEMPLATES: QuickTemplate[] = [
     category: 'Academic',
     priority: 'normal',
     label: 'Extra Revision Class',
-    icon: '⏰',
+    icon: 'revision',
     badge: 'Classroom',
     targetAudience: 'inst_specific_class',
     title: 'Special Doubt-Clearing & Revision Class Schedule',
@@ -271,7 +429,7 @@ const ALL_INSTITUTE_TEMPLATES: QuickTemplate[] = [
     category: 'Academic',
     priority: 'normal',
     label: 'Class Homework Assignment',
-    icon: '📚',
+    icon: 'homework',
     badge: 'Classroom',
     targetAudience: 'inst_specific_class',
     title: 'Class Assignment & Homework Submission Guidelines',
@@ -283,7 +441,7 @@ const ALL_INSTITUTE_TEMPLATES: QuickTemplate[] = [
     category: 'Examination',
     priority: 'high',
     label: 'Class Unit Assessment',
-    icon: '📝',
+    icon: 'exam',
     badge: 'Classroom',
     targetAudience: 'inst_specific_class',
     title: 'Announcement: Upcoming Class Unit Assessment',
@@ -295,7 +453,7 @@ const ALL_INSTITUTE_TEMPLATES: QuickTemplate[] = [
     category: 'Academic',
     priority: 'normal',
     label: 'Extra Revision Class',
-    icon: '⏰',
+    icon: 'revision',
     badge: 'Classroom',
     targetAudience: 'inst_specific_class',
     title: 'Special Doubt-Clearing & Revision Class Schedule',
@@ -1010,9 +1168,12 @@ export default function BroadcastPage() {
               gap: '12px',
             }}
           >
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              🔒 <strong style={{ color: 'white' }}>Role Privacy Notice:</strong> Outbound broadcast dispatching is reserved
-              for Institute &amp; Super Administrators. You can view all announcements below.
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span><strong style={{ color: 'white' }}>Role Privacy Notice:</strong> Outbound broadcast dispatching is reserved for Institute &amp; Super Administrators. You can view all announcements below.</span>
             </div>
             <Link href="/operator/workspace" style={{ textDecoration: 'none' }}>
               <OpticalButton variant="success" style={{ padding: '8px 16px', fontSize: '12px' }}>
@@ -1068,24 +1229,24 @@ export default function BroadcastPage() {
                 >
                   {isSuperAdmin ? (
                     <>
-                      <option value="global">🌐 Entire System Community (Global Network)</option>
-                      <option value="all_admins">🏫 All Institute Administrators</option>
-                      <option value="all_teachers">👩‍🏫 All System Teachers (Global)</option>
-                      <option value="all_operators">💻 All Production Operators</option>
+                      <option value="global">Entire System Community (Global Network)</option>
+                      <option value="all_admins">All Institute Administrators</option>
+                      <option value="all_teachers">All System Teachers (Global)</option>
+                      <option value="all_operators">All Production Operators</option>
                     </>
                   ) : isTeacher ? (
                     <>
-                      <option value="notice_to_admin">🏫 Pre-filled Note / Requisition to Institute Admin (Principal)</option>
-                      <option value="inst_specific_class">🎯 My Assigned Class / Grade (Select Grade Below)</option>
+                      <option value="notice_to_admin">Pre-filled Note / Requisition to Institute Admin (Principal)</option>
+                      <option value="inst_specific_class">My Assigned Class / Grade (Select Grade Below)</option>
                     </>
                   ) : (
                     <>
-                      <option value="inst_students">👨‍🎓 All Institute Students &amp; Parents ({studentsList.length || 142} total)</option>
-                      <option value="inst_specific_class">🎯 Specific Class / Grade (Select Grade Below)</option>
-                      <option value="inst_teachers">👩‍🏫 All Faculty &amp; Teaching Staff ({teachersList.length || 18} teachers)</option>
-                      <option value="inst_staff">🏢 Administrative &amp; Support Staff Only</option>
-                      <option value="inst_emergency">🚨 Emergency Broadcast (All Students, Parents &amp; Faculty)</option>
-                      <option value="notice_to_admin">📋 Internal Admin &amp; Academic Log (Self / Co-Admins)</option>
+                      <option value="inst_students">All Institute Students &amp; Parents ({studentsList.length || 142} total)</option>
+                      <option value="inst_specific_class">Specific Class / Grade (Select Grade Below)</option>
+                      <option value="inst_teachers">All Faculty &amp; Teaching Staff ({teachersList.length || 18} teachers)</option>
+                      <option value="inst_staff">Administrative &amp; Support Staff Only</option>
+                      <option value="inst_emergency">Emergency Broadcast (All Students, Parents &amp; Faculty)</option>
+                      <option value="notice_to_admin">Internal Admin &amp; Academic Log (Self / Co-Admins)</option>
                     </>
                   )}
                 </select>
@@ -1190,7 +1351,10 @@ export default function BroadcastPage() {
                       textAlign: 'left',
                     }}
                   >
-                    <span style={{ fontSize: '14px' }}>📱</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
                     <div>
                       <div>In-App Bell</div>
                       <div style={{ fontSize: '9px', opacity: 0.8 }}>Included (Free)</div>
@@ -1216,7 +1380,11 @@ export default function BroadcastPage() {
                       textAlign: 'left',
                     }}
                   >
-                    <span style={{ fontSize: '14px' }}>🔔</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 11a9 9 0 0 1 9 9" />
+                      <path d="M4 4a16 16 0 0 1 16 16" />
+                      <circle cx="5" cy="19" r="1" />
+                    </svg>
                     <div>
                       <div>Browser Push</div>
                       <div style={{ fontSize: '9px', opacity: 0.8 }}>FCM Mobile/PC</div>
@@ -1243,7 +1411,9 @@ export default function BroadcastPage() {
                         textAlign: 'left',
                       }}
                     >
-                      <span style={{ fontSize: '14px' }}>💬</span>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
                       <div>
                         <div>SMS Gateway</div>
                         <div style={{ fontSize: '9px', opacity: 0.8 }}>
@@ -1302,9 +1472,9 @@ export default function BroadcastPage() {
                       marginBottom: 0,
                     }}
                   >
-                    <option value="normal">🟢 Normal Routine</option>
-                    <option value="high">🟠 High Priority</option>
-                    {!isTeacher && <option value="urgent">🔴 Urgent Emergency</option>}
+                    <option value="normal">Normal Routine</option>
+                    <option value="high">High Priority</option>
+                    {!isTeacher && <option value="urgent">Urgent Emergency</option>}
                   </select>
                 </div>
 
@@ -1327,15 +1497,15 @@ export default function BroadcastPage() {
                       marginBottom: 0,
                     }}
                   >
-                    <option value="Academic">📚 Academic Circular</option>
-                    <option value="Examination">📝 Examination &amp; Admit Cards</option>
-                    {(isInstAdmin || isTeacher) && <option value="Homework">📖 Homework &amp; Classwork</option>}
-                    {isInstAdmin && <option value="Fee">💰 Fee Collection &amp; Due</option>}
-                    {isInstAdmin && <option value="Holiday">🌧️ Holiday &amp; Weather Notice</option>}
-                    {isInstAdmin && <option value="PTM &amp; Events">👨‍👩‍👧 PTM &amp; School Events</option>}
-                    {isInstAdmin && <option value="Transport">🚌 School Transport &amp; Bus</option>}
-                    {(isInstAdmin || isTeacher) && <option value="Administrative">🏫 Administrative Notes &amp; Requests</option>}
-                    {isSuperAdmin && <option value="System">🛠️ System Maintenance &amp; API</option>}
+                    <option value="Academic">Academic Circular</option>
+                    <option value="Examination">Examination &amp; Admit Cards</option>
+                    {(isInstAdmin || isTeacher) && <option value="Homework">Homework &amp; Classwork</option>}
+                    {isInstAdmin && <option value="Fee">Fee Collection &amp; Due</option>}
+                    {isInstAdmin && <option value="Holiday">Holiday &amp; Weather Notice</option>}
+                    {isInstAdmin && <option value="PTM &amp; Events">PTM &amp; School Events</option>}
+                    {isInstAdmin && <option value="Transport">School Transport &amp; Bus</option>}
+                    {(isInstAdmin || isTeacher) && <option value="Administrative">Administrative Notes &amp; Requests</option>}
+                    {isSuperAdmin && <option value="System">System Maintenance &amp; API</option>}
                   </select>
                 </div>
               </div>
@@ -1386,7 +1556,9 @@ export default function BroadcastPage() {
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      <span>{tpl.icon}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {renderTemplateSvg(tpl.icon)}
+                      </span>
                       <span>{tpl.label}</span>
                       {tpl.badge && (
                         <span
@@ -1490,19 +1662,23 @@ export default function BroadcastPage() {
                   marginTop: '4px',
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                  <path d="M10.268 21a2 2 0 0 0 3.464 0" />
-                  <path d="M15 8h6" />
-                  <path d="M18 5v6" />
-                  <path d="M20.002 14.464a9 9 0 0 0 .738.863A1 1 0 0 1 20 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 8.75-5.332" />
-                </svg>
-                {loading
-                  ? 'Dispatching Broadcast to All Devices...'
-                  : isSuperAdmin
-                  ? 'Launch Global Network Broadcast'
-                  : isTeacher
-                  ? 'Post Classroom Announcement'
-                  : 'Launch Campus Broadcast • Multi-Channel'}
+                {loading ? (
+                  <IOSSpinner size={18} color="#05080F" />
+                ) : (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                      <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+                      <path d="M15 8h6" />
+                      <path d="M18 5v6" />
+                      <path d="M20.002 14.464a9 9 0 0 0 .738.863A1 1 0 0 1 20 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 8.75-5.332" />
+                    </svg>
+                    {isSuperAdmin
+                      ? 'Launch Global Network Broadcast'
+                      : isTeacher
+                      ? 'Post Classroom Announcement'
+                      : 'Launch Campus Broadcast • Multi-Channel'}
+                  </>
+                )}
               </OpticalButton>
             </form>
           </div>
@@ -1915,11 +2091,26 @@ export default function BroadcastPage() {
 
                         {/* Channels */}
                         <td data-label="CHANNELS">
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            <span title="In-App Push" style={{ fontSize: '13px' }}>📱</span>
-                            <span title="Browser FCM Push" style={{ fontSize: '13px' }}>🔔</span>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <span title="In-App Push" style={{ display: 'inline-flex', alignItems: 'center', color: '#00F5A0' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                              </svg>
+                            </span>
+                            <span title="Browser FCM Push" style={{ display: 'inline-flex', alignItems: 'center', color: '#26C3EA' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 11a9 9 0 0 1 9 9" />
+                                <path d="M4 4a16 16 0 0 1 16 16" />
+                                <circle cx="5" cy="19" r="1" />
+                              </svg>
+                            </span>
                             {notif.channels?.includes('sms') && (
-                              <span title="SMS Broadcast" style={{ fontSize: '13px' }}>💬</span>
+                              <span title="SMS Broadcast" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--purple)' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                </svg>
+                              </span>
                             )}
                           </div>
                         </td>

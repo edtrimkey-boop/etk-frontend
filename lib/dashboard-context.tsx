@@ -175,14 +175,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const showAlert = useCallback((msg: string, title = 'System Notice') => {
     const lowerTitle = title.toLowerCase();
     const lowerMsg = msg.toLowerCase();
-    if (lowerTitle.includes('error') || lowerMsg.includes('failed') || lowerMsg.includes('error')) {
+    if (
+      lowerTitle.includes('error') ||
+      lowerMsg.includes('failed') ||
+      lowerMsg.includes('error') ||
+      lowerMsg.includes('invalid') ||
+      lowerMsg.includes('unauthorized') ||
+      lowerMsg.includes('refused')
+    ) {
       playSound('error');
-    } else if (lowerTitle.includes('warning') || lowerTitle.includes('caution')) {
+    } else if (
+      lowerTitle.includes('warning') ||
+      lowerTitle.includes('caution') ||
+      lowerTitle.includes('notice') ||
+      lowerMsg.includes('please fill') ||
+      lowerMsg.includes('required') ||
+      lowerMsg.includes('missing') ||
+      lowerMsg.includes('match') ||
+      lowerMsg.includes('already exist')
+    ) {
       playSound('warning');
-    } else if (lowerTitle.includes('success')) {
-      playSound('success');
     } else {
-      playSound('notification');
+      playSound('success');
     }
 
     setAlertState({ open: true, title, msg });

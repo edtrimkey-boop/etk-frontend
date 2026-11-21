@@ -172,7 +172,7 @@ export default function BillingPage() {
 
   const handleToggleApp = async (appType: 'attendance' | 'admission' | 'fee', currentState: boolean, requiresSub: boolean) => {
     if (requiresSub) {
-      showAlert('⚠️ This module requires an active App Subscription. Select "App Subscriptions" in the recharge panel to activate.', 'Subscription Required');
+      showAlert('This module requires an active App Subscription. Select "App Subscriptions" in the recharge panel to activate.', 'Subscription Required');
       setServiceSelect('App Subscriptions');
       if (appType === 'attendance') setSingleAppSelect('Attendance');
       if (appType === 'admission') setSingleAppSelect('Admission');

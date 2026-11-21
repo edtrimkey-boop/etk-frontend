@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
+import IOSSpinner from '@/components/ui/IOSSpinner';
 
 const SUBJECT_OPTIONS = [
   'Hindi', 'English', 'Mathematics', 'Science',
@@ -25,13 +26,14 @@ export default function TeacherEditModal() {
       setName(modalData.full_name || modalData.name || '');
       setPhone(modalData.phone_number || modalData.phone || '');
       const prof = modalData.teacher_profiles?.[0] || modalData.teacher_profiles || {};
-      setAssignedClass(prof.assigned_class || modalData.assigned_class || '');
+      setAssignedClass(prof.assigned_class || modalData.assigned_class || modalData.assignedClass || '');
 
       let subs: string[] = [];
-      if (Array.isArray(prof.subject_handles)) {
-        subs = prof.subject_handles;
-      } else if (typeof prof.subject_handles === 'string') {
-        subs = prof.subject_handles.split(',').map((s: string) => s.trim());
+      const rawSubjects = prof.subject_handles || modalData.subject_handles || modalData.subjects || prof.subjects;
+      if (Array.isArray(rawSubjects)) {
+        subs = rawSubjects.map((s: any) => String(s).trim()).filter(Boolean);
+      } else if (typeof rawSubjects === 'string') {
+        subs = rawSubjects.split(',').map((s: string) => s.trim()).filter(Boolean);
       }
       setSelectedSubjects(subs);
     }
@@ -50,22 +52,34 @@ export default function TeacherEditModal() {
     setLoading(true);
 
     try {
+      // 🛡️ CRITICAL FIX: Convert subjects array to comma-separated string
+      // The backend updateTeacherDetails handler calls payload.subjects.split(','),
+      // so subjects MUST be a string!
+      const subjectStr = Array.isArray(selectedSubjects)
+        ? selectedSubjects.join(', ')
+        : String(selectedSubjects || '');
+
+      const teacherIdentifier = modalData?.id || modalData?.userId || modalData?.teacherId;
+
       const payload = {
-        teacherId: modalData?.id,
+        userId: teacherIdentifier,
+        teacherId: teacherIdentifier,
         name,
         phone,
+        status: modalData?.status || 'Active',
         assignedClass,
-        subjects: selectedSubjects,
+        subjects: subjectStr,
+        subject_handles: selectedSubjects,
       };
 
       const res = await serverCall('updateTeacherDetails', payload);
 
-      if (res.success) {
+      if (res && res.success !== false) {
         closeModal();
         showAlert('Teacher details updated successfully!', 'Success');
         refreshData(true);
       } else {
-        showAlert(res.message || 'Failed to update teacher.', 'Error');
+        showAlert(res?.message || 'Failed to update teacher.', 'Error');
       }
     } catch (err: any) {
       showAlert(err.message || 'Error updating teacher.', 'Network Error');
@@ -195,9 +209,16 @@ export default function TeacherEditModal() {
             type="submit"
             disabled={loading}
             variant="primary"
-            style={{ width: '100%', marginTop: '10px' }}
+            style={{
+              width: '100%',
+              marginTop: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '44px',
+            }}
           >
-            {loading ? 'Saving...' : 'Update Teacher'}
+            {loading ? <IOSSpinner size={18} color="#05080F" /> : 'Update Teacher'}
           </OpticalButton>
         </form>
       </div>

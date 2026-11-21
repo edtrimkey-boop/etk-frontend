@@ -298,16 +298,9 @@ export default function UserProfileModal() {
             type="submit"
             disabled={loading}
             variant="primary"
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px' }}
           >
-            {loading ? (
-              <>
-                <IOSSpinner size={16} color="#05080F" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              'Save Changes'
-            )}
+            {loading ? <IOSSpinner size={18} color="#05080F" /> : 'Save Changes'}
           </OpticalButton>
         </form>
       </div>

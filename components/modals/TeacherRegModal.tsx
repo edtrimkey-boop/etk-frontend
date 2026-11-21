@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
+import IOSSpinner from '@/components/ui/IOSSpinner';
 
 const SUBJECT_OPTIONS = [
   'Hindi', 'English', 'Mathematics', 'Science',
@@ -39,6 +40,10 @@ export default function TeacherRegModal() {
     setLoading(true);
 
     try {
+      const subjectStr = Array.isArray(selectedSubjects)
+        ? selectedSubjects.join(', ')
+        : String(selectedSubjects || '');
+
       const payload = {
         instId: user?.instId || user?.code || '',
         institute_id: user?.instId || '',
@@ -46,7 +51,7 @@ export default function TeacherRegModal() {
         email,
         phone,
         assignedClass,
-        subjects: selectedSubjects,
+        subjects: subjectStr,
         subject_handles: selectedSubjects,
       };
 
@@ -232,9 +237,16 @@ export default function TeacherRegModal() {
             type="submit"
             disabled={loading}
             variant="primary"
-            style={{ width: '100%', marginTop: '10px' }}
+            style={{
+              width: '100%',
+              marginTop: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '44px',
+            }}
           >
-            {loading ? 'Adding Teacher...' : 'Add Teacher to Directory'}
+            {loading ? <IOSSpinner size={18} color="#05080F" /> : 'Add Teacher to Directory'}
           </OpticalButton>
         </form>
       </div>

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
+import IOSSpinner from '@/components/ui/IOSSpinner';
 
 export default function PasswordModal() {
   const { activeModal, closeModal, user, showAlert } = useDashboard();
@@ -140,9 +141,16 @@ export default function PasswordModal() {
             type="submit"
             disabled={loading}
             variant="primary"
-            style={{ width: '100%', marginTop: '10px' }}
+            style={{
+              width: '100%',
+              marginTop: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '44px',
+            }}
           >
-            {loading ? 'Updating...' : 'Update Security'}
+            {loading ? <IOSSpinner size={18} color="#05080F" /> : 'Update Security'}
           </OpticalButton>
         </form>
       </div>

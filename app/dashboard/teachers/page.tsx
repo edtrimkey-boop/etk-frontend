@@ -6,6 +6,7 @@ import { serverCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
+import IOSSpinner from '@/components/ui/IOSSpinner';
 
 export default function TeachersPage() {
   const { user, payload, openModal, showAlert, showConfirm, refreshData } = useDashboard();
@@ -19,6 +20,7 @@ export default function TeachersPage() {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const loadTeachers = async () => {
     const instId = user?.instId || user?.code;
@@ -53,9 +55,15 @@ export default function TeachersPage() {
   }, [user, payload]);
 
   const handleRemove = (teacher: any) => {
+    const tId = teacher.id || teacher.userId || teacher.teacherId;
     showConfirm(`Are you sure you want to suspend access for ${teacher.full_name || teacher.name}?`, async () => {
+      setActionLoadingId(tId);
       try {
-        const res = await serverCall('removeTeacherAccess', { email: teacher.email, teacherId: teacher.id });
+        const res = await serverCall('removeTeacherAccess', {
+          userId: tId,
+          teacherId: tId,
+          email: teacher.email,
+        });
         if (res.success) {
           showAlert('Teacher access suspended.', 'Success');
           loadTeachers();
@@ -65,13 +73,21 @@ export default function TeachersPage() {
         }
       } catch (err: any) {
         showAlert(err.message, 'Error');
+      } finally {
+        setActionLoadingId(null);
       }
     });
   };
 
   const handleRestore = async (teacher: any) => {
+    const tId = teacher.id || teacher.userId || teacher.teacherId;
+    setActionLoadingId(tId);
     try {
-      const res = await serverCall('restoreTeacherAccess', { email: teacher.email, teacherId: teacher.id });
+      const res = await serverCall('restoreTeacherAccess', {
+        userId: tId,
+        teacherId: tId,
+        email: teacher.email,
+      });
       if (res.success) {
         showAlert('Teacher access restored!', 'Success');
         loadTeachers();
@@ -81,13 +97,21 @@ export default function TeachersPage() {
       }
     } catch (err: any) {
       showAlert(err.message, 'Error');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const handleDelete = (teacher: any) => {
+    const tId = teacher.id || teacher.userId || teacher.teacherId;
     showConfirm(`PERMANENT ACTION: Delete ${teacher.full_name || teacher.name} from directory?`, async () => {
+      setActionLoadingId(tId);
       try {
-        const res = await serverCall('deleteTeacherAccess', { email: teacher.email, teacherId: teacher.id });
+        const res = await serverCall('deleteTeacherAccess', {
+          userId: tId,
+          teacherId: tId,
+          email: teacher.email,
+        });
         if (res.success) {
           showAlert('Teacher record permanently deleted.', 'Success');
           loadTeachers();
@@ -97,6 +121,8 @@ export default function TeachersPage() {
         }
       } catch (err: any) {
         showAlert(err.message, 'Error');
+      } finally {
+        setActionLoadingId(null);
       }
     });
   };
@@ -296,38 +322,116 @@ export default function TeachersPage() {
                         </span>
                       </td>
                       <td data-label="ACTION" style={{ textAlign: 'right' }}>
-                        <div className="mobile-action-row" style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                        <div className="mobile-action-row" style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
                           <button
                             type="button"
                             className="liquid-glass btn-sm btn-outline"
-                            style={{ color: 'var(--brand)', borderColor: 'var(--brand)' }}
+                            style={{
+                              color: 'var(--brand)',
+                              borderColor: 'var(--brand)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                            }}
                             onClick={() => openModal('teacherEdit', t)}
                           >
-                            Edit
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                            </svg>
+                            EDIT
                           </button>
                           {isActive ? (
                             <button
                               type="button"
                               className="liquid-glass btn-sm btn-warning"
+                              style={{
+                                color: 'var(--accent)',
+                                borderColor: 'var(--accent)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                              }}
+                              disabled={actionLoadingId === (t.id || t.userId)}
                               onClick={() => handleRemove(t)}
                             >
-                              Suspend
+                              {actionLoadingId === (t.id || t.userId) ? (
+                                <IOSSpinner size={13} color="currentColor" />
+                              ) : (
+                                <>
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                                  </svg>
+                                  SUSPEND
+                                </>
+                              )}
                             </button>
                           ) : (
                             <>
                               <button
                                 type="button"
                                 className="liquid-glass btn-sm btn-success"
+                                style={{
+                                  color: 'var(--success)',
+                                  borderColor: 'var(--success)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 12px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                }}
+                                disabled={actionLoadingId === (t.id || t.userId)}
                                 onClick={() => handleRestore(t)}
                               >
-                                Restore
+                                {actionLoadingId === (t.id || t.userId) ? (
+                                  <IOSSpinner size={13} color="currentColor" />
+                                ) : (
+                                  <>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="1 4 1 10 7 10" />
+                                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                                    </svg>
+                                    RESTORE
+                                  </>
+                                )}
                               </button>
                               <button
                                 type="button"
                                 className="liquid-glass btn-sm btn-danger"
+                                style={{
+                                  color: 'var(--danger)',
+                                  borderColor: 'var(--danger)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 12px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                }}
+                                disabled={actionLoadingId === (t.id || t.userId)}
                                 onClick={() => handleDelete(t)}
                               >
-                                Delete
+                                {actionLoadingId === (t.id || t.userId) ? (
+                                  <IOSSpinner size={13} color="currentColor" />
+                                ) : (
+                                  <>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="3 6 5 6 21 6" />
+                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                      <line x1="10" y1="11" x2="10" y2="17" />
+                                      <line x1="14" y1="11" x2="14" y2="17" />
+                                    </svg>
+                                    DELETE
+                                  </>
+                                )}
                               </button>
                             </>
                           )}

@@ -18,9 +18,22 @@ export default function ConfirmModal() {
 
   return (
     <div
+      id="confirmModal"
       className="glass-overlay active"
       onClick={closeConfirm}
-      style={{ zIndex: 99999 }}
+      style={{
+        zIndex: 999998,
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
       <div
         className="glass-box"
