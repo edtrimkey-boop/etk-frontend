@@ -1,11 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { OpticalSurface } from '@/components/ui/OpticalGlass';
 
 export default function SaraWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const handleToggle = () => setIsOpen((prev) => !prev);
+    const handleOpen = () => setIsOpen(true);
+    const handleClose = () => setIsOpen(false);
+
+    window.addEventListener('toggleSara', handleToggle);
+    window.addEventListener('openSara', handleOpen);
+    window.addEventListener('closeSara', handleClose);
+
+    return () => {
+      window.removeEventListener('toggleSara', handleToggle);
+      window.removeEventListener('openSara', handleOpen);
+      window.removeEventListener('closeSara', handleClose);
+    };
+  }, []);
 
   const toggleSara = (open: boolean) => {
     setIsOpen(open);

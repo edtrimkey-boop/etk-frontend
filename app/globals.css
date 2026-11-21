@@ -291,18 +291,23 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; filter:
 
 .top-bar { 
   min-height: 72px; 
-  height: calc(72px + env(safe-area-inset-top, 0px)); 
-  padding-top: env(safe-area-inset-top, 0px); 
+  height: auto; 
+  padding-top: max(env(safe-area-inset-top, 0px), 12px); 
+  padding-bottom: 12px;
   padding-left: max(24px, env(safe-area-inset-left, 0px)); 
   padding-right: max(24px, env(safe-area-inset-right, 0px)); 
   flex-shrink: 0; 
-  background: transparent; 
+  background: rgba(11, 17, 30, 0.88); 
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
   position: sticky; 
   top: 0; 
-  z-index: 100;
+  z-index: 1000;
+  box-sizing: border-box;
 }
 
 /* 🔥 FIX 3: Perfectly Spaced Header Icons */
@@ -1382,7 +1387,20 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
      ======================================================= */
   .sidebar { display: none !important; } 
   .top-bar .brandRow button { display: none !important; } 
-  .content-area { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; } 
+  .content-area { padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important; } 
+
+  /* Soft bottom gradient scrim to prevent cards peeking abruptly behind floating dock */
+  .mobile-bottom-scrim {
+      display: block;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(85px + env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(to top, rgba(11, 17, 30, 0.95) 0%, rgba(11, 17, 30, 0.7) 50%, transparent 100%);
+      pointer-events: none;
+      z-index: 4990;
+  }
 
   /* 1. Transparent layout wrapper - Centered across all mobile, phablet & tablet sizes */
   #mobile-nav-bar {
@@ -2373,6 +2391,34 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
     display: none !important;
   }
 
+  /* Sticky Frosted TopBar with Full iPhone Notch / Status Bar Clearance */
+  .top-bar {
+    min-height: calc(50px + max(env(safe-area-inset-top, 0px), 52px)) !important;
+    height: auto !important;
+    padding-top: max(env(safe-area-inset-top, 0px), 52px) !important;
+    padding-bottom: 10px !important;
+    padding-left: max(14px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(14px, env(safe-area-inset-right, 0px)) !important;
+    background: rgba(11, 17, 30, 0.94) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+  }
+
+  /* Hide floating Sara button on mobile so it never obscures cards or text */
+  #sara-chat-widget #sara-chat-btn {
+    display: none !important;
+  }
+
+  /* Content area scroll padding to clear bottom navigation dock */
+  .content-area {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
   /* Compact circular logo pill on mobile when inst name & title are hidden */
   .glass-title-pill {
     padding: 7px !important;
@@ -2576,11 +2622,12 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
 /* 2. STANDARD SMARTPHONES (<= 600px) */
 @media (max-width: 600px) {
   .top-bar {
-    padding-left: max(16px, env(safe-area-inset-left, 0px)) !important;
-    padding-right: max(16px, env(safe-area-inset-right, 0px)) !important;
-    min-height: 64px !important;
-    height: calc(64px + env(safe-area-inset-top, 0px)) !important;
-    padding-top: env(safe-area-inset-top, 0px) !important;
+    padding-left: max(14px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(14px, env(safe-area-inset-right, 0px)) !important;
+    padding-top: max(env(safe-area-inset-top, 0px), 52px) !important;
+    padding-bottom: 10px !important;
+    min-height: calc(48px + max(env(safe-area-inset-top, 0px), 52px)) !important;
+    height: auto !important;
   }
   .brandRow {
     gap: 10px !important;
@@ -2589,7 +2636,7 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
     gap: 10px !important;
   }
   .content-area {
-    padding: 16px max(14px, env(safe-area-inset-right, 0px)) calc(115px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)) !important;
+    padding: 16px max(14px, env(safe-area-inset-right, 0px)) calc(150px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)) !important;
   }
   .panel {
     padding: 20px 16px !important;
@@ -2674,8 +2721,10 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
 /* 4. ULTRA-COMPACT MOBILE (<= 360px: iPhone SE 1st gen, Galaxy Fold cover, 320px screens) */
 @media (max-width: 360px) {
   .top-bar {
-    min-height: 56px !important;
-    height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(44px + max(env(safe-area-inset-top, 0px), 48px)) !important;
+    height: auto !important;
+    padding-top: max(env(safe-area-inset-top, 0px), 48px) !important;
+    padding-bottom: 8px !important;
     padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
     padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
   }

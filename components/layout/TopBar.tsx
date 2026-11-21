@@ -194,6 +194,38 @@ export default function TopBar({
           </OpticalSurface>
         </div>
 
+        {/* Sara AI Assistant Quick Trigger */}
+        <div
+          title="Chat with Sara AI"
+          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent('toggleSara'));
+          }}
+        >
+          <OpticalSurface
+            className="liquid-glass glass-circle-btn"
+            radius={999}
+            style={{
+              width: '40px',
+              height: '40px',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: '4px',
+            }}
+          >
+            <img
+              src="https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/1115.gif"
+              alt="Sara AI"
+              style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'contain' }}
+            />
+          </OpticalSurface>
+          <span
+            className="sara-pulse-dot"
+            style={{ position: 'absolute', top: '-1px', right: '-1px', width: '8px', height: '8px' }}
+          />
+        </div>
+
         {/* Notification Bell */}
         <div
           ref={notifRef}
