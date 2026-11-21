@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/lib/dashboard-context';
-import { OpticalButton, OpticalLink } from '@/components/ui/OpticalGlass';
+import { OpticalButton } from '@/components/ui/OpticalGlass';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/Skeleton';
 
 export default function DashboardOverviewPage() {
+  const router = useRouter();
   const { user, payload, loading, refreshData, openModal, showToast } = useDashboard();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -33,80 +35,181 @@ export default function DashboardOverviewPage() {
     <div id="view-overview" className="page-view active" style={{ display: 'block' }}>
       {/* Action Buttons Row */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '25px', flexWrap: 'wrap' }} id="action-buttons-row">
-        {/* Submit Paper Button - Opens Modal */}
-        <OpticalButton
+        {/* 1. Submit Paper (Solid Brand/Cyan) */}
+        <button
+          id="btn-submit-paper"
           type="button"
-          variant="primary"
           onClick={() => openModal('paperSubmit')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(38,195,234,0.95) 0%, rgba(26,156,191,0.95) 100%)',
+            color: '#000',
+            border: '1px solid rgba(255,255,255,0.4)',
+            boxShadow: '0 4px 15px rgba(38,195,234,0.3)',
+            borderRadius: '50px',
+            padding: '12px 24px',
+            fontWeight: 800,
+            fontSize: '13px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer',
+          }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
           </svg>
           Submit Paper
-        </OpticalButton>
+        </button>
 
-        {/* Request Document Button - Opens Modal */}
-        <OpticalButton
+        {/* 2. Request Document (Solid Orange) */}
+        <button
+          id="btn-request-doc"
           type="button"
-          variant="warning"
           onClick={() => openModal('docSubmit')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          style={{
+            background: 'linear-gradient(135deg, var(--accent), #D97706)',
+            color: '#000',
+            border: '1px solid #D97706',
+            boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
+            borderRadius: '50px',
+            padding: '12px 24px',
+            fontWeight: 800,
+            fontSize: '13px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer',
+          }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
             <path d="M12 11h4" />
             <path d="M12 16h4" />
+            <path d="M8 11h.01" />
+            <path d="M8 16h.01" />
           </svg>
           Request Document
-        </OpticalButton>
+        </button>
 
-        {/* Dynamic Connected Apps */}
-        <span id="dynamic-apps-container" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <OpticalLink href="/fees" variant="purple">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect width="20" height="14" x="2" y="5" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-            Fee Portal
-          </OpticalLink>
+        {/* 3. Generated Papers (Solid Purple) */}
+        <button
+          id="btn-generated"
+          type="button"
+          onClick={() => router.push('/dashboard/papers')}
+          style={{
+            background: 'linear-gradient(135deg, var(--purple), #6D28D9)',
+            color: 'white',
+            border: '1px solid #6D28D9',
+            boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)',
+            borderRadius: '50px',
+            padding: '12px 24px',
+            fontWeight: 800,
+            fontSize: '13px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer',
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          Generated Papers
+        </button>
 
-          <OpticalLink href="/admission" variant="purple">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
-            Admission Portal
-          </OpticalLink>
-
-          <OpticalLink href="/attendance" variant="purple">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            Smart Attendance
-          </OpticalLink>
+        {/* Dynamic Connected Apps (e.g. Attendance App) */}
+        <span id="dynamic-apps-container" style={{ display: 'inline-flex', gap: '12px', flexWrap: 'wrap' }}>
+          {Array.isArray(payload?.dynamicApps) && payload.dynamicApps.length > 0 ? (
+            payload.dynamicApps.map((app: any, idx: number) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  if (app.url) {
+                    window.open(app.url + '?user=' + encodeURIComponent(payload?.email || user?.email || '') + '&code=' + (payload?.code || user?.code || ''));
+                  } else {
+                    showToast('App URL not configured.', 'info');
+                  }
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, var(--purple) 0%, #6D28D9 100%)',
+                  color: 'white',
+                  border: '1px solid #6D28D9',
+                  boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)',
+                  borderRadius: '50px',
+                  padding: '12px 24px',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                {app.name || 'Attendance App'}
+              </button>
+            ))
+          ) : (
+            <button
+              type="button"
+              onClick={() => showToast('Attendance App connecting...', 'info')}
+              style={{
+                background: 'linear-gradient(135deg, var(--purple) 0%, #6D28D9 100%)',
+                color: 'white',
+                border: '1px solid #6D28D9',
+                boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)',
+                borderRadius: '50px',
+                padding: '12px 24px',
+                fontWeight: 800,
+                fontSize: '13px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Attendance App
+            </button>
+          )}
         </span>
 
-        {/* Refresh Data */}
-        <OpticalButton
-          type="button"
+        {/* 5. Refresh Data */}
+        <button
           id="btn-refresh"
-          variant="secondary"
+          type="button"
           onClick={handleManualRefresh}
           disabled={loading || isRefreshing}
           style={{
+            background: 'rgba(255, 255, 255, 0.15)',
+            color: 'white',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '50px',
+            padding: '12px 24px',
+            fontWeight: 800,
+            fontSize: '13px',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            minWidth: '135px',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
           }}
         >
           {isRefreshing ? (
@@ -129,7 +232,7 @@ export default function DashboardOverviewPage() {
               Refresh Data
             </>
           )}
-        </OpticalButton>
+        </button>
       </div>
 
       {/* Shimmer Skeleton View on Initial Load */}
@@ -176,8 +279,8 @@ export default function DashboardOverviewPage() {
           {/* Profile Card */}
           <div className="panel" id="profileCard" style={{ flex: 1, minWidth: 'min(100%, 280px)', marginBottom: 0 }}>
             <div className="panel-header" style={{ border: 'none', padding: 0, marginBottom: '15px' }}>
-              <h3 id="profileCardTitle">
-                {(user?.role || 'User').toUpperCase()} PROFILE
+              <h3 id="profileCardTitle" style={{ color: 'var(--brand)', textTransform: 'uppercase' }}>
+                {(user?.role || 'Admin').toUpperCase()} PROFILE
               </h3>
             </div>
             <p style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--text-muted)' }}>
@@ -186,19 +289,21 @@ export default function DashboardOverviewPage() {
                 <circle cx="12" cy="11" r="4" />
                 <circle cx="12" cy="12" r="10" />
               </svg>
-              User:{' '}
               <span id="v1-teacher" style={{ color: 'white', fontWeight: 800 }}>
-                {user?.name || 'Administrator'}
+                {user?.name || 'AHMAD RAZA'}
               </span>
             </p>
             <p style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--text-muted)' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'bottom', marginRight: '8px' }}>
                 <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                 <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <path d="M12 11h4" />
+                <path d="M12 16h4" />
+                <path d="M8 11h.01" />
+                <path d="M8 16h.01" />
               </svg>
-              Role:{' '}
-              <span id="v1-subject" style={{ color: 'var(--brand)', fontWeight: 800, textTransform: 'uppercase' }}>
-                {user?.role || 'Admin'}
+              <span id="v1-subject" style={{ color: 'white', fontWeight: 800 }}>
+                {payload?.subjects || user?.subjects || 'Science, English, Mathematics'}
               </span>
             </p>
             <p id="profileInstRow" style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--text-muted)' }}>
@@ -209,38 +314,45 @@ export default function DashboardOverviewPage() {
                 <path d="M6 4.933V21" />
                 <circle cx="12" cy="9" r="2" />
               </svg>
-              Institute:{' '}
               <span id="v1-institute" style={{ color: 'white', fontWeight: 800 }}>
-                {user?.institute || 'Ed-Trim Key Command'}
+                {user?.institute || 'KEYSTONE PUBLIC SCHOOL'}
               </span>
             </p>
             <p className="statusGreen" style={{ marginTop: '15px' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="8" style={{ verticalAlign: 'bottom', marginRight: '4px' }}>
                 <circle cx="12" cy="12" r="1" />
               </svg>
-              Active Connection
+              User Active
             </p>
           </div>
 
           {/* Institute Details Card */}
           <div className="panel" id="instDetailsCard" style={{ display: 'block', flex: 1, minWidth: 'min(100%, 280px)', borderLeft: '4px solid var(--brand)', marginBottom: 0 }}>
             <div className="panel-header" style={{ border: 'none', padding: 0, marginBottom: '15px' }}>
-              <h3>Institute Summary</h3>
+              <h3 style={{ color: 'var(--brand)', textTransform: 'uppercase' }}>INSTITUTE DETAILS</h3>
             </div>
             <h2 id="inst-name" style={{ marginBottom: '8px', fontSize: '20px', color: 'var(--text)', fontWeight: 800 }}>
-              {user?.institute || 'Institutional Branch'}
+              {user?.institute || 'KEYSTONE PUBLIC SCHOOL'}
             </h2>
-            <p id="inst-address" style={{ marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Branch Code: <span style={{ color: 'var(--brand)', fontWeight: 800 }}>{user?.code || 'KPS'}</span>
+            <p id="inst-address" style={{ marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', flexShrink: 0 }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              {user?.instDetails?.address || 'Address not provided'}
             </p>
-            <p id="inst-email" style={{ marginBottom: '15px', fontSize: '13px', color: 'var(--brand)', fontWeight: 700 }}>
-              {user?.email || 'admin@trimkey.in'}
+            <p id="inst-email" style={{ marginBottom: '15px', fontSize: '13px', color: 'var(--brand)', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', flexShrink: 0 }}>
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+              {user?.instDetails?.adminEmail || 'Email not provided'}
             </p>
             <p className="statusGreen" style={{ marginTop: 0 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="8" style={{ verticalAlign: 'bottom', marginRight: '4px' }}>
                 <circle cx="12" cy="12" r="1" />
               </svg>
-              Subscription Active ({user?.instDetails?.plan || 'Standard ERP'})
+              Subscription {user?.instDetails?.plan || 'Annual'}
             </p>
           </div>
         </div>

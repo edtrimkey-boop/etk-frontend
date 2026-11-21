@@ -171,7 +171,7 @@ export default function TopBar({
         </OpticalSurface>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         {/* Global Command Palette Trigger (Ctrl+K / ⌘K) */}
         <div title="Command Palette (Ctrl+K or ⌘K)" className="desktop-only" style={{ display: 'inline-flex' }}>
           <OpticalSurface
