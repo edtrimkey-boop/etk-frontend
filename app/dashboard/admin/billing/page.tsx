@@ -2,9 +2,18 @@
 
 import React, { useState } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
+import AccessDenied from '@/components/shared/AccessDenied';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function AdminBillingPage() {
-  const { payload } = useDashboard();
+  const { user, payload } = useDashboard();
+  const role = normalizeRole(user?.role);
+
+  // Strict Privacy Route Guard: Super Admin Only
+  if (role !== 'super_admin') {
+    return <AccessDenied requiredRole="Super Administrator" moduleName="Global Financial Ledger" />;
+  }
+
   const [search, setSearch] = useState('');
   const [displayLimit, setDisplayLimit] = useState<number>(30);
 

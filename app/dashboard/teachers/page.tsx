@@ -4,9 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
+import AccessDenied from '@/components/shared/AccessDenied';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function TeachersPage() {
   const { user, payload, openModal, showAlert, showConfirm, refreshData } = useDashboard();
+  const role = normalizeRole(user?.role);
+
+  // Strict Privacy Route Guard: Institute Admin Only
+  if (role !== 'admin') {
+    return <AccessDenied requiredRole="Institute Administrator" moduleName="Faculty & Teachers Directory" />;
+  }
+
   const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

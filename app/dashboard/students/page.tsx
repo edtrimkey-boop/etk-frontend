@@ -5,9 +5,18 @@ import Link from 'next/link';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalLink } from '@/components/ui/OpticalGlass';
+import AccessDenied from '@/components/shared/AccessDenied';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function StudentsPage() {
   const { user, payload } = useDashboard();
+  const role = normalizeRole(user?.role);
+
+  // Strict Privacy Route Guard: Institute Admin & Teachers Only
+  if (role === 'operator') {
+    return <AccessDenied requiredRole="Institute Staff or Faculty" moduleName="Students Database" />;
+  }
+
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

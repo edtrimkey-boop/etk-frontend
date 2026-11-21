@@ -1,8 +1,19 @@
 'use client';
 
 import React from 'react';
+import { useDashboard } from '@/lib/dashboard-context';
+import AccessDenied from '@/components/shared/AccessDenied';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function OperatorEarningsPage() {
+  const { user } = useDashboard();
+  const role = normalizeRole(user?.role);
+
+  // Strict Privacy Route Guard: Operator Only
+  if (role !== 'operator') {
+    return <AccessDenied requiredRole="Production Operator" moduleName="Operator Financial Ledger" />;
+  }
+
   return (
     <div id="view-op-finance" className="page-view active" style={{ display: 'block' }}>
       <div className="panel" style={{ borderLeft: '4px solid var(--success)' }}>

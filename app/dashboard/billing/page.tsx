@@ -17,9 +17,17 @@ import {
   SUPABASE_ANON_KEY,
   fetchInstituteQuotas,
 } from '@/lib/pricing';
+import AccessDenied from '@/components/shared/AccessDenied';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function BillingPage() {
   const { user, payload, loading, refreshData, openModal, showAlert, showConfirm, showLoader, hideLoader, opticalGlassEnabled } = useDashboard();
+  const role = normalizeRole(user?.role);
+
+  // Strict Privacy Route Guard: Institute Admin Only
+  if (role !== 'admin') {
+    return <AccessDenied requiredRole="Institute Administrator" moduleName="Institute Billing & Subscriptions" />;
+  }
 
   // ── 1. Institute Subscription & Quota Stats ─────────────────────────────
   const instDetails = user?.instDetails || payload?.instDetails || payload?.data?.instDetails || {};

@@ -2,8 +2,19 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useDashboard } from '@/lib/dashboard-context';
+import AccessDenied from '@/components/shared/AccessDenied';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function OperatorWorkspacePage() {
+  const { user } = useDashboard();
+  const role = normalizeRole(user?.role);
+
+  // Strict Privacy Route Guard: Operator or Super Admin Only
+  if (role !== 'operator' && role !== 'super_admin') {
+    return <AccessDenied requiredRole="Production Operator" moduleName="Operator Production Workspace" />;
+  }
+
   const [activeJob, setActiveJob] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');

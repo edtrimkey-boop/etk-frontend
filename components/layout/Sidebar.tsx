@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
 
 interface SidebarProps {
   userRole?: string;
@@ -21,9 +22,14 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
 
-  const isSysAdmin = userRole === 'super_admin' || userRole === 'sys_admin';
-  const isInstAdmin = userRole === 'admin' || isSysAdmin;
-  const isOperator = userRole === 'operator' || isSysAdmin;
+  // Strict Normalized RBAC Roles matching index.html
+  const normRole: UserRole = normalizeRole(userRole);
+  const roleBadge = getRoleBadge(userRole);
+
+  const isSysAdmin = normRole === 'super_admin';
+  const isInstAdmin = normRole === 'admin';
+  const isTeacher = normRole === 'teacher';
+  const isOperator = normRole === 'operator';
 
   const handleNavClick = (tab: string, e: React.MouseEvent) => {
     if (onSwitchTab) {
@@ -43,7 +49,7 @@ export default function Sidebar({
       <div
         className="brandRow"
         style={{
-          marginBottom: '40px',
+          marginBottom: '30px',
           padding: '0 25px',
           display: 'flex',
           justifyContent: 'space-between',
@@ -58,8 +64,22 @@ export default function Sidebar({
             src="https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/EKT_GIF.gif"
             alt="Ed-Trim Key"
           />
-          <div className="brand" style={{ fontSize: '18px' }}>
-            Ed-Trim Key
+          <div>
+            <div className="brand" style={{ fontSize: '17px', lineHeight: 1.1 }}>
+              Ed-Trim Key
+            </div>
+            <div
+              style={{
+                fontSize: '9px',
+                fontWeight: 800,
+                color: roleBadge.color,
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                marginTop: '2px',
+              }}
+            >
+              {roleBadge.label}
+            </div>
           </div>
         </div>
         <button
@@ -83,7 +103,7 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* Navigation Items */}
+      {/* ── 1. COMMON: Dashboard Overview ──────────────────────────── */}
       <div
         id="nav-overview"
         className={`nav-item ${isActive('overview', '/dashboard') ? 'active' : ''}`}
@@ -95,78 +115,85 @@ export default function Sidebar({
         Dashboard Overview
       </div>
 
-      <div
-        id="nav-documents"
-        className={`nav-item ${isActive('documents', '/dashboard/documents') ? 'active' : ''}`}
-        onClick={(e) => handleNavClick('documents', e)}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-          <path d="M12 11h4" />
-          <path d="M12 16h4" />
-          <path d="M8 11h.01" />
-          <path d="M8 16h.01" />
-        </svg>
-        Documents System
-      </div>
+      {/* ── 2. ACADEMIC SUITE (Institute Admin, Teachers, Super Admin) ─ */}
+      {!isOperator && (
+        <>
+          <div
+            id="nav-documents"
+            className={`nav-item ${isActive('documents', '/dashboard/documents') ? 'active' : ''}`}
+            onClick={(e) => handleNavClick('documents', e)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <path d="M12 11h4" />
+              <path d="M12 16h4" />
+              <path d="M8 11h.01" />
+              <path d="M8 16h.01" />
+            </svg>
+            Documents System
+          </div>
 
-      <div
-        id="nav-papers"
-        className={`nav-item ${isActive('papers', '/dashboard/papers') ? 'active' : ''}`}
-        onClick={(e) => handleNavClick('papers', e)}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10 9 9 9 8 9" />
-        </svg>
-        Paper System
-      </div>
+          <div
+            id="nav-papers"
+            className={`nav-item ${isActive('papers', '/dashboard/papers') ? 'active' : ''}`}
+            onClick={(e) => handleNavClick('papers', e)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            Paper System
+          </div>
+        </>
+      )}
 
-      {/* Dynamic Sub-Apps Links (Fees, Admission, Attendance) */}
-      <div id="sidebar-dynamic-apps">
-        <Link
-          href="/fees"
-          className={`nav-item ${pathname.startsWith('/fees') ? 'active' : ''}`}
-          style={{ textDecoration: 'none' }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <rect width="20" height="14" x="2" y="5" rx="2" />
-            <line x1="2" x2="22" y1="10" y2="10" />
-          </svg>
-          Fee Portal
-        </Link>
-        <Link
-          href="/admission"
-          className={`nav-item ${pathname.startsWith('/admission') ? 'active' : ''}`}
-          style={{ textDecoration: 'none' }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-            <path d="M6 12v5c3 3 9 3 12 0v-5" />
-          </svg>
-          Admission Portal
-        </Link>
-        <Link
-          href="/attendance"
-          className={`nav-item ${pathname.startsWith('/attendance') ? 'active' : ''}`}
-          style={{ textDecoration: 'none' }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          Smart Attendance
-        </Link>
-      </div>
+      {/* ── 3. CONNECTED WEB APPS (Teachers & Institute Admins) ──────── */}
+      {(isInstAdmin || isTeacher) && (
+        <div id="sidebar-dynamic-apps">
+          <Link
+            href="/fees"
+            className={`nav-item ${pathname.startsWith('/fees') ? 'active' : ''}`}
+            style={{ textDecoration: 'none' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect width="20" height="14" x="2" y="5" rx="2" />
+              <line x1="2" x2="22" y1="10" y2="10" />
+            </svg>
+            Fee Portal
+          </Link>
+          <Link
+            href="/admission"
+            className={`nav-item ${pathname.startsWith('/admission') ? 'active' : ''}`}
+            style={{ textDecoration: 'none' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+              <path d="M6 12v5c3 3 9 3 12 0v-5" />
+            </svg>
+            Admission Portal
+          </Link>
+          <Link
+            href="/attendance"
+            className={`nav-item ${pathname.startsWith('/attendance') ? 'active' : ''}`}
+            style={{ textDecoration: 'none' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            Smart Attendance
+          </Link>
+        </div>
+      )}
 
-      {/* Admin Broadcast Center */}
-      {isInstAdmin && (
+      {/* ── 4. BROADCAST CENTER (Super Admin, Institute Admin, Teachers) ─ */}
+      {!isOperator && (
         <div
           id="nav-notifications"
           className={`nav-item ${isActive('notifications', '/dashboard/broadcast') ? 'active' : ''}`}
@@ -175,11 +202,11 @@ export default function Sidebar({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
           </svg>
-          Broadcast Center
+          {isTeacher ? 'Class Announcements' : 'Broadcast Center'}
         </div>
       )}
 
-      {/* Institute Admin Specific Tabs */}
+      {/* ── 5. INSTITUTE ADMIN ONLY: Billing, Teachers, Students ──────── */}
       {isInstAdmin && (
         <>
           <div
@@ -220,7 +247,7 @@ export default function Sidebar({
         </>
       )}
 
-      {/* Super Admin Specific Tabs */}
+      {/* ── 6. SUPER ADMIN ONLY: Global Institutes, Global Ledger, Operators ─ */}
       {isSysAdmin && (
         <>
           <div
@@ -264,8 +291,8 @@ export default function Sidebar({
         </>
       )}
 
-      {/* Operator Workspace & Tools */}
-      {isOperator && (
+      {/* ── 7. OPERATOR SUITE (Operators & Super Admin) ──────────────── */}
+      {(isOperator || isSysAdmin) && (
         <>
           <div
             id="nav-op-workspace"
@@ -280,17 +307,19 @@ export default function Sidebar({
             </svg>
             Production Workspace
           </div>
-          <div
-            id="nav-op-finance"
-            className={`nav-item ${isActive('op-finance', '/operator/earnings') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('op-finance', e)}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="2" y="5" width="20" height="14" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-            Financial Ledger
-          </div>
+          {isOperator && (
+            <div
+              id="nav-op-finance"
+              className={`nav-item ${isActive('op-finance', '/operator/earnings') ? 'active' : ''}`}
+              onClick={(e) => handleNavClick('op-finance', e)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <line x1="2" y1="10" x2="22" y2="10" />
+              </svg>
+              Financial Ledger
+            </div>
+          )}
           <Link
             href="/operator/tools/questions-formatter"
             className={`nav-item ${pathname.includes('questions-formatter') ? 'active' : ''}`}
@@ -305,7 +334,7 @@ export default function Sidebar({
         </>
       )}
 
-      {/* Master Settings */}
+      {/* ── 8. COMMON: Master Settings ──────────────────────────────── */}
       <div
         id="nav-settings"
         className={`nav-item ${isActive('settings', '/dashboard/settings') ? 'active' : ''}`}
@@ -321,14 +350,29 @@ export default function Sidebar({
       <div
         style={{
           marginTop: 'auto',
-          padding: '20px 30px',
+          padding: '20px 25px',
           fontSize: '11px',
           color: 'var(--text-muted)',
           fontWeight: 600,
           borderTop: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}
       >
-        Version V2.9.2 (ED TRIMKEY OS)
+        <span>ED TRIMKEY OS</span>
+        <span
+          style={{
+            fontSize: '9px',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            background: roleBadge.bg,
+            color: roleBadge.color,
+            fontWeight: 800,
+          }}
+        >
+          {roleBadge.label}
+        </span>
       </div>
     </div>
   );
