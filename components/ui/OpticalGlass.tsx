@@ -66,19 +66,19 @@ const VARIANT_CLASS: Record<Variant, string> = {
 };
 
 const FROSTED_STYLE: React.CSSProperties = {
-  backdropFilter: 'blur(14px) saturate(145%)',
-  WebkitBackdropFilter: 'blur(14px) saturate(145%)',
+  backdropFilter: `blur(${MASTER_GLASS_OPTICS.frost ?? 1}px) saturate(${MASTER_GLASS_OPTICS.saturate ?? 2})`,
+  WebkitBackdropFilter: `blur(${MASTER_GLASS_OPTICS.frost ?? 1}px) saturate(${MASTER_GLASS_OPTICS.saturate ?? 2})`,
   border: 'none',
   boxShadow: 'none',
 };
 
-// Removes only legacy CSS-glass skin class so layout/responsive classes (nav-pill-box, fab-dock,
+// Removes legacy CSS-glass skin classes so layout/responsive classes (nav-pill-box, fab-dock,
 // glass-title-pill, user-profile-container, desktop-only, open, active, etc.) stay intact on mobile & desktop.
 function stripLegacyGlassClass(className?: string): string {
   if (!className) return '';
   return className
     .split(/\s+/)
-    .filter((token) => token && token !== 'liquid-glass')
+    .filter((token) => token && token !== 'liquid-glass' && token !== 'glass-surface')
     .join(' ');
 }
 

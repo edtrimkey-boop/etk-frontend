@@ -13,11 +13,11 @@
   --radius-lg: 16px;   
   --radius-pill: 50px; 
   
-  /* 🔥 UNIVERSAL APPLE GLASS PHYSICS */
-  --glass-blur: blur(25px) saturate(200%);
-  --glass-bg: rgba(15, 20, 30, 10%); 
-  --glass-border: 1px solid rgba(255, 255, 255, 0.12);
-  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.2); 
+  /* 🔥 UNIVERSAL APPLE GLASS MASTER VALUES (SYNCED WITH MASTER_GLASS_OPTICS) */
+  --glass-blur: blur(1px) saturate(200%);
+  --glass-bg: rgba(255, 255, 255, 0.065); 
+  --glass-border: 1px solid rgba(255, 255, 255, 0.14);
+  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.55);
   --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
   --ios-spring: cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -1818,11 +1818,11 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   padding: 1px;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.34) 0%,
-    rgba(255, 255, 255, 0.09) 28%,
-    rgba(255, 255, 255, 0.04) 52%,
-    rgba(255, 255, 255, 0.08) 74%,
-    rgba(255, 255, 255, 0.26) 100%
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(38, 195, 234, 0.35) 25%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(239, 68, 68, 0.28) 75%,
+    rgba(255, 255, 255, 0.40) 100%
   );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
@@ -1851,12 +1851,7 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   z-index: 2;
 }
 
-/* Prevent Safari live refraction mirror from replaying page fadeIn/slide animations */
-[data-lg-clone="true"],
-[data-lg-clone="true"] * {
-  animation: none !important;
-  transition: none !important;
-}
+/* Liquid Glass Master Layer */
 
 /* Full viewport app shell (uses 100dvh on mobile browsers so dynamic address bar never clips dock) */
 .app-shell-root {
