@@ -14,7 +14,7 @@
   --radius-pill: 50px; 
   
   /* 🔥 UNIVERSAL APPLE GLASS MASTER VALUES (SYNCED WITH MASTER_GLASS_OPTICS) */
-  --glass-blur: blur(1px) saturate(200%);
+  --glass-blur: blur(16px) saturate(180%);
   --glass-bg: rgba(255, 255, 255, 0.065); 
   --glass-border: 1px solid rgba(255, 255, 255, 0.14);
   --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.55);
@@ -942,6 +942,11 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
       display: flex; justify-content: space-between; align-items: center;
       z-index: 5000;
       pointer-events: none; /* Lets clicks pass through the empty gaps */
+      -webkit-transform: translate3d(0, 0, 0);
+      transform: translate3d(0, 0, 0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      will-change: transform;
   }
 
   /* 2. The Main Tab Pill */
@@ -1809,31 +1814,24 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   transition: transform 0.5s cubic-bezier(0.34, 1.55, 0.5, 1);
 }
 
-/* Single razor-sharp 1px iPhone Liquid Glass specular rim (bright TL & BR arcs, soft fade on sides) */
+/* Single razor-sharp 1px iPhone Liquid Glass specular rim for solid buttons (box-shadow based for 100% WebKit/Safari parity, zero mask-composite bugs) */
 .apple-glass-shell::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(38, 195, 234, 0.35) 25%,
-    rgba(255, 255, 255, 0.10) 50%,
-    rgba(239, 68, 68, 0.28) 75%,
-    rgba(255, 255, 255, 0.40) 100%
-  );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
   pointer-events: none;
-  z-index: 4;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.55),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+              inset 0 -1px 1px 0 rgba(0, 0, 0, 0.2);
+  z-index: 3;
+}
+
+/* Optical glass wrap already contains internal multi-pass specular + chromatic meniscus rim in <Glass>;
+   disable outer ::after to prevent duplicate rim and eliminate WebKit backdrop isolation */
+.apple-glass-optical-wrap::after {
+  display: none !important;
+  content: none !important;
 }
 
 .apple-glass-interactive {
@@ -1878,6 +1876,19 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   border: none !important;
   padding: 0 !important;
   box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.45) !important;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.apple-glass-inner {
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform, -webkit-backdrop-filter, backdrop-filter;
 }
 
 /* Desktop Title Pill inner spacing */

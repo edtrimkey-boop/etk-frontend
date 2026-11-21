@@ -65,9 +65,10 @@ const VARIANT_CLASS: Record<Variant, string> = {
   surface: 'liquid-glass',
 };
 
+const FROSTED_BLUR = Math.max(MASTER_GLASS_OPTICS.frost ?? 1, 14);
 const FROSTED_STYLE: React.CSSProperties = {
-  backdropFilter: `blur(${MASTER_GLASS_OPTICS.frost ?? 1}px) saturate(${MASTER_GLASS_OPTICS.saturate ?? 2})`,
-  WebkitBackdropFilter: `blur(${MASTER_GLASS_OPTICS.frost ?? 1}px) saturate(${MASTER_GLASS_OPTICS.saturate ?? 2})`,
+  backdropFilter: `blur(${FROSTED_BLUR}px) saturate(${MASTER_GLASS_OPTICS.saturate ?? 1.8})`,
+  WebkitBackdropFilter: `blur(${FROSTED_BLUR}px) saturate(${MASTER_GLASS_OPTICS.saturate ?? 1.8})`,
   border: 'none',
   boxShadow: 'none',
 };

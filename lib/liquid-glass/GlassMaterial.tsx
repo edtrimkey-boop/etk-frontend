@@ -421,6 +421,14 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sized, shapeKey, supportsUrl]);
 
+  // WebKit / Safari & Firefox fallback:
+  // When backdrop-filter: url() is rejected (WebKit bug 245510), apply crystal-clear
+  // hardware-accelerated blur + saturation + brightness veil matching MASTER_GLASS_OPTICS.
+  const safariBlur = Math.max(merged.frost ?? 1, 14);
+  const safariSat = Math.max(merged.saturate ?? 1, 1.8);
+  const safariBrightness = (1 + (merged.brightness || 0.04)).toFixed(2);
+  const safariGlassFilter = `blur(${safariBlur}px) saturate(${safariSat}) brightness(${safariBrightness})`;
+
   // Apply backdrop-filter:
   // • Blink (Chrome/Edge): blur + saturate + SVG feDisplacementMap live backdrop refraction.
   // • WebKit (Safari / iOS / Firefox): pure live hardware-accelerated blur + saturate.
@@ -432,23 +440,27 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
       const rawFrost = Math.max(0, merged.frost);
       const sat = merged.saturate ?? 1;
 
-      const fns = [
-        rawFrost > 0 ? `blur(${rawFrost}px)` : "",
-        sat !== 1 ? `saturate(${sat})` : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-
-      let value = fns || "none";
       if (supportsUrl && filterEl && mapUrlRef.current) {
+        // Chromium / Blink: execute live GPU SVG displacement map backdrop refraction
         versionRef.current += 1;
         filterEl.id = `lg-mat-${baseId}-v${versionRef.current}`;
-        value = `${fns ? fns + " " : ""}url(#${filterEl.id})`;
+        const fns = [
+          rawFrost > 0 ? `blur(${rawFrost}px)` : "",
+          sat !== 1 ? `saturate(${sat})` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        const value = `${fns ? fns + " " : ""}url(#${filterEl.id})`;
+        el.style.backdropFilter = value;
+        el.style.setProperty("-webkit-backdrop-filter", value);
+      } else if (!supportsUrl) {
+        // WebKit (Safari on macOS & iOS) / Firefox:
+        // Use optimal hardware-accelerated optical backdrop blur & saturation
+        el.style.backdropFilter = safariGlassFilter;
+        el.style.setProperty("-webkit-backdrop-filter", safariGlassFilter);
       }
-      el.style.backdropFilter = value;
-      el.style.setProperty("-webkit-backdrop-filter", value);
     },
-    [merged.frost, merged.saturate, supportsUrl, baseId],
+    [merged.frost, merged.saturate, safariGlassFilter, supportsUrl, baseId],
   );
 
   useEffect(() => {
@@ -522,6 +534,13 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
       className={className}
       style={{
         display: "inline-block",
+        WebkitTransform: "translate3d(0, 0, 0)",
+        transform: "translate3d(0, 0, 0)",
+        WebkitBackfaceVisibility: "hidden",
+        backfaceVisibility: "hidden",
+        willChange: "transform, -webkit-backdrop-filter, backdrop-filter",
+        backdropFilter: supportsUrl ? undefined : safariGlassFilter,
+        WebkitBackdropFilter: supportsUrl ? undefined : safariGlassFilter,
         ...style,
         background: style?.background ?? MASTER_GLASS_BG,
         ...(position != null ? { position } : null),
