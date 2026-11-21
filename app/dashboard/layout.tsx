@@ -11,12 +11,15 @@ import SaraWidget from '@/components/shared/SaraWidget';
 import ModalHost from '@/components/modals/ModalHost';
 import TopProgressBar from '@/components/layout/TopProgressBar';
 import ToastContainer from '@/components/ui/ToastContainer';
+import CommandPalette from '@/components/shared/CommandPalette';
 
 function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, openModal } = useDashboard();
+  const { user, openModal, activeModal, alertState, confirmState, uploadProgress } = useDashboard();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const isModalActive = Boolean(activeModal || alertState?.open || confirmState?.open || uploadProgress?.open);
 
   // Determine active tab based on current pathname
   const getActiveTab = () => {
@@ -69,7 +72,7 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="app-shell-root">
+    <div className={`app-shell-root ${isModalActive ? 'has-active-modal' : ''}`}>
       {/* 1. Master Sidebar */}
       <Sidebar
         userRole={user?.role || 'admin'}
@@ -79,8 +82,8 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
         onSwitchTab={handleSwitchTab}
       />
 
-      {/* 2. Main Wrapper */}
-      <div className="main-wrapper">
+      {/* 2. Main Wrapper with Canvas Depth Stacking */}
+      <div className={`main-wrapper ${isModalActive ? 'canvas-depth-recessed' : ''}`}>
         <div className="header-scrim" />
 
         {/* Top Header */}
@@ -114,6 +117,9 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
       {/* 6. Apple-grade Top Progress Bar & Toast System */}
       <TopProgressBar />
       <ToastContainer />
+
+      {/* 7. Global ⌘K / Ctrl+K Command Palette */}
+      <CommandPalette />
     </div>
   );
 }

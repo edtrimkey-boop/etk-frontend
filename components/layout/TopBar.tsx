@@ -172,6 +172,28 @@ export default function TopBar({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Global Command Palette Trigger (Ctrl+K / ⌘K) */}
+        <div title="Command Palette (Ctrl+K or ⌘K)" className="desktop-only" style={{ display: 'inline-flex' }}>
+          <OpticalSurface
+            className="liquid-glass glass-circle-btn"
+            radius={999}
+            onClick={() => {
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+            }}
+            style={{
+              width: '42px',
+              height: '42px',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" strokeWidth="2" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </OpticalSurface>
+        </div>
+
         {/* Notification Bell */}
         <div
           ref={notifRef}

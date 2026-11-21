@@ -229,9 +229,55 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; filter:
 .mobile-close-btn:hover { color: var(--brand); transform: translateX(2px); }
 
 /* =======================================================
-   4. TOP BAR, HEADER & NOTIFICATIONS
+   4. TOP BAR, HEADER & NOTIFICATIONS (PHASE 2 DEPTH STACKING)
    ======================================================= */
-.main-wrapper { flex: 1; display: flex; flex-direction: column; height: 100%; min-width: 0; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; transition: all 0.3s ease; scroll-behavior: smooth; position: relative; }
+.main-wrapper { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  height: 100%; 
+  min-width: 0; 
+  overflow-x: hidden; 
+  overflow-y: auto; 
+  -webkit-overflow-scrolling: touch; 
+  scroll-behavior: smooth; 
+  position: relative; 
+  transform-origin: center 15%;
+  transition: transform 0.4s var(--ios-spring), filter 0.4s var(--ios-spring), border-radius 0.4s var(--ios-spring);
+}
+
+/* Background Canvas Depth Stacking (Apple macOS / iOS Modal Physics) */
+.app-shell-root.has-active-modal .main-wrapper,
+.main-wrapper.canvas-depth-recessed {
+  transform: scale(0.982) translateY(5px);
+  filter: brightness(0.8) contrast(1.04) saturate(0.9);
+  border-radius: 18px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Tabular Numerics: Zero Horizontal Glyph Jitter Across Whole OS */
+.tabular-nums,
+.kpi-card h2,
+.stat-val,
+.stat-number,
+.badge,
+.amount,
+.currency,
+.price-tag,
+.counter,
+.tk-sleek-table td,
+.font-mono,
+[data-tabular="true"] {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+
+/* Native-feel Focus Rings */
+:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(38, 195, 234, 0.45), 0 0 14px rgba(38, 195, 234, 0.25) !important;
+}
 .header-scrim { position: fixed; top: 0; left: 0; width: 100%; height: 140px; background: linear-gradient(to bottom, rgba(11, 17, 30, 70%) 0%, rgba(11, 17, 30, 30%) 30%, transparent 100%); pointer-events: none; z-index: 90; }
 
 .top-bar { height: 75px; flex-shrink: 0; background: transparent; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; position: sticky; top: 0; z-index: 100;}
@@ -685,8 +731,9 @@ button:not([class*="btn-"]):not(.liquid-glass):not(.apple-glass-shell):not(.clos
     transform: translateY(-2px) scale(1.02) !important;
 }
 
-/* 6. PHYSICAL HAPTIC ACTIVE & DISABLED STATES */
+/* 6. PHYSICAL HAPTIC ACTIVE & DISABLED STATES (APPLE SPRING PHYSICS) */
 button:active:not(:disabled),
+.btn:active:not(:disabled),
 .liquid-glass:active:not(:disabled),
 .btn-outline:active:not(:disabled),
 .btn-primary:active:not(:disabled),
@@ -694,10 +741,33 @@ button:active:not(:disabled),
 .btn-danger:active:not(:disabled),
 .btn-warning:active:not(:disabled),
 .btn-purple:active:not(:disabled),
-.btn-secondary:active:not(:disabled) { 
-    transform: scale(0.94) !important; 
+.btn-secondary:active:not(:disabled),
+.glass-circle-btn:active,
+.action-btn:active,
+.action-pill:active,
+.mobile-action-pill:active,
+.tk-load-more-btn:active,
+.nav-item:active,
+.sidebar-link:active,
+.notif-item:active,
+.dropdown-menu-item:active,
+.cb-pill:active { 
+    transform: scale(0.955) !important; 
     transition: transform 0.1s cubic-bezier(0.32, 0.72, 0, 1) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Tactile press on cards */
+.kpi-card:active,
+.activity:active {
+    transform: scale(0.985) !important;
+    transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
+
+/* Tactile press on table rows */
+.tk-sleek-table tbody tr:active {
+    transform: scale(0.993) !important;
+    transition: transform 0.08s cubic-bezier(0.32, 0.72, 0, 1) !important;
 }
 button:disabled,
 .liquid-glass:disabled,
@@ -2376,6 +2446,61 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
     width: min(260px, calc(100vw - 24px)) !important;
     top: 52px !important;
   }
+
+  /* =======================================================
+     PHASE 3: MOBILE BOTTOM SHEET MODALS & NATIVE GESTURES
+     ======================================================= */
+  .glass-overlay {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .glass-overlay .glass-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 28px 28px 0 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    max-height: 88dvh !important;
+    padding: 16px 20px calc(28px + env(safe-area-inset-bottom, 0px)) 20px !important;
+    animation: nativeSheetSlideUp 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+    overscroll-behavior: contain !important;
+  }
+
+  /* Apple Grab Indicator Handle at top of Mobile Bottom Sheet */
+  .glass-overlay .glass-box::before {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 0 auto 14px auto;
+  }
+
+  /* Modal Sticky Header adapts inside bottom sheet */
+  .glass-overlay .glass-box .premium-sticky-header {
+    top: -16px !important;
+    margin: -16px -20px 16px -20px !important;
+    padding: 10px 20px !important;
+    border-radius: 28px 28px 0 0 !important;
+  }
+}
+
+@keyframes nativeSheetSlideUp {
+  0% {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 600px) {
@@ -2408,15 +2533,6 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   .activity span {
     font-size: 11px !important;
   }
-  .glass-box {
-    padding: 24px 18px !important;
-    width: 94% !important;
-  }
-  .premium-sticky-header {
-    top: -24px !important;
-    margin: -24px -18px 20px -18px !important;
-    padding: 12px 18px !important;
-  }
   .kpi-card {
     padding: 18px 14px !important;
   }
@@ -2424,3 +2540,44 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
     font-size: 22px !important;
   }
 }
+
+/* =======================================================
+   PHASE 4: COMMAND PALETTE & TABLE ROW QUICK ACTIONS
+   ======================================================= */
+@keyframes commandPaletteFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.command-palette-card {
+  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+.cmd-item:hover,
+.cmd-item-selected {
+  background: rgba(38, 195, 234, 0.12) !important;
+  border-color: rgba(38, 195, 234, 0.35) !important;
+  transform: translateX(3px);
+}
+
+/* Table Row Quick Action Dock */
+.tk-sleek-table tbody tr td:last-child {
+  position: relative;
+}
+
+.tk-sleek-table .action-btn,
+.tk-sleek-table .row-action-pill {
+  transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.tk-sleek-table tbody tr:hover .action-btn,
+.tk-sleek-table tbody tr:hover .row-action-pill {
+  transform: scale(1.04);
+}
+
