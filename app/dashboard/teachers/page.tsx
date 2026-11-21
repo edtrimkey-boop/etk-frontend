@@ -7,6 +7,7 @@ import { OpticalButton } from '@/components/ui/OpticalGlass';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
 import IOSSpinner from '@/components/ui/IOSSpinner';
+import { SkeletonBlock } from '@/components/ui/Skeleton';
 
 export default function TeachersPage() {
   const { user, payload, openModal, showAlert, showConfirm, refreshData } = useDashboard();
@@ -217,12 +218,30 @@ export default function TeachersPage() {
             </thead>
             <tbody id="table-inst-teachers">
               {loading ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div className="spinner-sm" style={{ margin: '0 auto 10px auto' }} />
-                    Loading teachers directory...
-                  </td>
-                </tr>
+                Array.from({ length: 4 }).map((_, r) => (
+                  <tr key={r}>
+                    <td data-label="NAME">
+                      <SkeletonBlock width="140px" height="15px" style={{ marginBottom: '6px' }} />
+                      <SkeletonBlock width="180px" height="11px" />
+                    </td>
+                    <td data-label="SUBJECT & CLASS">
+                      <SkeletonBlock width="90px" height="13px" style={{ marginBottom: '6px' }} />
+                      <SkeletonBlock width="160px" height="11px" />
+                    </td>
+                    <td data-label="CONTACT NO">
+                      <SkeletonBlock width="100px" height="13px" />
+                    </td>
+                    <td data-label="STATUS">
+                      <SkeletonBlock width="60px" height="20px" borderRadius="6px" />
+                    </td>
+                    <td data-label="ACTION" style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <SkeletonBlock width="60px" height="28px" borderRadius="6px" />
+                        <SkeletonBlock width="70px" height="28px" borderRadius="6px" />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', padding: '50px 20px' }}>

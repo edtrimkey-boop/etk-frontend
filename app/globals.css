@@ -839,9 +839,19 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 @keyframes drawCheck { 100% { stroke-dashoffset: 0; } }
 
 /* Premium Toast */
-#toastContainer { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+#toastContainer { position: fixed; top: 20px; right: 20px; z-index: 999999 !important; display: flex; flex-direction: column; gap: 10px; }
 .tk-toast { background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-left: 4px solid var(--brand); border-radius: var(--radius-sm); padding: 15px 20px; color: white; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: translateX(120%); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .tk-toast.show { transform: translateX(0); }
+
+@keyframes tkShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
 
 /* Premium Cloud */
 .premium-cloud-icon { width: 75px; height: 75px; margin: 0 auto 25px; display: block; overflow: visible; }

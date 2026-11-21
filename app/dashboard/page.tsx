@@ -1,17 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { OpticalButton, OpticalLink } from '@/components/ui/OpticalGlass';
+import IOSSpinner from '@/components/ui/IOSSpinner';
+import { SkeletonCard, SkeletonTable } from '@/components/ui/Skeleton';
 
 export default function DashboardOverviewPage() {
-  const { user, payload, loading, refreshData, openModal } = useDashboard();
+  const { user, payload, loading, refreshData, openModal, showToast } = useDashboard();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isOperator = user?.role === 'operator';
   const isSysAdmin = user?.role === 'super_admin' || user?.role === 'sys_admin';
 
   const stats = payload?.stats?.academic || { today: 0, session: 0, academic: 0 };
   const superKpi = payload?.superAdmin?.kpi;
+
+  const handleManualRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await refreshData(true);
+      showToast('Dashboard data synchronized with cloud.', 'success');
+    } catch (err: any) {
+      showToast('Sync error: ' + (err.message || 'Connection issue'), 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <div id="view-overview" className="page-view active" style={{ display: 'block' }}>
@@ -83,26 +99,54 @@ export default function DashboardOverviewPage() {
           type="button"
           id="btn-refresh"
           variant="secondary"
-          onClick={() => refreshData()}
-          disabled={loading}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          onClick={handleManualRefresh}
+          disabled={loading || isRefreshing}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            minWidth: '135px',
+          }}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            className={loading ? 'spinning' : ''}
-          >
-            <path d="M21 2v6h-6" />
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 22v-6h6" />
-          </svg>
-          {loading ? 'Syncing...' : 'Refresh Data'}
+          {isRefreshing ? (
+            <IOSSpinner size={16} color="currentColor" />
+          ) : (
+            <>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                className={loading ? 'spinning' : ''}
+              >
+                <path d="M21 2v6h-6" />
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 22v-6h6" />
+              </svg>
+              Refresh Data
+            </>
+          )}
         </OpticalButton>
       </div>
+
+      {/* Shimmer Skeleton View on Initial Load */}
+      {loading && !payload && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+            <SkeletonCard height="130px" />
+            <SkeletonCard height="130px" />
+            <SkeletonCard height="130px" />
+            <SkeletonCard height="130px" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px' }}>
+            <SkeletonTable rows={4} cols={4} />
+            <SkeletonTable rows={4} cols={4} />
+          </div>
+        </div>
+      )}
 
       {/* Super Admin Top KPIs */}
       {isSysAdmin && superKpi && (
@@ -127,7 +171,7 @@ export default function DashboardOverviewPage() {
       )}
 
       {/* Main Standard User Dashboard Cards */}
-      <div id="standard-user-dashboard" style={{ display: 'block' }}>
+      <div id="standard-user-dashboard" style={{ display: loading && !payload ? 'none' : 'block' }}>
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '30px' }}>
           {/* Profile Card */}
           <div className="panel" id="profileCard" style={{ flex: 1, minWidth: 'min(100%, 280px)', marginBottom: 0 }}>

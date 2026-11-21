@@ -28,8 +28,7 @@ export default function TopBar({
     openModal,
     showConfirm,
     showAlert,
-    showLoader,
-    hideLoader,
+    showToast,
     updateUserAvatar,
     playNotificationSound,
     opticalGlassEnabled,
@@ -60,13 +59,12 @@ export default function TopBar({
   const handleRemovePhoto = () => {
     setProfileDropdownOpen(false);
     showConfirm('Are you sure you want to remove your profile picture?', async () => {
-      showLoader('REMOVING...');
       try {
         const res = await serverCall('updateProfilePic', { email: user?.email, url: '' });
         if (res && res.success) {
           updateUserAvatar('');
           playNotificationSound('success');
-          showAlert('Profile Picture Removed.', 'Success');
+          showToast('Profile picture removed.', 'success');
         } else {
           playNotificationSound('error');
           showAlert(res?.message || 'Failed to remove photo.', 'Error');
@@ -74,8 +72,6 @@ export default function TopBar({
       } catch (err: any) {
         playNotificationSound('error');
         showAlert(err.message || 'Network error removing photo.', 'Error');
-      } finally {
-        hideLoader();
       }
     });
   };

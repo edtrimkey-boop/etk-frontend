@@ -9,7 +9,7 @@ import { OpticalButton } from '@/components/ui/OpticalGlass';
 import { playSound } from '@/lib/sound';
 
 export default function ProfilePhotoModal() {
-  const { activeModal, modalData, closeModal, user, updateUserAvatar, showAlert, showLoader, hideLoader } =
+  const { activeModal, modalData, closeModal, user, updateUserAvatar, showAlert } =
     useDashboard();
   const isOpen = activeModal === 'adjustProfilePic';
 
@@ -51,7 +51,6 @@ export default function ProfilePhotoModal() {
   const handleSaveAndUpload = async () => {
     if (!imgRef.current) return;
     setUploading(true);
-    showLoader('UPLOADING PROFILE PICTURE...');
 
     try {
       // Render to 500x500 canvas
@@ -108,7 +107,6 @@ export default function ProfilePhotoModal() {
       playSound('error');
       showAlert('Failed to process image: ' + err.message, 'Upload Error');
     } finally {
-      hideLoader();
       setUploading(false);
     }
   };
@@ -237,16 +235,9 @@ export default function ProfilePhotoModal() {
             variant="primary"
             onClick={handleSaveAndUpload}
             disabled={uploading}
-            style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px' }}
           >
-            {uploading ? (
-              <>
-                <IOSSpinner size={16} color="#05080F" />
-                <span>Uploading...</span>
-              </>
-            ) : (
-              'Upload Photo'
-            )}
+            {uploading ? <IOSSpinner size={18} color="#05080F" /> : 'Upload Photo'}
           </OpticalButton>
         </div>
       </div>

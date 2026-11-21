@@ -7,7 +7,7 @@ import IOSSpinner from '@/components/ui/IOSSpinner';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 
 export default function UserProfileModal() {
-  const { activeModal, closeModal, user, openModal, showConfirm, showAlert, showLoader, hideLoader, updateUserAvatar, refreshData } = useDashboard();
+  const { activeModal, closeModal, user, openModal, showConfirm, showAlert, showToast, updateUserAvatar, refreshData } = useDashboard();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -30,19 +30,16 @@ export default function UserProfileModal() {
 
   const handleRemovePic = () => {
     showConfirm('Are you sure you want to remove your profile picture?', async () => {
-      showLoader('REMOVING...');
       try {
         const res = await serverCall('updateProfilePic', { email: user?.email, url: '' });
         if (res && res.success) {
           updateUserAvatar('');
-          showAlert('Profile Picture Removed.', 'Success');
+          showToast('Profile picture removed.', 'success');
         } else {
           showAlert(res?.message || 'Failed to remove photo.', 'Error');
         }
       } catch (err: any) {
         showAlert(err.message || 'Network error.', 'Error');
-      } finally {
-        hideLoader();
       }
     });
   };

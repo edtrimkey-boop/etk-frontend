@@ -17,6 +17,12 @@ export interface UploadProgressState {
   onRetry?: () => void;
 }
 
+export interface ToastItem {
+  id: string;
+  msg: string;
+  type: 'success' | 'warning' | 'error' | 'info';
+}
+
 interface DashboardContextType {
   user: any;
   payload: any;
@@ -32,6 +38,9 @@ interface DashboardContextType {
   closeAlert: () => void;
   confirmState: { open: boolean; msg: string; onConfirm: (() => void) | null };
   closeConfirm: () => void;
+  toasts: ToastItem[];
+  showToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  removeToast: (id: string) => void;
   showLoader: (text?: string) => void;
   hideLoader: () => void;
   loaderState: { visible: boolean; text: string };
@@ -55,7 +64,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Sync loader state
+  // Toasts state (Apple / Linear style non-blocking notifications)
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const showToast = useCallback((msg: string, type: 'success' | 'warning' | 'error' | 'info' = 'success') => {
+    const id = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    setToasts((prev) => [...prev, { id, msg, type }]);
+
+    if (type === 'success') {
+      playSound('success');
+    } else if (type === 'warning') {
+      playSound('warning');
+    } else if (type === 'error') {
+      playSound('error');
+    } else if (type === 'info') {
+      playSound('notification');
+    }
+
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Sync loader state (strictly reserved for hard session wipes / critical security locks)
   const [loaderState, setLoaderState] = useState<{ visible: boolean; text: string }>({
     visible: false,
     text: 'SYNCING DATABASE...',
@@ -231,7 +266,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     if (!silent) {
       setLoading(true);
-      showLoader('SYNCING DATABASE...');
     }
 
     try {
@@ -266,10 +300,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (!silent) {
         setLoading(false);
-        hideLoader();
       }
     }
-  }, [router, showAlert, showLoader, hideLoader]);
+  }, [router, showAlert]);
 
   useEffect(() => {
     const token = MemoryStore.getToken();
@@ -303,6 +336,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         closeAlert,
         confirmState,
         closeConfirm,
+        toasts,
+        showToast,
+        removeToast,
         showLoader,
         hideLoader,
         loaderState,

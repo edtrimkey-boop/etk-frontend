@@ -9,6 +9,8 @@ import TopBar from '@/components/layout/TopBar';
 import MobileNav from '@/components/layout/MobileNav';
 import SaraWidget from '@/components/shared/SaraWidget';
 import ModalHost from '@/components/modals/ModalHost';
+import TopProgressBar from '@/components/layout/TopProgressBar';
+import ToastContainer from '@/components/ui/ToastContainer';
 
 function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -108,6 +110,10 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* 5. Master Modals Host */}
       <ModalHost />
+
+      {/* 6. Apple-grade Top Progress Bar & Toast System */}
+      <TopProgressBar />
+      <ToastContainer />
     </div>
   );
 }
