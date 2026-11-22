@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/lib/dashboard-context';
-import { OpticalButton } from '@/components/ui/OpticalGlass';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/Skeleton';
 
@@ -35,25 +34,12 @@ export default function DashboardOverviewPage() {
     <div id="view-overview" className="page-view active" style={{ display: 'block' }}>
       {/* Action Buttons Row */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '25px', flexWrap: 'wrap' }} id="action-buttons-row">
-        {/* 1. Submit Paper (Solid Brand/Cyan) */}
+        {/* 1. Submit Paper (Electric Brand Cyan Liquid Glass) */}
         <button
-          id="btn-submit-paper"
           type="button"
+          id="btn-submit-paper"
+          className="liquid-glass btn-primary"
           onClick={() => openModal('paperSubmit')}
-          style={{
-            background: 'linear-gradient(135deg, rgba(38,195,234,0.95) 0%, rgba(26,156,191,0.95) 100%)',
-            color: '#000',
-            border: '1px solid rgba(255,255,255,0.4)',
-            boxShadow: '0 4px 15px rgba(38,195,234,0.3)',
-            borderRadius: '50px',
-            padding: '12px 24px',
-            fontWeight: 800,
-            fontSize: '13px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-          }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -65,25 +51,12 @@ export default function DashboardOverviewPage() {
           Submit Paper
         </button>
 
-        {/* 2. Request Document (Solid Orange) */}
+        {/* 2. Request Document (Amber Topaz Liquid Glass) */}
         <button
-          id="btn-request-doc"
           type="button"
+          id="btn-request-doc"
+          className="liquid-glass btn-warning"
           onClick={() => openModal('docSubmit')}
-          style={{
-            background: 'linear-gradient(135deg, var(--accent), #D97706)',
-            color: '#000',
-            border: '1px solid #D97706',
-            boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
-            borderRadius: '50px',
-            padding: '12px 24px',
-            fontWeight: 800,
-            fontSize: '13px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-          }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
@@ -96,25 +69,12 @@ export default function DashboardOverviewPage() {
           Request Document
         </button>
 
-        {/* 3. Generated Papers (Solid Purple) */}
+        {/* 3. Generated Papers (Deep Amethyst Liquid Glass) */}
         <button
-          id="btn-generated"
           type="button"
+          id="btn-generated"
+          className="liquid-glass btn-purple"
           onClick={() => router.push('/dashboard/papers')}
-          style={{
-            background: 'linear-gradient(135deg, var(--purple), #6D28D9)',
-            color: 'white',
-            border: '1px solid #6D28D9',
-            boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)',
-            borderRadius: '50px',
-            padding: '12px 24px',
-            fontWeight: 800,
-            fontSize: '13px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-          }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -129,26 +89,13 @@ export default function DashboardOverviewPage() {
               <button
                 key={idx}
                 type="button"
+                className="liquid-glass btn-purple"
                 onClick={() => {
                   if (app.url) {
                     window.open(app.url + '?user=' + encodeURIComponent(payload?.email || user?.email || '') + '&code=' + (payload?.code || user?.code || ''));
                   } else {
                     showToast('App URL not configured.', 'info');
                   }
-                }}
-                style={{
-                  background: 'linear-gradient(135deg, var(--purple) 0%, #6D28D9 100%)',
-                  color: 'white',
-                  border: '1px solid #6D28D9',
-                  boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)',
-                  borderRadius: '50px',
-                  padding: '12px 24px',
-                  fontWeight: 800,
-                  fontSize: '13px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
                 }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -163,21 +110,8 @@ export default function DashboardOverviewPage() {
           ) : (
             <button
               type="button"
+              className="liquid-glass btn-purple"
               onClick={() => showToast('Attendance App connecting...', 'info')}
-              style={{
-                background: 'linear-gradient(135deg, var(--purple) 0%, #6D28D9 100%)',
-                color: 'white',
-                border: '1px solid #6D28D9',
-                boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)',
-                borderRadius: '50px',
-                padding: '12px 24px',
-                fontWeight: 800,
-                fontSize: '13px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-              }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -190,27 +124,13 @@ export default function DashboardOverviewPage() {
           )}
         </span>
 
-        {/* 5. Refresh Data */}
+        {/* 5. Refresh Data (Smoked Glass Secondary) */}
         <button
-          id="btn-refresh"
           type="button"
+          id="btn-refresh"
+          className="liquid-glass btn-secondary"
           onClick={handleManualRefresh}
           disabled={loading || isRefreshing}
-          style={{
-            background: 'rgba(255, 255, 255, 0.15)',
-            color: 'white',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            borderRadius: '50px',
-            padding: '12px 24px',
-            fontWeight: 800,
-            fontSize: '13px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-          }}
         >
           {isRefreshing ? (
             <IOSSpinner size={16} color="currentColor" />
