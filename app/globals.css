@@ -1305,6 +1305,10 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; 
   } 
 
+  .header-scrim {
+    display: none !important;
+  }
+
   /* Sticky Top Bar & Perfectly Spaced Header Elements */
   .top-bar {
     height: 75px !important;
@@ -1321,10 +1325,13 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     align-items: center !important;
     flex-shrink: 0 !important;
     box-sizing: border-box !important;
-    background: transparent !important;
+    background: var(--bg) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
   }
-  .header-scrim {
-    height: 140px !important;
+  [data-theme="light"] .top-bar {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
   }
   .brandRow {
     display: flex !important;
