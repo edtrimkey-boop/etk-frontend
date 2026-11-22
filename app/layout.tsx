@@ -6,13 +6,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: 'cover',
   themeColor: '#0B111E',
 };
 
 export const metadata: Metadata = {
-  title: 'Ed-Trim Key — Academic Operations Platform',
+  title: 'Ed-Trim Key Command Center',
   description: 'Enterprise Academic Digital Workflow System powered by Trim Key',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

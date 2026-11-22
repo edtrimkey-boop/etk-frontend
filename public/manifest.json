@@ -1,0 +1,24 @@
+{
+  "name": "Ed-Trim Key Command Center",
+  "short_name": "Ed-Trim Key",
+  "description": "Enterprise Academic Digital Workflow System powered by Trim Key",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0B111E",
+  "theme_color": "#0B111E",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/apple-ETK-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://ypmnsgpohaaavbjdqjye.supabase.co/storage/v1/object/public/logo/apple-ETK-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

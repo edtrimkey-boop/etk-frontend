@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
-import { OpticalSurface } from '@/components/ui/OpticalGlass';
 
 interface TopBarProps {
   title?: string;
@@ -113,10 +112,9 @@ export default function TopBar({
     <header className="top-bar">
       <div className="brandRow">
         {/* Sidebar Toggle Button (Desktop Only - Mobile uses Floating Bottom Pill & FAB like index.html) */}
-        <OpticalSurface
+        <button
           className="sidebar-toggle-btn desktop-only liquid-glass glass-circle-btn"
           onClick={onToggleSidebar}
-          radius={999}
           style={{
             marginRight: '10px',
             width: '42px',
@@ -130,13 +128,10 @@ export default function TopBar({
             <line x1="3" y1="6" x2="21" y2="6" />
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
-        </OpticalSurface>
+        </button>
 
         {/* Glass Title Pill */}
-        <OpticalSurface
-          className="glass-title-pill brand"
-          radius={999}
-        >
+        <div className="glass-title-pill brand">
           {displayLogo && (
             <img
               id="headerInstLogo"
@@ -168,15 +163,14 @@ export default function TopBar({
           >
             {title}
           </span>
-        </OpticalSurface>
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         {/* Global Command Palette Trigger (Ctrl+K / ⌘K) */}
         <div title="Command Palette (Ctrl+K or ⌘K)" className="desktop-only" style={{ display: 'inline-flex' }}>
-          <OpticalSurface
+          <div
             className="liquid-glass glass-circle-btn"
-            radius={999}
             onClick={() => {
               window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
             }}
@@ -191,7 +185,7 @@ export default function TopBar({
               <circle cx="11" cy="11" r="8" strokeWidth="2" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth="2" strokeLinecap="round" />
             </svg>
-          </OpticalSurface>
+          </div>
         </div>
 
         {/* Notification Bell */}
@@ -200,9 +194,8 @@ export default function TopBar({
           id="bellWrapper"
           style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
         >
-          <OpticalSurface
+          <div
             className="liquid-glass glass-circle-btn notification-wrapper"
-            radius={999}
             onClick={(e) => {
               e.stopPropagation();
               setNotifDropdownOpen(!notifDropdownOpen);
@@ -223,7 +216,7 @@ export default function TopBar({
                 d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
               />
             </svg>
-          </OpticalSurface>
+          </div>
           {unreadCount > 0 && (
             <span className="notification-badge" id="notifBadge" style={{ pointerEvents: 'none' }}>
               {unreadCount}
@@ -299,9 +292,8 @@ export default function TopBar({
           id="userHeaderInfo"
           style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
         >
-          <OpticalSurface
+          <div
             className={`liquid-glass user-profile-container ${profileDropdownOpen ? 'active' : ''}`}
-            radius={999}
             onClick={(e) => {
               e.stopPropagation();
               setProfileDropdownOpen(!profileDropdownOpen);
@@ -329,7 +321,7 @@ export default function TopBar({
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </span>
-          </OpticalSurface>
+          </div>
 
           <input
             type="file"

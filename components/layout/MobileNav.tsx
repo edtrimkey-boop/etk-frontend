@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { OpticalSurface } from '@/components/ui/OpticalGlass';
 
 interface MobileNavProps {
   userRole?: string;
@@ -257,32 +256,14 @@ export default function MobileNav({
     <>
       {/* 1. iOS Separated Bottom Pill & Floating FAB Bar (Matches index.html 1:1) */}
       <div id="mobile-nav-bar">
-        <OpticalSurface
-          className="nav-pill-box"
-          radius={35}
-          interactive={false}
-          style={{
-            display: 'flex',
-            justifyContent: 'space-evenly',
-            alignItems: 'center',
-            padding: '0 5px',
-          }}
-        >
+        <div className="nav-pill-box">
           {renderTabs()}
-        </OpticalSurface>
+        </div>
 
         {/* Separated Circular Plus FAB Dock Button */}
-        <OpticalSurface
+        <div
           className={`fab-dock ${fabOpen ? 'open' : ''}`}
-          radius={999}
           onClick={toggleFabMenu}
-          style={{
-            width: '60px',
-            height: '60px',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: 'var(--brand)',
-          }}
         >
           <svg
             width="26"
@@ -297,7 +278,7 @@ export default function MobileNav({
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-        </OpticalSurface>
+        </div>
       </div>
 
       {/* 2. FAB Overlay */}

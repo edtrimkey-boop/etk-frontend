@@ -1302,14 +1302,14 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     display: none !important; 
   }
   .content-area { 
-    padding-bottom: calc(130px + max(env(safe-area-inset-bottom, 0px), 20px)) !important; 
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; 
   } 
 
   /* Sticky Top Bar & Perfectly Spaced Header Elements */
   .top-bar {
-    height: calc(75px + max(env(safe-area-inset-top, 0px), 54px)) !important;
-    min-height: calc(75px + max(env(safe-area-inset-top, 0px), 54px)) !important;
-    padding-top: max(env(safe-area-inset-top, 0px), 54px) !important;
+    height: 75px !important;
+    min-height: 75px !important;
+    padding-top: 0 !important;
     padding-bottom: 0 !important;
     padding-left: 20px !important;
     padding-right: 20px !important;
@@ -1321,9 +1321,10 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     align-items: center !important;
     flex-shrink: 0 !important;
     box-sizing: border-box !important;
+    background: transparent !important;
   }
   .header-scrim {
-    height: calc(130px + max(env(safe-area-inset-top, 0px), 54px)) !important;
+    height: 140px !important;
   }
   .brandRow {
     display: flex !important;
@@ -1421,7 +1422,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   /* Outer Wrapper */
   #mobile-nav-bar {
     position: fixed; 
-    bottom: calc(20px + max(env(safe-area-inset-bottom, 0px), 20px)); 
+    bottom: calc(20px + env(safe-area-inset-bottom)); 
     left: 15px; 
     width: calc(100% - 30px); 
     height: 65px;
@@ -1576,7 +1577,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   }
   #fab-action-sheet {
     position: fixed; 
-    bottom: calc(100px + max(env(safe-area-inset-bottom, 0px), 20px)); 
+    bottom: calc(100px + env(safe-area-inset-bottom)); 
     right: 24px; 
     width: 220px;
     border-radius: 20px; 
@@ -2494,7 +2495,7 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   /* Mobile & Tablet Optimizations */
   @media (max-width: 950px) {
     #sara-chat-widget {
-      bottom: calc(98px + max(env(safe-area-inset-bottom, 0px), 20px));
+      bottom: calc(98px + env(safe-area-inset-bottom));
       right: 18px;
     }
     
@@ -2668,7 +2669,7 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
 
 @media (max-width: 600px) {
   .content-area {
-    padding: 16px 16px calc(130px + max(env(safe-area-inset-bottom, 0px), 20px)) 16px !important;
+    padding: 16px 16px calc(120px + env(safe-area-inset-bottom)) 16px !important;
   }
   .panel {
     padding: 20px 16px !important;
