@@ -56,6 +56,23 @@ export default function RootLayout({
           </filter>
         </svg>
 
+        {/* 3. The universal fixed blurred mesh background (Trim Key Flow Formula) */}
+        <div 
+          className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat pointer-events-none"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 15% 50%, rgba(38, 195, 234, 0.08), transparent 35%), radial-gradient(circle at 85% 30%, rgba(40, 195, 229, 0.08), transparent 35%), radial-gradient(circle at 50% 0%, #1a1a24 0%, #0a0a0c 100%)',
+            backgroundAttachment: 'fixed'
+          }}
+        />
+
+        {/* CSS MINIFIER BYPASS: Force Liquid Glass Physics (Trim Key Flow Formula) */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          .liquid-glass, .panel, .kpi-card, .premium-sticky-header, .glass-box, .nav-pill-box, .fab-action-sheet, .glass-overlay, .profile-dropdown, .notif-dropdown, .glass-title-pill, .tk-toast, .nav-tab.active, button {
+            backdrop-filter: blur(40px) saturate(200%) !important;
+            -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+          }
+        ` }} />
+
         {children}
 
         {/* TOAST CONTAINER */}

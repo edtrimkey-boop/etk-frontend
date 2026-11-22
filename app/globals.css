@@ -13,11 +13,12 @@
   --radius-lg: 16px;   
   --radius-pill: 50px; 
   
-  /* 🔥 UNIVERSAL APPLE GLASS MASTER VALUES (SYNCED WITH MASTER_GLASS_OPTICS) */
-  --glass-blur: blur(16px) saturate(180%);
-  --glass-bg: rgba(255, 255, 255, 0.065); 
-  --glass-border: 1px solid rgba(255, 255, 255, 0.14);
-  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.55);
+  /* 🍏 UNIVERSAL APPLE GLASS MASTER VALUES (TRIM KEY FLOW FORMULA) */
+  --glass-blur: blur(40px) saturate(200%);
+  --glass-blur-safari: blur(40px) saturate(200%);
+  --glass-bg: rgba(10, 15, 25, 0.75); 
+  --glass-border: 1px solid rgba(255, 255, 255, 0.12);
+  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.2); 
   --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
   --ios-spring: cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -1305,11 +1306,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; 
   } 
 
-  .header-scrim {
-    display: none !important;
-  }
-
-  /* Sticky Top Bar & Perfectly Spaced Header Elements */
+  /* Sticky Top Bar (Trim Key Flow Transparent Formula) */
   .top-bar {
     height: 75px !important;
     min-height: 75px !important;
@@ -1325,13 +1322,20 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     align-items: center !important;
     flex-shrink: 0 !important;
     box-sizing: border-box !important;
-    background: var(--bg) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+    background: transparent !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
   }
-  [data-theme="light"] .top-bar {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  .header-scrim {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 140px !important;
+    background: linear-gradient(to bottom, rgba(11, 17, 30, 70%) 0%, rgba(11, 17, 30, 30%) 30%, transparent 100%) !important;
+    pointer-events: none !important;
+    z-index: 90 !important;
+    display: block !important;
   }
   .brandRow {
     display: flex !important;
@@ -1753,6 +1757,85 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     height: 70vh !important; 
     min-height: 400px !important; 
     max-height: 700px !important; 
+  }
+
+  /* =======================================================
+     5B. TRIM KEY FLOW MOBILE FORMULA: CHIPS, CARDS & PANELS
+     ======================================================= */
+  /* Action Buttons Row: Smooth Horizontal Scrollable Chips */
+  #action-buttons-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding-bottom: 8px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 10px !important;
+    margin-bottom: 20px !important;
+  }
+  #action-buttons-row::-webkit-scrollbar {
+    display: none !important;
+  }
+  #action-buttons-row button {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    height: 42px !important;
+    padding: 0 18px !important;
+    border-radius: 50px !important;
+    font-size: 12px !important;
+  }
+
+  /* Stats Meters: Horizontal Capsule Cards (Trim Key Flow Formula) */
+  #standardStats.cards {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-bottom: 25px !important;
+  }
+  #standardStats .activity {
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border: var(--glass-border) !important;
+    border-radius: 35px !important;
+    padding: 16px 24px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    box-shadow: var(--glass-shadow), var(--glass-highlight) !important;
+    transition: all 0.3s var(--ios-spring) !important;
+  }
+  #standardStats .activity:first-child {
+    border-top: 2px solid var(--brand) !important;
+  }
+  #standardStats .activity:nth-child(2) {
+    border-top: 2px solid var(--success) !important;
+  }
+  #standardStats .activity:nth-child(3) {
+    border-top: 2px solid var(--purple) !important;
+  }
+  #standardStats .activity h2 {
+    font-size: 26px !important;
+    margin: 0 !important;
+    order: 2;
+  }
+  #standardStats .activity span {
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 800 !important;
+    color: var(--text-muted) !important;
+    order: 1;
+  }
+
+  /* Panels on Mobile */
+  .panel {
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur) !important;
+    -webkit-backdrop-filter: var(--glass-blur) !important;
+    border-radius: var(--radius-lg) !important;
+    border: var(--glass-border) !important;
+    box-shadow: var(--glass-shadow), var(--glass-highlight) !important;
   }
   /* =======================================================
      6. MOBILE BOTTOM SHEET MODALS & NATIVE GESTURES
