@@ -660,8 +660,8 @@ export default function DocSubmitModal() {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+          {/* Action Buttons (Floating Sticky Dock) */}
+          <div className="modal-action-dock">
             <OpticalButton
               type="button"
               variant="danger"

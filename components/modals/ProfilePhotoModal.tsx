@@ -220,8 +220,8 @@ export default function ProfilePhotoModal() {
           </span>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px' }}>
+        {/* Action Buttons (Floating Sticky Dock) */}
+        <div className="modal-action-dock">
           <OpticalButton
             type="button"
             variant="outline"

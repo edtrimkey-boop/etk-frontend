@@ -1075,6 +1075,25 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 .premium-sticky-header h2 { font-family: 'Overpass', sans-serif; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; font-size: 16px; }
 .premium-sticky-header .close-minimal { position: relative; top: 0; right: 0; font-size: 16px; }
 
+/* Floating Sticky Action Dock at bottom of Modals (Desktop Base) */
+.modal-action-dock {
+  position: sticky;
+  bottom: -40px;
+  z-index: 95;
+  margin: 25px -40px -40px -40px;
+  padding: 16px 40px;
+  background: rgba(14, 21, 38, 0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border-radius: 0 0 24px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 /* Z-Index Fixes */
 #loginOverlay { z-index: 99999 !important; }
 #syncLoader { z-index: 100000 !important; }
@@ -1795,6 +1814,10 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     background: rgba(0, 0, 0, 0.7) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .glass-overlay .glass-box {
@@ -1809,10 +1832,13 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     background: linear-gradient(180deg, #0e1526 0%, #080d18 100%) !important;
     box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
     max-height: 90dvh !important;
-    padding: 0 18px calc(24px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    padding: 0 18px 0 18px !important;
     animation: nativeSheetSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     overscroll-behavior: contain !important;
     position: relative !important;
+    box-sizing: border-box !important;
   }
 
   /* Disable detached outer grab handle that caused double border */
@@ -1836,6 +1862,9 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
+    width: calc(100% + 36px) !important;
+    max-width: calc(100% + 36px) !important;
+    box-sizing: border-box !important;
   }
 
   /* Centered Apple Pill Grab Handle attached to the header */
@@ -1904,6 +1933,9 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   /* Modal Form Layout & Spacing */
   .glass-overlay .glass-box form {
     margin-top: 0 !important;
+    padding-bottom: 16px !important;
+    overflow-x: hidden !important;
+    max-width: 100% !important;
   }
 
   .glass-overlay .glass-box .grid-2 {
@@ -1911,6 +1943,8 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     flex-direction: column !important;
     gap: 12px !important;
     margin-bottom: 12px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .glass-overlay .glass-box .form-group {
@@ -1918,6 +1952,8 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     display: flex !important;
     flex-direction: column !important;
     gap: 5px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .glass-overlay .glass-box .label-text,
@@ -1948,6 +1984,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     color: #F8FAFC !important;
     font-weight: 600 !important;
     width: 100% !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
     outline: none !important;
     transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
@@ -1980,6 +2017,38 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     padding: 16px !important;
     border-radius: 14px !important;
     margin-bottom: 12px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Floating Sticky Action Dock at bottom of Mobile Modal (Mirrors Floating TopBar Header) */
+  .glass-overlay .glass-box .modal-action-dock {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 95 !important;
+    margin: 16px -18px 0 -18px !important;
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 14px)) 18px !important;
+    background: rgba(12, 19, 34, 0.96) !important;
+    backdrop-filter: blur(25px) !important;
+    -webkit-backdrop-filter: blur(25px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    width: calc(100% + 36px) !important;
+    max-width: calc(100% + 36px) !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+  }
+
+  .glass-overlay .glass-box .modal-action-dock button,
+  .glass-overlay .glass-box .modal-action-dock .apple-glass-shell {
+    min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
   }
 }
 
@@ -2017,6 +2086,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 [data-theme="light"] .header-scrim { background: linear-gradient(to bottom, rgba(248, 250, 252, 0.95) 0%, rgba(248, 250, 252, 0.8) 40%, transparent 100%); }
 [data-theme="light"] .chat-bubble-other { background: var(--card-light); border-color: var(--border); }
 [data-theme="light"] .premium-sticky-header { background: rgba(255, 255, 255, 0.85); border-bottom-color: var(--border); }
+[data-theme="light"] .modal-action-dock { background: rgba(255, 255, 255, 0.94) !important; border-top-color: var(--border) !important; box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.08) !important; }
 
 [data-theme="light"] .slider {
     background: rgba(0, 0, 0, 0.05);

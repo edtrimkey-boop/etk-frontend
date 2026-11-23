@@ -233,21 +233,22 @@ export default function TeacherRegModal() {
             </div>
           </div>
 
-          <OpticalButton
-            type="submit"
-            disabled={loading}
-            variant="primary"
-            style={{
-              width: '100%',
-              marginTop: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '44px',
-            }}
-          >
-            {loading ? <IOSSpinner size={18} color="#05080F" /> : 'Add Teacher to Directory'}
-          </OpticalButton>
+          <div className="modal-action-dock" style={{ justifyContent: 'center' }}>
+            <OpticalButton
+              type="submit"
+              disabled={loading}
+              variant="primary"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '44px',
+              }}
+            >
+              {loading ? <IOSSpinner size={18} color="#05080F" /> : 'Add Teacher to Directory'}
+            </OpticalButton>
+          </div>
         </form>
       </div>
     </div>

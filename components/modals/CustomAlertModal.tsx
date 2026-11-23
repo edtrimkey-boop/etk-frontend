@@ -174,14 +174,16 @@ export default function CustomAlertModal() {
           </p>
         </div>
 
-        <OpticalButton
-          type="button"
-          onClick={closeAlert}
-          variant={alertType === 'error' ? 'danger' : alertType === 'warning' ? 'warning' : 'primary'}
-          style={{ width: '100%', padding: '12px 18px', fontSize: '13px', fontWeight: 800 }}
-        >
-          Acknowledge
-        </OpticalButton>
+        <div className="modal-action-dock" style={{ justifyContent: 'center' }}>
+          <OpticalButton
+            type="button"
+            onClick={closeAlert}
+            variant={alertType === 'error' ? 'danger' : alertType === 'warning' ? 'warning' : 'primary'}
+            style={{ width: '100%', padding: '12px 18px', fontSize: '13px', fontWeight: 800 }}
+          >
+            Acknowledge
+          </OpticalButton>
+        </div>
       </div>
     </div>
   );

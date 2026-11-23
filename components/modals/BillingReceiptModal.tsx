@@ -829,14 +829,13 @@ export default function BillingReceiptModal({
           </div>
         </div>
 
-        {/* Modal Action Footer */}
+        {/* Modal Action Footer (Floating Sticky Dock) */}
         <div
+          className="modal-action-dock"
           style={{
             display: 'flex',
             gap: '10px',
             padding: '14px 22px',
-            background: 'rgba(15, 23, 42, 0.95)',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
             justifyContent: 'flex-end',
             alignItems: 'center',
             flexWrap: 'wrap',

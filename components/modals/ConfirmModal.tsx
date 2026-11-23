@@ -86,7 +86,7 @@ export default function ConfirmModal() {
         >
           {confirmState.msg}
         </p>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="modal-action-dock">
           <OpticalButton
             type="button"
             onClick={closeConfirm}
