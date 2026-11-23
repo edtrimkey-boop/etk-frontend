@@ -32,7 +32,7 @@ export default function DashboardOverviewPage() {
 
   return (
     <div id="view-overview" className="page-view active" style={{ display: 'block' }}>
-      {/* Dashboard Quick Actions — Apple 2x2 Action Tiles Architecture */}
+      {/* Dashboard Quick Actions — 2x2 Rectangular Action Tiles */}
       <section className="action-tiles-section" id="action-buttons-row">
         <div className="action-tiles-header">
           <div className="action-tiles-label">
@@ -44,21 +44,18 @@ export default function DashboardOverviewPage() {
           <button
             type="button"
             id="btn-refresh"
+            className="liquid-glass btn-secondary btn-xs"
             onClick={handleManualRefresh}
             disabled={loading || isRefreshing}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 12px',
+              padding: '6px 14px',
               borderRadius: '999px',
               fontSize: '11px',
               fontWeight: 700,
-              color: 'var(--text-muted)',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
               cursor: loading || isRefreshing ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
             }}
             title="Synchronize dashboard with cloud"
           >
@@ -79,105 +76,72 @@ export default function DashboardOverviewPage() {
                 <path d="M3 22v-6h6" />
               </svg>
             )}
-            <span>{isRefreshing ? 'Syncing...' : 'Sync Data'}</span>
+            <span>{isRefreshing ? 'Syncing...' : 'Refresh Data'}</span>
           </button>
         </div>
 
         <div className="action-tiles-grid">
-          {/* Tile 1: Submit Paper (Brand Electric Cyan) */}
+          {/* Tile 1: Submit Paper (Solid Electric Cyan) */}
           <button
             type="button"
             id="btn-submit-paper"
-            className="action-tile action-tile-cyan"
+            className="action-tile tile-cyan"
             onClick={() => openModal('paperSubmit')}
           >
-            <div className="action-tile-top">
-              <div className="action-tile-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                  <polyline points="10 9 9 9 8 9" />
-                </svg>
-              </div>
-              <div className="action-tile-arrow">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7" />
-                  <polyline points="7 7 17 7 17 17" />
-                </svg>
-              </div>
-            </div>
-            <div className="action-tile-bottom">
-              <span className="action-tile-title">Submit Paper</span>
-              <span className="action-tile-desc">New Question Paper</span>
-            </div>
+            <span className="action-tile-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </span>
+            <span className="action-tile-title">Submit Paper</span>
           </button>
 
-          {/* Tile 2: Request Document (Amber Topaz) */}
+          {/* Tile 2: Request Document (Solid Topaz Amber) */}
           <button
             type="button"
             id="btn-request-doc"
-            className="action-tile action-tile-amber"
+            className="action-tile tile-amber"
             onClick={() => openModal('docSubmit')}
           >
-            <div className="action-tile-top">
-              <div className="action-tile-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                  <path d="M12 11h4" />
-                  <path d="M12 16h4" />
-                  <path d="M8 11h.01" />
-                  <path d="M8 16h.01" />
-                </svg>
-              </div>
-              <div className="action-tile-arrow">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7" />
-                  <polyline points="7 7 17 7 17 17" />
-                </svg>
-              </div>
-            </div>
-            <div className="action-tile-bottom">
-              <span className="action-tile-title">Request Document</span>
-              <span className="action-tile-desc">Forms &amp; Certificates</span>
-            </div>
+            <span className="action-tile-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <path d="M12 11h4" />
+                <path d="M12 16h4" />
+                <path d="M8 11h.01" />
+                <path d="M8 16h.01" />
+              </svg>
+            </span>
+            <span className="action-tile-title">Request Document</span>
           </button>
 
-          {/* Tile 3: Generated Papers (Deep Amethyst) */}
+          {/* Tile 3: Generated Papers (Solid Amethyst Purple) */}
           <button
             type="button"
             id="btn-generated"
-            className="action-tile action-tile-purple"
+            className="action-tile tile-purple"
             onClick={() => router.push('/dashboard/papers')}
           >
-            <div className="action-tile-top">
-              <div className="action-tile-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                </svg>
-              </div>
-              <div className="action-tile-arrow">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7" />
-                  <polyline points="7 7 17 7 17 17" />
-                </svg>
-              </div>
-            </div>
-            <div className="action-tile-bottom">
-              <span className="action-tile-title">Generated Papers</span>
-              <span className="action-tile-desc">View Paper Archive</span>
-            </div>
+            <span className="action-tile-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+            </span>
+            <span className="action-tile-title">Generated Papers</span>
           </button>
 
-          {/* Tile 4: Attendance App / Dynamic Connected Apps (Emerald Green) */}
+          {/* Tile 4: Attendance App / Dynamic Connected Apps (Solid Amethyst Purple) */}
           {Array.isArray(payload?.dynamicApps) && payload.dynamicApps.length > 0 ? (
             payload.dynamicApps.map((app: any, idx: number) => (
               <button
                 key={idx}
                 type="button"
-                className="action-tile action-tile-emerald"
+                className="action-tile tile-purple"
                 onClick={() => {
                   if (app.url) {
                     window.open(
@@ -192,55 +156,33 @@ export default function DashboardOverviewPage() {
                   }
                 }}
               >
-                <div className="action-tile-top">
-                  <div className="action-tile-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                  </div>
-                  <div className="action-tile-arrow">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="7" y1="17" x2="17" y2="7" />
-                      <polyline points="7 7 17 7 17 17" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="action-tile-bottom">
-                  <span className="action-tile-title">{app.name || 'Attendance App'}</span>
-                  <span className="action-tile-desc">Connected System</span>
-                </div>
+                <span className="action-tile-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </span>
+                <span className="action-tile-title">{app.name || 'Attendance App'}</span>
               </button>
             ))
           ) : (
             <button
               type="button"
               id="btn-attendance"
-              className="action-tile action-tile-emerald"
+              className="action-tile tile-purple"
               onClick={() => showToast('Attendance App connecting...', 'info')}
             >
-              <div className="action-tile-top">
-                <div className="action-tile-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                </div>
-                <div className="action-tile-arrow">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="7" y1="17" x2="17" y2="7" />
-                    <polyline points="7 7 17 7 17 17" />
-                  </svg>
-                </div>
-              </div>
-              <div className="action-tile-bottom">
-                <span className="action-tile-title">Attendance App</span>
-                <span className="action-tile-desc">Live Student Tracking</span>
-              </div>
+              <span className="action-tile-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
+              <span className="action-tile-title">Attendance App</span>
             </button>
           )}
         </div>
