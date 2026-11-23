@@ -1204,6 +1204,228 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   color: #EF4444 !important;
 }
 
+/* =======================================================
+   DASHBOARD QUICK ACTION TILES (APPLE 2x2 TILE ARCHITECTURE)
+   ======================================================= */
+.action-tiles-section {
+  margin-bottom: 24px;
+}
+
+.action-tiles-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.action-tiles-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.action-tile {
+  background: rgba(14, 22, 38, 0.78) !important;
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 18px !important;
+  padding: 16px 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  min-height: 98px !important;
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+  transition: all 0.28s var(--ios-spring) !important;
+  text-decoration: none !important;
+  outline: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  box-sizing: border-box !important;
+}
+
+/* 1px Specular catchlight rim on top edge */
+.action-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  pointer-events: none;
+}
+
+.action-tile:hover {
+  background: rgba(18, 28, 48, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.28) !important;
+}
+
+.action-tile:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.1s ease !important;
+}
+
+.action-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.action-tile-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.25s var(--ios-spring);
+}
+
+.action-tile:hover .action-tile-icon {
+  transform: scale(1.08);
+}
+
+.action-tile-arrow {
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-tile:hover .action-tile-arrow {
+  color: #FFFFFF;
+  transform: translate(2px, -2px);
+}
+
+.action-tile-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.action-tile-title {
+  font-family: 'Overpass', sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.2px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-tile-desc {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Color Accents for each Tile */
+.action-tile-cyan .action-tile-icon {
+  background: rgba(38, 195, 234, 0.14);
+  border: 1px solid rgba(38, 195, 234, 0.35);
+  color: var(--brand, #26C3EA);
+  box-shadow: 0 0 16px rgba(38, 195, 234, 0.2);
+}
+.action-tile-cyan:hover {
+  border-color: rgba(38, 195, 234, 0.45) !important;
+}
+
+.action-tile-amber .action-tile-icon {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--accent, #F59E0B);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+}
+.action-tile-amber:hover {
+  border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+.action-tile-purple .action-tile-icon {
+  background: rgba(139, 92, 246, 0.14);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  color: var(--purple, #8B5CF6);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.2);
+}
+.action-tile-purple:hover {
+  border-color: rgba(139, 92, 246, 0.45) !important;
+}
+
+.action-tile-emerald .action-tile-icon {
+  background: rgba(0, 245, 160, 0.14);
+  border: 1px solid rgba(0, 245, 160, 0.35);
+  color: #00F5A0;
+  box-shadow: 0 0 16px rgba(0, 245, 160, 0.2);
+}
+.action-tile-emerald:hover {
+  border-color: rgba(0, 245, 160, 0.45) !important;
+}
+
+/* Mobile & Tablet: Exactly 2x2 Action Tiles */
+@media (max-width: 950px) {
+  .action-tiles-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .action-tile {
+    padding: 13px 13px !important;
+    min-height: 88px !important;
+    border-radius: 16px !important;
+  }
+
+  .action-tile-top {
+    margin-bottom: 8px !important;
+  }
+
+  .action-tile-icon {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+  }
+
+  .action-tile-title {
+    font-size: 12.5px !important;
+  }
+
+  .action-tile-desc {
+    font-size: 10px !important;
+  }
+}
+
 /* Z-Index Fixes */
 #loginOverlay { z-index: 99999 !important; }
 #syncLoader { z-index: 100000 !important; }
