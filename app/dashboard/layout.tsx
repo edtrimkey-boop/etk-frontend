@@ -41,6 +41,31 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
 
   const activeTab = getActiveTab();
 
+  // Aggressively prefetch all tab routes in background for instant lightning-fast tab switching
+  React.useEffect(() => {
+    const routes = [
+      '/dashboard',
+      '/dashboard/documents',
+      '/dashboard/papers',
+      '/dashboard/students',
+      '/dashboard/teachers',
+      '/dashboard/billing',
+      '/dashboard/settings',
+      '/dashboard/broadcast',
+      '/dashboard/admin/institutes',
+      '/dashboard/admin/billing',
+      '/dashboard/admin/operators',
+      '/operator/workspace',
+      '/operator/earnings',
+      '/admission',
+    ];
+    routes.forEach((r) => {
+      try {
+        router.prefetch(r);
+      } catch {}
+    });
+  }, [router]);
+
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };

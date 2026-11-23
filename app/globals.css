@@ -1066,9 +1066,9 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 .loginBox { max-width: 420px; width: 90%; margin: auto; background: var(--card); padding: 50px 35px; border-radius: var(--radius-lg); text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); border: 1px solid var(--border);}
 .btn-glass-disabled { background: rgba(255, 255, 255, 0.05) !important; color: transparent !important; pointer-events: none !important; box-shadow: none !important; position: relative;}
 .btn-glass-disabled .spinner-sm { position: absolute; top: 50%; left: 50%; margin-top: -9px; margin-left: -9px; color: white;}
-.page-view { display: none; animation: fadeIn 0.4s ease; }
+.page-view { display: none; animation: pageFadeFast 0.12s cubic-bezier(0.16, 1, 0.3, 1); will-change: opacity; }
 .page-view.active { display: block; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pageFadeFast { from { opacity: 0; } to { opacity: 1; } }
 
 /* Premium Header in Modals */
 .premium-sticky-header { position: sticky; top: -40px; z-index: 100; margin: -40px -40px 25px -40px; padding: 10px 40px 10px 40px; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 15, 20, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }

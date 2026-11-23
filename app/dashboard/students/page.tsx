@@ -36,6 +36,9 @@ function highlightMatch(text: string | number | null | undefined, query: string)
   );
 }
 
+// Module-level in-memory cache for instant zero-latency tab switching
+let memoryStudentsCache: any[] = [];
+
 export default function StudentsPage() {
   const { user, payload } = useDashboard();
   const role = normalizeRole(user?.role);
@@ -45,16 +48,18 @@ export default function StudentsPage() {
     return <AccessDenied requiredRole="Institute Staff or Faculty" moduleName="Students Database" />;
   }
 
-  const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState<any[]>(memoryStudentsCache);
+  const [loading, setLoading] = useState(memoryStudentsCache.length === 0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('all');
   const [displayLimit, setDisplayLimit] = useState<number>(30);
 
   // Resolve institute UUID and fetch students directly from Supabase
-  const loadStudents = useCallback(async () => {
-    setLoading(true);
+  const loadStudents = useCallback(async (force = false) => {
+    if (force || memoryStudentsCache.length === 0) {
+      setLoading(true);
+    }
     setErrorMsg(null);
 
     const headers = {
@@ -129,6 +134,7 @@ export default function StudentsPage() {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
+            memoryStudentsCache = data;
             setStudents(data);
             setLoading(false);
             return;
@@ -241,7 +247,7 @@ export default function StudentsPage() {
             <button
               type="button"
               className="liquid-glass btn-secondary"
-              onClick={loadStudents}
+              onClick={() => { void loadStudents(true); }}
               disabled={loading}
               title="Refresh database records"
               style={{

@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { OpticalSurface } from '@/components/ui/OpticalGlass';
 
 interface MobileNavProps {
   userRole?: string;
@@ -18,6 +20,14 @@ export default function MobileNav({
 }: MobileNavProps) {
   const router = useRouter();
   const [fabOpen, setFabOpen] = useState(false);
+  const [optimisticTab, setOptimisticTab] = useState<string | null>(null);
+
+  // Synchronize optimistic tab with actual activeTab
+  useEffect(() => {
+    setOptimisticTab(null);
+  }, [activeTab]);
+
+  const currentTab = optimisticTab || activeTab;
 
   const normalizedRole = String(userRole || 'admin').toLowerCase().trim();
   const isTeacher = normalizedRole === 'teacher';
@@ -33,7 +43,8 @@ export default function MobileNav({
   const toggleFabMenu = () => setFabOpen((prev) => !prev);
   const closeFabMenu = () => setFabOpen(false);
 
-  const handleTabClick = (tab: string) => {
+  const handleTabSelect = (tab: string) => {
+    setOptimisticTab(tab);
     closeFabMenu();
     if (onSwitchTab) onSwitchTab(tab);
   };
@@ -52,64 +63,60 @@ export default function MobileNav({
     if (isOperator) {
       return (
         <>
-          <a
-            href="#overview"
-            className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('overview');
-            }}
+          <Link
+            href="/dashboard"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'overview' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('overview')}
+            onTouchStart={() => setOptimisticTab('overview')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
             </svg>
             <span>Home</span>
-          </a>
+          </Link>
 
-          <a
-            href="#workspace"
-            className={`nav-tab ${activeTab === 'op-workspace' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('op-workspace');
-            }}
+          <Link
+            href="/operator/workspace"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'op-workspace' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('op-workspace')}
+            onTouchStart={() => setOptimisticTab('op-workspace')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
               <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
             </svg>
             <span>Workspace</span>
-          </a>
+          </Link>
 
-          <a
-            href="#wallet"
-            className={`nav-tab ${activeTab === 'op-finance' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('op-finance');
-            }}
+          <Link
+            href="/operator/earnings"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'op-finance' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('op-finance')}
+            onTouchStart={() => setOptimisticTab('op-finance')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="2" y="5" width="20" height="14" rx="2" />
               <line x1="2" y1="10" x2="22" y2="10" />
             </svg>
             <span>Wallet</span>
-          </a>
+          </Link>
 
-          <a
-            href="#settings"
-            className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('settings');
-            }}
+          <Link
+            href="/dashboard/settings"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'settings' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('settings')}
+            onTouchStart={() => setOptimisticTab('settings')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
             <span>Settings</span>
-          </a>
+          </Link>
         </>
       );
     }
@@ -117,27 +124,25 @@ export default function MobileNav({
     if (isSysAdmin) {
       return (
         <>
-          <a
-            href="#overview"
-            className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('overview');
-            }}
+          <Link
+            href="/dashboard"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'overview' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('overview')}
+            onTouchStart={() => setOptimisticTab('overview')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
             </svg>
             <span>Home</span>
-          </a>
+          </Link>
 
-          <a
-            href="#clients"
-            className={`nav-tab ${activeTab === 'institutes' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('institutes');
-            }}
+          <Link
+            href="/dashboard/admin/institutes"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'institutes' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('institutes')}
+            onTouchStart={() => setOptimisticTab('institutes')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M14 21v-3a2 2 0 0 0-4 0v3" />
@@ -146,64 +151,60 @@ export default function MobileNav({
               <path d="M22 7a1 1 0 0 0-1-1h-2a2 2 0 0 1-1.143-.359L13.143 2.36a2 2 0 0 0-2.286-.001L6.143 5.64A2 2 0 0 1 5 6H3a1 1 0 0 0-1 1v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2z" />
             </svg>
             <span>Clients</span>
-          </a>
+          </Link>
 
-          <a
-            href="#ledger"
-            className={`nav-tab ${activeTab === 'billing' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('billing');
-            }}
+          <Link
+            href="/dashboard/admin/billing"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'billing' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('billing')}
+            onTouchStart={() => setOptimisticTab('billing')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
               <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
             </svg>
             <span>Ledger</span>
-          </a>
+          </Link>
 
-          <a
-            href="#settings"
-            className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleTabClick('settings');
-            }}
+          <Link
+            href="/dashboard/settings"
+            prefetch={true}
+            className={`nav-tab ${currentTab === 'settings' ? 'active' : ''}`}
+            onClick={() => handleTabSelect('settings')}
+            onTouchStart={() => setOptimisticTab('settings')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
             <span>Settings</span>
-          </a>
+          </Link>
         </>
       );
     }
 
     return (
       <>
-        <a
-          href="#overview"
-          className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={(e) => {
-            e.preventDefault();
-            handleTabClick('overview');
-          }}
+        <Link
+          href="/dashboard"
+          prefetch={true}
+          className={`nav-tab ${currentTab === 'overview' ? 'active' : ''}`}
+          onClick={() => handleTabSelect('overview')}
+          onTouchStart={() => setOptimisticTab('overview')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
           </svg>
           <span>Home</span>
-        </a>
+        </Link>
 
-        <a
-          href="#documents"
-          className={`nav-tab ${activeTab === 'documents' ? 'active' : ''}`}
-          onClick={(e) => {
-            e.preventDefault();
-            handleTabClick('documents');
-          }}
+        <Link
+          href="/dashboard/documents"
+          prefetch={true}
+          className={`nav-tab ${currentTab === 'documents' ? 'active' : ''}`}
+          onClick={() => handleTabSelect('documents')}
+          onTouchStart={() => setOptimisticTab('documents')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
@@ -214,15 +215,14 @@ export default function MobileNav({
             <path d="M8 16h.01" />
           </svg>
           <span>Docs</span>
-        </a>
+        </Link>
 
-        <a
-          href="#papers"
-          className={`nav-tab ${activeTab === 'papers' ? 'active' : ''}`}
-          onClick={(e) => {
-            e.preventDefault();
-            handleTabClick('papers');
-          }}
+        <Link
+          href="/dashboard/papers"
+          prefetch={true}
+          className={`nav-tab ${currentTab === 'papers' ? 'active' : ''}`}
+          onClick={() => handleTabSelect('papers')}
+          onTouchStart={() => setOptimisticTab('papers')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -232,38 +232,55 @@ export default function MobileNav({
             <polyline points="10 9 9 9 8 9" />
           </svg>
           <span>Papers</span>
-        </a>
+        </Link>
 
-        <a
-          href="#settings"
-          className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={(e) => {
-            e.preventDefault();
-            handleTabClick('settings');
-          }}
+        <Link
+          href="/dashboard/settings"
+          prefetch={true}
+          className={`nav-tab ${currentTab === 'settings' ? 'active' : ''}`}
+          onClick={() => handleTabSelect('settings')}
+          onTouchStart={() => setOptimisticTab('settings')}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
           <span>Settings</span>
-        </a>
+        </Link>
       </>
     );
   };
 
   return (
     <>
-      {/* 1. iOS Separated Bottom Pill & Floating FAB Bar (Matches index.html 1:1) */}
+      {/* 1. iOS Separated Bottom Pill & Floating FAB Bar with Apple Optical Liquid Glass */}
       <div id="mobile-nav-bar">
-        <div className="nav-pill-box">
+        <OpticalSurface
+          className="nav-pill-box"
+          radius={35}
+          interactive={false}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-evenly',
+            alignItems: 'center',
+            padding: '0 5px',
+          }}
+        >
           {renderTabs()}
-        </div>
+        </OpticalSurface>
 
-        {/* Separated Circular Plus FAB Dock Button */}
-        <div
+        {/* Separated Circular Plus FAB Dock Button with Apple Optical Liquid Glass */}
+        <OpticalSurface
           className={`fab-dock ${fabOpen ? 'open' : ''}`}
+          radius={999}
           onClick={toggleFabMenu}
+          style={{
+            width: '60px',
+            height: '60px',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--brand)',
+          }}
         >
           <svg
             width="26"
@@ -274,11 +291,15 @@ export default function MobileNav({
             strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
+            style={{
+              transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              transform: fabOpen ? 'rotate(45deg)' : 'none',
+            }}
           >
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-        </div>
+        </OpticalSurface>
       </div>
 
       {/* 2. FAB Overlay */}
@@ -304,7 +325,13 @@ export default function MobileNav({
           {/* Operator Menu */}
           {isOperator && (
             <>
-              <div className="fab-item" onClick={() => handleTabClick('papers')}>
+              <Link
+                href="/dashboard/papers"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => handleTabSelect('papers')}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -312,8 +339,14 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Paper Queue</span>
-              </div>
-              <div className="fab-item" onClick={() => handleTabClick('documents')}>
+              </Link>
+              <Link
+                href="/dashboard/documents"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => handleTabSelect('documents')}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--brand)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
@@ -321,7 +354,7 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Doc Queue</span>
-              </div>
+              </Link>
               <div className="fab-item" onClick={() => handleNavigate('/operator/tools/questions-formatter')}>
                 <div style={{ color: 'var(--purple)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -337,7 +370,13 @@ export default function MobileNav({
           {/* Super Admin Menu */}
           {isSysAdmin && (
             <>
-              <div className="fab-item" onClick={() => handleTabClick('documents')}>
+              <Link
+                href="/dashboard/documents"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => handleTabSelect('documents')}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
@@ -345,8 +384,14 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Doc Queue</span>
-              </div>
-              <div className="fab-item" onClick={() => handleTabClick('papers')}>
+              </Link>
+              <Link
+                href="/dashboard/papers"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => handleTabSelect('papers')}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -354,8 +399,14 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Paper Queue</span>
-              </div>
-              <div className="fab-item" onClick={() => handleTabClick('operators')}>
+              </Link>
+              <Link
+                href="/dashboard/admin/operators"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => handleTabSelect('operators')}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--purple)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M8 15H7a4 4 0 0 0-4 4v2" />
@@ -363,15 +414,21 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Workforce</span>
-              </div>
-              <div className="fab-item" onClick={() => handleTabClick('notifications')}>
+              </Link>
+              <Link
+                href="/dashboard/broadcast"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => handleTabSelect('notifications')}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--text)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
                   </svg>
                 </div>
                 <span>Broadcast</span>
-              </div>
+              </Link>
             </>
           )}
 
@@ -400,7 +457,13 @@ export default function MobileNav({
 
               {isInstAdmin && (
                 <>
-                  <div className="fab-item" onClick={() => handleTabClick('inst-teachers')}>
+                  <Link
+                    href="/dashboard/teachers"
+                    prefetch={true}
+                    className="fab-item"
+                    onClick={() => handleTabSelect('inst-teachers')}
+                    style={{ textDecoration: 'none' }}
+                  >
                     <div style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -410,9 +473,15 @@ export default function MobileNav({
                       </svg>
                     </div>
                     <span>Directory</span>
-                  </div>
+                  </Link>
 
-                  <div className="fab-item" onClick={() => handleTabClick('inst-students')}>
+                  <Link
+                    href="/dashboard/students"
+                    prefetch={true}
+                    className="fab-item"
+                    onClick={() => handleTabSelect('inst-students')}
+                    style={{ textDecoration: 'none' }}
+                  >
                     <div style={{ color: 'var(--brand)', display: 'flex', alignItems: 'center' }}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
@@ -420,9 +489,15 @@ export default function MobileNav({
                       </svg>
                     </div>
                     <span>Students</span>
-                  </div>
+                  </Link>
 
-                  <div className="fab-item" onClick={() => handleTabClick('inst-billing')}>
+                  <Link
+                    href="/dashboard/billing"
+                    prefetch={true}
+                    className="fab-item"
+                    onClick={() => handleTabSelect('inst-billing')}
+                    style={{ textDecoration: 'none' }}
+                  >
                     <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -430,20 +505,32 @@ export default function MobileNav({
                       </svg>
                     </div>
                     <span>Billing</span>
-                  </div>
+                  </Link>
 
-                  <div className="fab-item" onClick={() => handleTabClick('notifications')}>
+                  <Link
+                    href="/dashboard/broadcast"
+                    prefetch={true}
+                    className="fab-item"
+                    onClick={() => handleTabSelect('notifications')}
+                    style={{ textDecoration: 'none' }}
+                  >
                     <div style={{ color: 'var(--purple)', display: 'flex', alignItems: 'center' }}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
                       </svg>
                     </div>
                     <span>Broadcast</span>
-                  </div>
+                  </Link>
                 </>
               )}
 
-              <div className="fab-item" onClick={() => handleNavigate('/fees')}>
+              <Link
+                href="/fees"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => closeFabMenu()}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -451,9 +538,15 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Fee Portal</span>
-              </div>
+              </Link>
 
-              <div className="fab-item" onClick={() => handleNavigate('/admission')}>
+              <Link
+                href="/admission"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => closeFabMenu()}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--brand)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
@@ -461,9 +554,15 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Admission Portal</span>
-              </div>
+              </Link>
 
-              <div className="fab-item" onClick={() => handleNavigate('/attendance')}>
+              <Link
+                href="/attendance"
+                prefetch={true}
+                className="fab-item"
+                onClick={() => closeFabMenu()}
+                style={{ textDecoration: 'none' }}
+              >
                 <div style={{ color: 'var(--success)', display: 'flex', alignItems: 'center' }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -473,7 +572,7 @@ export default function MobileNav({
                   </svg>
                 </div>
                 <span>Smart Attendance</span>
-              </div>
+              </Link>
             </>
           )}
         </div>

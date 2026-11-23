@@ -89,23 +89,27 @@ export default function Sidebar({
       </div>
 
       {/* Navigation Items — Exactly matching index.html lines 2913-2936 */}
-      <div
+      <Link
+        href="/dashboard"
+        prefetch={true}
         id="nav-overview"
         className={`nav-item ${isActive('overview', '/dashboard') ? 'active' : ''}`}
-        onClick={(e) => handleNavClick('overview', e)}
+        style={{ textDecoration: 'none' }}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
         </svg>
         Dashboard Overview
-      </div>
+      </Link>
 
       {!isOperator && (
         <>
-          <div
+          <Link
+            href="/dashboard/documents"
+            prefetch={true}
             id="nav-documents"
             className={`nav-item ${isActive('documents', '/dashboard/documents') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('documents', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
@@ -116,12 +120,14 @@ export default function Sidebar({
               <path d="M8 16h.01" />
             </svg>
             Documents System
-          </div>
+          </Link>
 
-          <div
+          <Link
+            href="/dashboard/papers"
+            prefetch={true}
             id="nav-papers"
             className={`nav-item ${isActive('papers', '/dashboard/papers') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('papers', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -131,7 +137,7 @@ export default function Sidebar({
               <polyline points="10 9 9 9 8 9" />
             </svg>
             Paper System
-          </div>
+          </Link>
         </>
       )}
 
@@ -180,36 +186,42 @@ export default function Sidebar({
 
       {/* Broadcast Center — exact original tab name */}
       {!isOperator && (
-        <div
+        <Link
+          href="/dashboard/broadcast"
+          prefetch={true}
           id="nav-notifications"
           className={`nav-item ${isActive('notifications', '/dashboard/broadcast') ? 'active' : ''}`}
-          onClick={(e) => handleNavClick('notifications', e)}
+          style={{ textDecoration: 'none' }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
           </svg>
           Broadcast Center
-        </div>
+        </Link>
       )}
 
       {/* Institute Admin Specific Tabs */}
       {isInstAdmin && (
         <>
-          <div
+          <Link
+            href="/dashboard/billing"
+            prefetch={true}
             id="nav-inst-billing"
             className={`nav-item ${isActive('inst-billing', '/dashboard/billing') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('inst-billing', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect width="20" height="14" x="2" y="5" rx="2" />
               <line x1="2" x2="22" y1="10" y2="10" />
             </svg>
             Institute Billing
-          </div>
-          <div
+          </Link>
+          <Link
+            href="/dashboard/teachers"
+            prefetch={true}
             id="nav-inst-teachers"
             className={`nav-item ${isActive('inst-teachers', '/dashboard/teachers') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('inst-teachers', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M15 13a3 3 0 1 0-6 0" />
@@ -217,16 +229,18 @@ export default function Sidebar({
               <circle cx="12" cy="8" r="2" />
             </svg>
             Teachers Directory
-          </div>
+          </Link>
         </>
       )}
 
       {/* Students Database (Institute Admin & Teacher) */}
       {(isInstAdmin || isTeacher) && (
-        <div
+        <Link
+          href="/dashboard/students"
+          prefetch={true}
           id="nav-inst-students"
           className={`nav-item ${isActive('inst-students', '/dashboard/students') ? 'active' : ''}`}
-          onClick={(e) => handleNavClick('inst-students', e)}
+          style={{ textDecoration: 'none' }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
@@ -234,16 +248,18 @@ export default function Sidebar({
             <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
           </svg>
           Students Database
-        </div>
+        </Link>
       )}
 
       {/* Super Admin Specific Tabs */}
       {isSysAdmin && (
         <>
-          <div
+          <Link
+            href="/dashboard/admin/institutes"
+            prefetch={true}
             id="nav-institutes"
             className={`nav-item ${isActive('institutes', '/dashboard/admin/institutes') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('institutes', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M14 21v-3a2 2 0 0 0-4 0v3" />
@@ -254,22 +270,26 @@ export default function Sidebar({
               <circle cx="12" cy="9" r="2" />
             </svg>
             Global Institutes
-          </div>
-          <div
+          </Link>
+          <Link
+            href="/dashboard/admin/billing"
+            prefetch={true}
             id="nav-billing"
             className={`nav-item ${isActive('billing', '/dashboard/admin/billing') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('billing', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
               <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
             </svg>
             Global Ledger
-          </div>
-          <div
+          </Link>
+          <Link
+            href="/dashboard/admin/operators"
+            prefetch={true}
             id="nav-operators"
             className={`nav-item ${isActive('operators', '/dashboard/admin/operators') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('operators', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M16.051 12.616a1 1 0 0 1 1.909.024l.737 1.452a1 1 0 0 0 .737.535l1.634.256a1 1 0 0 1 .588 1.806l-1.172 1.168a1 1 0 0 0-.282.866l.259 1.613a1 1 0 0 1-1.541 1.134l-1.465-.75a1 1 0 0 0-.912 0l-1.465.75a1 1 0 0 1-1.539-1.133l.258-1.613a1 1 0 0 0-.282-.866l-1.156-1.153a1 1 0 0 1 .572-1.822l1.633-.256a1 1 0 0 0 .737-.535z" />
@@ -277,17 +297,19 @@ export default function Sidebar({
               <circle cx="10" cy="7" r="4" />
             </svg>
             Operations Team
-          </div>
+          </Link>
         </>
       )}
 
       {/* Operator Workspace & Tools */}
       {(isOperator || isSysAdmin) && (
         <>
-          <div
+          <Link
+            href="/operator/workspace"
+            prefetch={true}
             id="nav-op-workspace"
             className={`nav-item ${isActive('op-workspace', '/operator/workspace') ? 'active' : ''}`}
-            onClick={(e) => handleNavClick('op-workspace', e)}
+            style={{ textDecoration: 'none' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
@@ -296,22 +318,25 @@ export default function Sidebar({
               <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
             </svg>
             Production Workspace
-          </div>
+          </Link>
           {isOperator && (
-            <div
+            <Link
+              href="/operator/earnings"
+              prefetch={true}
               id="nav-op-finance"
               className={`nav-item ${isActive('op-finance', '/operator/earnings') ? 'active' : ''}`}
-              onClick={(e) => handleNavClick('op-finance', e)}
+              style={{ textDecoration: 'none' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <rect x="2" y="5" width="20" height="14" rx="2" />
                 <line x1="2" y1="10" x2="22" y2="10" />
               </svg>
               Financial Ledger
-            </div>
+            </Link>
           )}
           <Link
             href="/operator/tools/questions-formatter"
+            prefetch={true}
             className={`nav-item ${pathname.includes('questions-formatter') ? 'active' : ''}`}
             style={{ textDecoration: 'none' }}
           >
@@ -325,17 +350,19 @@ export default function Sidebar({
       )}
 
       {/* Master Settings */}
-      <div
+      <Link
+        href="/dashboard/settings"
+        prefetch={true}
         id="nav-settings"
         className={`nav-item ${isActive('settings', '/dashboard/settings') ? 'active' : ''}`}
-        onClick={(e) => handleNavClick('settings', e)}
+        style={{ textDecoration: 'none' }}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
         Master Settings
-      </div>
+      </Link>
 
       {/* Dynamic Version display — Exactly matching index.html format */}
       <div
