@@ -1108,23 +1108,43 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 .premium-sticky-header h2 { font-family: 'Overpass', sans-serif; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; font-size: 16px; }
 .premium-sticky-header .close-minimal { position: relative; top: 0; right: 0; font-size: 16px; }
 
-/* Floating Sticky Action Dock at bottom of Modals (Desktop Base) */
+/* Modern Professional Modal Action Dock (Natural Flow, Zero Overlay Clutter) */
 .modal-action-dock {
-  position: sticky;
-  bottom: -40px;
-  z-index: 95;
-  margin: 25px -40px -40px -40px;
-  padding: 16px 40px;
-  background: rgba(14, 21, 38, 0.94);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  border-radius: 0 0 24px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-top: 24px !important;
+  margin-bottom: 8px !important;
+  padding-top: 18px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Secondary Button in Modal (Clear / Cancel) - Sleek Glass Outline with Ruby Accents */
+.btn-modal-clear {
+  color: #EF4444 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
+
+.btn-modal-clear:hover {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.6) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3), inset 0 1px 1.5px rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px) scale(1.02) !important;
+}
+
+.btn-modal-clear:active {
+  transform: scale(0.96) !important;
+  background: rgba(239, 68, 68, 0.25) !important;
 }
 
 /* Z-Index Fixes */
@@ -1865,7 +1885,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     background: linear-gradient(180deg, #0e1526 0%, #080d18 100%) !important;
     box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
     max-height: 90dvh !important;
-    padding: 0 18px calc(90px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    padding: 0 18px calc(24px + env(safe-area-inset-bottom, 16px)) 18px !important;
     animation: nativeSheetSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
@@ -2089,38 +2109,38 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     box-sizing: border-box !important;
   }
 
-  /* Floating Sticky Action Dock at bottom of Mobile Modal (Mirrors Floating TopBar Header) */
+  /* Mobile Modal Action Dock - Natural Document Flow, Zero Overlay Clutter */
   .glass-overlay .glass-box .modal-action-dock {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    z-index: 1000 !important;
-    margin: 0 !important;
-    padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 16px)) 18px !important;
-    background: rgba(12, 19, 34, 0.96) !important;
-    backdrop-filter: blur(25px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
-    border-radius: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     gap: 12px !important;
+    margin: 20px 0 0 0 !important;
+    padding: 16px 0 0 0 !important;
+    border: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
-    pointer-events: auto !important;
+    z-index: 1 !important;
   }
 
   .glass-overlay .glass-box .modal-action-dock button,
   .glass-overlay .glass-box .modal-action-dock .apple-glass-shell {
-    min-height: 46px !important;
-    font-size: 14px !important;
+    min-height: 44px !important;
+    font-size: 13.5px !important;
     font-weight: 700 !important;
     flex: 1 !important;
-    display: flex !important;
+    max-width: calc(50% - 6px) !important;
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
   }

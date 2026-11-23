@@ -796,19 +796,28 @@ export default function PaperSubmitModal() {
             </div>
           </div>
 
-          {/* Action Buttons (Floating Sticky Dock) */}
+          {/* Action Buttons */}
           <div className="modal-action-dock">
             <OpticalButton
               type="button"
-              variant="danger"
+              variant="outline"
               onClick={clearPaperForm}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              className="btn-modal-clear"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                color: 'var(--danger)',
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+                background: 'rgba(239, 68, 68, 0.08)',
+              }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" />
                 <path d="m5.082 11.09 8.828 8.828" />
               </svg>
-              Clear
+              <span>Clear</span>
             </OpticalButton>
 
             <OpticalButton
@@ -820,7 +829,7 @@ export default function PaperSubmitModal() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                minWidth: '110px',
+                minWidth: '120px',
                 justifyContent: 'center',
               }}
             >
