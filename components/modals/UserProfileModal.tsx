@@ -103,10 +103,7 @@ export default function UserProfileModal() {
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: '500px',
-          padding: '40px',
           textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
           position: 'relative',
         }}
       >
@@ -137,158 +134,161 @@ export default function UserProfileModal() {
             </button>
           </div>
         </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '20px' }}>
-          Update your personal details. Changes to academic roles require admin approval.
-        </p>
 
-        {/* Profile Picture Block */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            marginBottom: '22px',
-            background: 'rgba(0,0,0,0.2)',
-            padding: '15px',
-            borderRadius: '12px',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              background: 'var(--brand)',
-              color: '#05080F',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '24px',
-              fontWeight: 900,
-              overflow: 'hidden',
-              flexShrink: 0,
-              border: '2px solid rgba(255,255,255,0.2)',
-            }}
-          >
-            {user?.profile_pic_url || user?.profilePic ? (
-              <img
-                src={user.profile_pic_url || user.profilePic}
-                alt="Profile"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              (user?.name || 'U').charAt(0).toUpperCase()
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: 'white', marginBottom: '6px' }}>
-              Profile Picture
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                className="liquid-glass btn-xs btn-primary"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Upload Photo
-              </button>
-              {(user?.profile_pic_url || user?.profilePic) && (
-                <button
-                  type="button"
-                  className="liquid-glass btn-xs btn-danger"
-                  onClick={handleRemovePic}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-          <input
-            type="file"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            accept="image/png, image/jpeg, image/jpg"
-            onChange={handleFileSelect}
-          />
-        </div>
+        <form onSubmit={handleSubmit} style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: 0 }}>
+          <div className="modal-scroll-body">
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '20px' }}>
+              Update your personal details. Changes to academic roles require admin approval.
+            </p>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: '15px' }}>
-            <label className="label-text">Full Name</label>
-            <input
-              type="text"
-              className="form-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group" style={{ marginBottom: '15px' }}>
-            <label className="label-text">Email Address (Login ID)</label>
-            <input
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group" style={{ marginBottom: '15px' }}>
-            <label className="label-text">Contact Number</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. 9876543210"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-          </div>
-
-          <div
-            style={{
-              background: 'rgba(0,0,0,0.2)',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              padding: '15px',
-              marginBottom: '25px',
-            }}
-          >
-            <div className="form-group" style={{ marginBottom: '15px' }}>
-              <label className="label-text" style={{ color: 'var(--accent)' }}>
-                Assigned Class (Read-Only)
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                disabled
-                value={user?.assignedClass || 'Not Assigned'}
-                style={{ opacity: 0.6 }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: '15px' }}>
-              <label className="label-text" style={{ color: 'var(--accent)' }}>
-                Subjects (Read-Only)
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                disabled
-                value={user?.subjects || 'Not Assigned'}
-                style={{ opacity: 0.6 }}
-              />
-            </div>
-            <OpticalButton
-              type="button"
-              variant="warning"
-              style={{ width: '100%' }}
-              onClick={handleRequestAcademicChange}
+            {/* Profile Picture Block */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                marginBottom: '22px',
+                background: 'rgba(0,0,0,0.2)',
+                padding: '15px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+              }}
             >
-              Request Change to Class/Subjects
-            </OpticalButton>
+              <div
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '50%',
+                  background: 'var(--brand)',
+                  color: '#05080F',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px',
+                  fontWeight: 900,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  border: '2px solid rgba(255,255,255,0.2)',
+                }}
+              >
+                {user?.profile_pic_url || user?.profilePic ? (
+                  <img
+                    src={user.profile_pic_url || user.profilePic}
+                    alt="Profile"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  (user?.name || 'U').charAt(0).toUpperCase()
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: 'white', marginBottom: '6px' }}>
+                  Profile Picture
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="liquid-glass btn-xs btn-primary"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Upload Photo
+                  </button>
+                  {(user?.profile_pic_url || user?.profilePic) && (
+                    <button
+                      type="button"
+                      className="liquid-glass btn-xs btn-danger"
+                      onClick={handleRemovePic}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/png, image/jpeg, image/jpg"
+                onChange={handleFileSelect}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '15px' }}>
+              <label className="label-text">Full Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '15px' }}>
+              <label className="label-text">Email Address (Login ID)</label>
+              <input
+                type="email"
+                className="form-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '15px' }}>
+              <label className="label-text">Contact Number</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. 9876543210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+
+            <div
+              style={{
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                padding: '15px',
+                marginBottom: '25px',
+              }}
+            >
+              <div className="form-group" style={{ marginBottom: '15px' }}>
+                <label className="label-text" style={{ color: 'var(--accent)' }}>
+                  Assigned Class (Read-Only)
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  disabled
+                  value={user?.assignedClass || 'Not Assigned'}
+                  style={{ opacity: 0.6 }}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '15px' }}>
+                <label className="label-text" style={{ color: 'var(--accent)' }}>
+                  Subjects (Read-Only)
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  disabled
+                  value={user?.subjects || 'Not Assigned'}
+                  style={{ opacity: 0.6 }}
+                />
+              </div>
+              <OpticalButton
+                type="button"
+                variant="warning"
+                style={{ width: '100%' }}
+                onClick={handleRequestAcademicChange}
+              >
+                Request Change to Class/Subjects
+              </OpticalButton>
+            </div>
           </div>
 
           <div className="modal-action-dock" style={{ justifyContent: 'center' }}>

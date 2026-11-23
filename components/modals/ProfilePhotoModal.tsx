@@ -119,10 +119,7 @@ export default function ProfilePhotoModal() {
         style={{
           maxWidth: '500px',
           width: '95%',
-          padding: '35px',
           textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
           position: 'relative',
         }}
       >
@@ -153,71 +150,73 @@ export default function ProfilePhotoModal() {
           </button>
         </div>
 
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '18px', marginTop: '8px' }}>
-          Drag to position and zoom to fit the 1:1 circular profile ratio.
-        </p>
+        <div className="modal-scroll-body">
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '18px', marginTop: '8px' }}>
+            Drag to position and zoom to fit the 1:1 circular profile ratio.
+          </p>
 
-        {/* Cropper Viewport */}
-        <div
-          ref={containerRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          style={{
-            width: '260px',
-            height: '260px',
-            margin: '0 auto 20px',
-            borderRadius: '50%',
-            overflow: 'hidden',
-            border: '3px solid var(--brand)',
-            boxShadow: '0 0 30px rgba(0,251,166,0.25), inset 0 0 20px rgba(0,0,0,0.8)',
-            position: 'relative',
-            cursor: isDragging ? 'grabbing' : 'grab',
-            background: '#070b13',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            userSelect: 'none',
-          }}
-        >
-          <img
-            ref={imgRef}
-            src={imageSrc}
-            alt="Adjust Crop"
-            draggable={false}
+          {/* Cropper Viewport */}
+          <div
+            ref={containerRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
             style={{
-              maxWidth: 'none',
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-              pointerEvents: 'none',
-              objectFit: 'contain',
-              height: '100%',
+              width: '260px',
+              height: '260px',
+              margin: '0 auto 20px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              border: '3px solid var(--brand)',
+              boxShadow: '0 0 30px rgba(0,251,166,0.25), inset 0 0 20px rgba(0,0,0,0.8)',
+              position: 'relative',
+              cursor: isDragging ? 'grabbing' : 'grab',
+              background: '#070b13',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              userSelect: 'none',
             }}
-          />
-        </div>
+          >
+            <img
+              ref={imgRef}
+              src={imageSrc}
+              alt="Adjust Crop"
+              draggable={false}
+              style={{
+                maxWidth: 'none',
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                pointerEvents: 'none',
+                objectFit: 'contain',
+                height: '100%',
+              }}
+            />
+          </div>
 
-        {/* Zoom Slider */}
-        <div style={{ marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>ZOOM:</span>
-          <input
-            type="range"
-            min="1"
-            max="3"
-            step="0.05"
-            value={zoom}
-            onChange={(e) => setZoom(parseFloat(e.target.value))}
-            style={{
-              flex: 1,
-              accentColor: 'var(--brand)',
-              height: '4px',
-              borderRadius: '2px',
-              cursor: 'pointer',
-            }}
-          />
-          <span style={{ fontSize: '11px', color: 'var(--brand)', fontWeight: 800, width: '35px' }}>
-            {zoom.toFixed(1)}x
-          </span>
+          {/* Zoom Slider */}
+          <div style={{ marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>ZOOM:</span>
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.05"
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              style={{
+                flex: 1,
+                accentColor: 'var(--brand)',
+                height: '4px',
+                borderRadius: '2px',
+                cursor: 'pointer',
+              }}
+            />
+            <span style={{ fontSize: '11px', color: 'var(--brand)', fontWeight: 800, width: '35px' }}>
+              {zoom.toFixed(1)}x
+            </span>
+          </div>
         </div>
 
         {/* Action Buttons (Floating Sticky Dock) */}

@@ -1072,57 +1072,91 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   z-index: 99999;
 }
 .glass-overlay.active { display: flex !important; opacity: 1; }
+/* =======================================================
+   PATTERN A: TRUE 3-PART MODAL ARCHITECTURE (DESKTOP / LAPTOP)
+   ======================================================= */
 .glass-box {
-  background: rgba(14, 22, 37, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 35px;
-  border-radius: 24px;
-  text-align: left;
-  box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  max-width: 460px;
+  background: rgba(14, 22, 37, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  padding: 0 !important; /* Zero padding on outer box! Header, scroll body, and footer dock handle their own padding */
+  border-radius: 24px !important;
+  text-align: left !important;
+  box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  max-width: 650px;
   width: 90%;
+  max-height: 85vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important; /* The outer container NEVER scrolls */
+  position: relative !important;
   transform: scale(0.96);
   transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease;
-  max-height: 88vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 .glass-overlay.active .glass-box { transform: scale(1); }
 
-.cropper-container { width: 100%; max-height: 400px; background: #000; border-radius: var(--radius-md); overflow: hidden; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: inset 0 0 20px rgba(0,0,0,0.5);}
-.cropper-container img { max-width: 100%; display: block; }
-.loading-bar-container { width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.05); border-radius: var(--radius-pill); overflow: hidden; margin: 25px auto 0; position: relative;}
-.loading-bar { height: 100%; width: 40%; background: var(--brand); border-radius: var(--radius-pill); position: absolute; animation: slideBar 1.2s infinite ease-in-out; }
-@keyframes slideBar { 0% { left: -50%; } 100% { left: 100%; } }
-.spinner-sm { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.2); border-top: 3px solid #fff; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-.loginBox { max-width: 420px; width: 90%; margin: auto; background: var(--card); padding: 50px 35px; border-radius: var(--radius-lg); text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); border: 1px solid var(--border);}
-.btn-glass-disabled { background: rgba(255, 255, 255, 0.05) !important; color: transparent !important; pointer-events: none !important; box-shadow: none !important; position: relative;}
-.btn-glass-disabled .spinner-sm { position: absolute; top: 50%; left: 50%; margin-top: -9px; margin-left: -9px; color: white;}
-.page-view { display: none; animation: pageFadeFast 0.12s cubic-bezier(0.16, 1, 0.3, 1); will-change: opacity; }
-.page-view.active { display: block; }
-@keyframes pageFadeFast { from { opacity: 0; } to { opacity: 1; } }
+/* 1. TOP HEADER (Pinned / Flex-Shrink: 0) */
+.glass-box .premium-sticky-header {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  top: 0 !important;
+  margin: 0 !important;
+  padding: 16px 28px !important;
+  background: rgba(14, 21, 38, 0.98) !important;
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 24px 24px 0 0 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  z-index: 10 !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
 
-/* Premium Header in Modals */
-.premium-sticky-header { position: sticky; top: -40px; z-index: 100; margin: -40px -40px 25px -40px; padding: 10px 40px 10px 40px; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 15, 20, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
 .premium-sticky-header h2 { font-family: 'Overpass', sans-serif; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; font-size: 16px; }
 .premium-sticky-header .close-minimal { position: relative; top: 0; right: 0; font-size: 16px; }
 
-/* Modern Professional Modal Action Dock (Natural Flow, Zero Overlay Clutter) */
-.modal-action-dock {
+/* 2. MIDDLE SCROLLABLE BODY */
+.glass-box form {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+}
+
+.glass-box .modal-scroll-body,
+.glass-box form > .modal-scroll-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 24px 28px !important;
+  box-sizing: border-box !important;
+}
+
+/* 3. PINNED BOTTOM DOCK SHELF (Desktop / Laptop) */
+.glass-box .modal-action-dock {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  bottom: 0 !important;
+  margin: 0 !important;
+  padding: 16px 28px !important;
+  background: rgba(12, 19, 34, 0.98) !important;
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 0 0 24px 24px !important;
+  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
-  margin-top: 24px !important;
-  margin-bottom: 8px !important;
-  padding-top: 18px !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  position: relative !important;
-  width: 100% !important;
   box-sizing: border-box !important;
+  z-index: 10 !important;
+  width: 100% !important;
 }
 
 /* Secondary Button in Modal (Clear / Cancel) - Sleek Glass Outline with Ruby Accents */
@@ -1873,6 +1907,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     box-sizing: border-box !important;
   }
 
+  /* Pattern A: True 3-Part Mobile Bottom Sheet */
   .glass-overlay .glass-box {
     width: 100% !important;
     max-width: 100% !important;
@@ -1885,11 +1920,12 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     background: linear-gradient(180deg, #0e1526 0%, #080d18 100%) !important;
     box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
     max-height: 90dvh !important;
-    padding: 0 18px calc(24px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    height: auto !important;
+    padding: 0 !important; /* Zero padding on outer box */
     animation: nativeSheetSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    overscroll-behavior: contain !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important; /* Outer container NEVER scrolls */
     position: relative !important;
     box-sizing: border-box !important;
   }
@@ -1899,15 +1935,16 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     display: none !important;
   }
 
-  /* Seamless Edge-to-Edge Sticky Header with Integrated Apple Grab Indicator */
+  /* 1. TOP HEADER (Pinned / Flex-Shrink: 0) */
   .glass-overlay .glass-box .premium-sticky-header {
-    position: sticky !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
     top: 0 !important;
     z-index: 100 !important;
-    margin: 0 -18px 16px -18px !important;
+    margin: 0 !important;
     padding: 24px 18px 14px 18px !important;
     border-radius: 28px 28px 0 0 !important;
-    background: rgba(14, 21, 38, 0.97) !important;
+    background: rgba(14, 21, 38, 0.98) !important;
     backdrop-filter: blur(25px) !important;
     -webkit-backdrop-filter: blur(25px) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -2109,28 +2146,50 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     box-sizing: border-box !important;
   }
 
-  /* Mobile Modal Action Dock - Natural Document Flow, Zero Overlay Clutter */
+  /* 2. MIDDLE SCROLLABLE BODY */
+  .glass-overlay .glass-box form {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .glass-overlay .glass-box .modal-scroll-body,
+  .glass-overlay .glass-box form > .modal-scroll-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 16px 18px 20px 18px !important;
+    box-sizing: border-box !important;
+    overscroll-behavior: contain !important;
+  }
+
+  /* 3. PINNED BOTTOM DOCK SHELF (Mobile Bottom Sheet) */
   .glass-overlay .glass-box .modal-action-dock {
+    flex-shrink: 0 !important;
+    position: relative !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    background: rgba(12, 19, 34, 0.98) !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    border-radius: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     gap: 12px !important;
-    margin: 20px 0 0 0 !important;
-    padding: 16px 0 0 0 !important;
-    border: none !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    position: relative !important;
-    bottom: auto !important;
-    left: auto !important;
-    right: auto !important;
+    box-sizing: border-box !important;
     width: 100% !important;
     max-width: 100% !important;
-    box-sizing: border-box !important;
-    z-index: 1 !important;
+    z-index: 10 !important;
   }
 
   .glass-overlay .glass-box .modal-action-dock button,

@@ -308,10 +308,6 @@ export default function PaperSubmitModal() {
         style={{
           maxWidth: '800px',
           width: '95%',
-          padding: '40px',
-          textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
           position: 'relative',
         }}
       >
@@ -354,9 +350,11 @@ export default function PaperSubmitModal() {
           </div>
         </div>
 
-        {/* Form Body */}
-        <form id="nativePaperForm" onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
-          <div className="grid-2" style={{ marginBottom: '15px' }}>
+        {/* Form Shell */}
+        <form id="nativePaperForm" onSubmit={handleSubmit}>
+          {/* Scrollable Form Body (Pattern A) */}
+          <div className="modal-scroll-body">
+            <div className="grid-2" style={{ marginBottom: '15px' }}>
             <div className="form-group">
               <label className="label-text">
                 Subject <span className="req">*</span>
@@ -795,9 +793,10 @@ export default function PaperSubmitModal() {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="modal-action-dock">
+        {/* Action Buttons (Pinned Bottom Shelf) */}
+        <div className="modal-action-dock">
             <OpticalButton
               type="button"
               variant="outline"

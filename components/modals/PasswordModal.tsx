@@ -61,10 +61,7 @@ export default function PasswordModal() {
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: '450px',
-          padding: '40px',
-          textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
+          width: '90%',
           position: 'relative',
         }}
       >
@@ -96,45 +93,48 @@ export default function PasswordModal() {
             </button>
           </div>
         </div>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '25px', fontWeight: 600 }}>
-          Update your security credentials.
-        </p>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: '15px' }}>
-            <label className="label-text">Current Password <span className="req">*</span></label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Current Password"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              required
-            />
-          </div>
+          <div className="modal-scroll-body">
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px', fontWeight: 600 }}>
+              Update your security credentials.
+            </p>
 
-          <div className="form-group" style={{ marginBottom: '15px' }}>
-            <label className="label-text">New Password <span className="req">*</span></label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="New Password (min 6 chars)"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-          </div>
+            <div className="form-group" style={{ marginBottom: '15px' }}>
+              <label className="label-text">Current Password <span className="req">*</span></label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Current Password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                required
+              />
+            </div>
 
-          <div className="form-group" style={{ marginBottom: '20px' }}>
-            <label className="label-text">Confirm New Password <span className="req">*</span></label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Confirm New Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+            <div className="form-group" style={{ marginBottom: '15px' }}>
+              <label className="label-text">New Password <span className="req">*</span></label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="New Password (min 6 chars)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '15px' }}>
+              <label className="label-text">Confirm New Password <span className="req">*</span></label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Confirm New Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="modal-action-dock" style={{ justifyContent: 'center' }}>

@@ -100,10 +100,6 @@ export default function TeacherEditModal() {
         style={{
           maxWidth: '650px',
           width: '90%',
-          padding: '40px',
-          textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
           position: 'relative',
         }}
       >
@@ -127,8 +123,9 @@ export default function TeacherEditModal() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
-          <div className="grid-2" style={{ marginBottom: '15px' }}>
+        <form onSubmit={handleSubmit}>
+          <div className="modal-scroll-body">
+            <div className="grid-2" style={{ marginBottom: '15px' }}>
             <div className="form-group">
               <label className="label-text">Teacher Name</label>
               <input
@@ -204,8 +201,9 @@ export default function TeacherEditModal() {
               })}
             </div>
           </div>
+        </div>
 
-          <div className="modal-action-dock" style={{ justifyContent: 'center' }}>
+        <div className="modal-action-dock" style={{ justifyContent: 'center' }}>
             <OpticalButton
               type="submit"
               disabled={loading}

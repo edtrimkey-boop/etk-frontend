@@ -84,10 +84,6 @@ export default function CustomAlertModal() {
         style={{
           maxWidth: '460px',
           width: '92%',
-          padding: '35px 30px',
-          textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
           position: 'relative',
           borderRadius: '24px',
           border: `1px solid ${
@@ -101,7 +97,7 @@ export default function CustomAlertModal() {
           background: 'rgba(11, 17, 30, 0.98)',
         }}
       >
-        <div className="premium-sticky-header" style={{ marginBottom: '15px' }}>
+        <div className="premium-sticky-header">
           <h2 id="customAlertTitle" style={{ color: titleColor, margin: 0, fontSize: '18px', fontWeight: 900 }}>
             {alertState.title || (alertType === 'error' ? 'System Error' : alertType === 'warning' ? 'Notice' : 'Success')}
           </h2>
@@ -118,7 +114,7 @@ export default function CustomAlertModal() {
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: '10px' }}>
+        <div className="modal-scroll-body" style={{ textAlign: 'center' }}>
           {/* Animated Graphic Icon matching index.html lines 4320-4344 */}
           <div id="customAlertIcon" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
             {alertType === 'error' && (

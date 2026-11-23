@@ -260,10 +260,6 @@ export default function DocSubmitModal() {
         style={{
           maxWidth: '800px',
           width: '95%',
-          padding: '40px',
-          textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
           position: 'relative',
         }}
       >
@@ -307,9 +303,11 @@ export default function DocSubmitModal() {
           </div>
         </div>
 
-        {/* Form Body */}
-        <form id="nativeDocForm" onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
-          <div className="grid-2" style={{ marginBottom: '15px' }}>
+        {/* Form Shell */}
+        <form id="nativeDocForm" onSubmit={handleSubmit}>
+          {/* Scrollable Form Body (Pattern A) */}
+          <div className="modal-scroll-body">
+            <div className="grid-2" style={{ marginBottom: '15px' }}>
             <div className="form-group">
               <label className="label-text">
                 Work Type <span className="req">*</span>
@@ -659,9 +657,10 @@ export default function DocSubmitModal() {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="modal-action-dock">
+        {/* Action Buttons (Pinned Bottom Shelf) */}
+        <div className="modal-action-dock">
             <OpticalButton
               type="button"
               variant="outline"

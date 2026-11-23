@@ -566,8 +566,8 @@ export default function BillingReceiptModal({
           </button>
         </div>
 
-        {/* Scrollable Receipt Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '22px', color: '#fff' }}>
+        {/* Scrollable Receipt Body (Pattern A) */}
+        <div className="modal-scroll-body" style={{ color: '#fff' }}>
           <div
             style={{
               background: 'rgba(255,255,255,0.02)',

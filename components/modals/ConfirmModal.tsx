@@ -40,10 +40,7 @@ export default function ConfirmModal() {
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: '450px',
-          padding: '40px',
-          textAlign: 'left',
-          maxHeight: '90vh',
-          overflowY: 'auto',
+          width: '90%',
           position: 'relative',
         }}
       >
@@ -75,17 +72,18 @@ export default function ConfirmModal() {
             </button>
           </div>
         </div>
-        <p
-          style={{
-            marginBottom: '30px',
-            lineHeight: 1.6,
-            color: 'var(--text)',
-            fontSize: '14px',
-            fontWeight: 600,
-          }}
-        >
-          {confirmState.msg}
-        </p>
+        <div className="modal-scroll-body">
+          <p
+            style={{
+              lineHeight: 1.6,
+              color: 'var(--text)',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
+            {confirmState.msg}
+          </p>
+        </div>
         <div className="modal-action-dock">
           <OpticalButton
             type="button"
