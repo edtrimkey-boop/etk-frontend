@@ -84,6 +84,7 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* 2. Main Wrapper with Canvas Depth Stacking */}
       <div className={`main-wrapper ${isModalActive ? 'canvas-depth-recessed' : ''}`}>
+        <div className="ios-status-bar-plate" />
         <div className="header-scrim" />
 
         {/* Top Header */}
