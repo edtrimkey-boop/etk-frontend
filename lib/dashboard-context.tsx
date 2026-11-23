@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from 'next/navigation';
 import { MemoryStore, serverCall } from '@/lib/api-client';
 import { playSound } from '@/lib/sound';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/pricing';
 
 export interface UploadProgressState {
   open: boolean;
@@ -282,6 +283,46 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       if (res && res.profile) {
         const mergedUser = { ...cachedUser, ...res.profile };
+        
+        // Auto-resolve Supabase Institute UUID if missing or short code
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!mergedUser.institute_id || !UUID_REGEX.test(mergedUser.institute_id)) {
+          const instCode = mergedUser.code || mergedUser.instId;
+          const instEmail = mergedUser.email;
+          const headers = {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          };
+          try {
+            let resolvedId: string | null = null;
+            if (instCode && instCode !== 'all') {
+              const checkRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/institutes?institute_code=eq.${encodeURIComponent(instCode)}&select=id&limit=1`,
+                { headers }
+              );
+              if (checkRes.ok) {
+                const data = await checkRes.json();
+                if (data?.[0]?.id) resolvedId = data[0].id;
+              }
+            }
+            if (!resolvedId && instEmail) {
+              const checkRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/institutes?admin_email=eq.${encodeURIComponent(instEmail)}&select=id&limit=1`,
+                { headers }
+              );
+              if (checkRes.ok) {
+                const data = await checkRes.json();
+                if (data?.[0]?.id) resolvedId = data[0].id;
+              }
+            }
+            if (resolvedId) {
+              mergedUser.institute_id = resolvedId;
+            }
+          } catch (resErr) {
+            console.warn('[Dashboard] Institute UUID resolution warning:', resErr);
+          }
+        }
+
         setUser(mergedUser);
         MemoryStore.setUser(mergedUser);
         if (mergedUser.logo) {
