@@ -106,10 +106,13 @@ export default function CustomAlertModal() {
               type="button"
               className="close-minimal"
               onClick={closeAlert}
-              style={{ position: 'relative', top: 0, right: 0 }}
               aria-label="Close Alert"
+              title="Close"
             >
-              ✖
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
         </div>
@@ -170,12 +173,23 @@ export default function CustomAlertModal() {
           </p>
         </div>
 
-        <div className="modal-action-dock" style={{ justifyContent: 'center' }}>
+        <div className="modal-action-dock dock-center">
           <OpticalButton
             type="button"
             onClick={closeAlert}
             variant={alertType === 'error' ? 'danger' : alertType === 'warning' ? 'warning' : 'primary'}
-            style={{ width: '100%', padding: '12px 18px', fontSize: '13px', fontWeight: 800 }}
+            style={{
+              maxWidth: '280px',
+              width: '100%',
+              margin: '0 auto',
+              padding: '12px 24px',
+              fontSize: '13.5px',
+              fontWeight: 800,
+              minHeight: '44px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             Acknowledge
           </OpticalButton>

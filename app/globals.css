@@ -106,15 +106,15 @@ button,
 
 .req { color: var(--danger); font-weight: bold; margin-left: 2px; }
 .close-minimal {
-  color: var(--danger) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
   font-size: 14px !important;
-  position: absolute;
-  top: 15px;
-  right: 20px;
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
   cursor: pointer;
-  transition: all 0.28s var(--ios-spring) !important;
-  background: rgba(239, 68, 68, 0.08) !important;
-  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  transition: all 0.25s var(--ios-spring) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 50% !important;
   width: 32px !important;
   height: 32px !important;
@@ -126,20 +126,20 @@ button,
   padding: 0 !important;
   backdrop-filter: blur(15px) !important;
   -webkit-backdrop-filter: blur(15px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
   outline: none !important;
   line-height: 1 !important;
 }
 .close-minimal:hover {
-  background: rgba(239, 68, 68, 0.28) !important;
-  border-color: rgba(239, 68, 68, 0.6) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
   color: #ffffff !important;
-  transform: scale(1.1) rotate(90deg) !important;
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4), inset 0 1px 1.5px rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.06) !important;
 }
 .close-minimal:active {
   transform: scale(0.92) !important;
-  transition: transform 0.1s ease !important;
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #EF4444 !important;
 }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .upload-box { border: 2px dashed var(--card-light); padding: 20px; border-radius: var(--radius-sm); text-align: center; background: rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; }
@@ -1159,26 +1159,49 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   width: 100% !important;
 }
 
-/* Secondary Button in Modal (Clear / Cancel) - Sleek Glass Outline with Ruby Accents */
+/* Centered single-button dock (Desktop / Laptop) */
+.glass-box .modal-action-dock.dock-center,
+.glass-box .modal-action-dock:has(> button:only-child),
+.glass-box .modal-action-dock:has(> .apple-glass-shell:only-child) {
+  justify-content: center !important;
+}
+
+.glass-box .modal-action-dock.dock-center button,
+.glass-box .modal-action-dock.dock-center .apple-glass-shell,
+.glass-box .modal-action-dock button:only-child,
+.glass-box .modal-action-dock .apple-glass-shell:only-child,
+.glass-box .modal-action-dock:has(> button:only-child) button,
+.glass-box .modal-action-dock:has(> .apple-glass-shell:only-child) .apple-glass-shell {
+  max-width: 280px !important;
+  width: 100% !important;
+  flex: 0 1 280px !important;
+  margin: 0 auto !important;
+}
+
+/* Secondary Button in Modal (Clear / Cancel) - Sleek Apple Frosted Glass */
 .btn-modal-clear {
-  color: #EF4444 !important;
-  background: rgba(239, 68, 68, 0.08) !important;
-  border: 1px solid rgba(239, 68, 68, 0.3) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+  color: #E2E8F0 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(15px) !important;
+  -webkit-backdrop-filter: blur(15px) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1) !important;
 }
 
 .btn-modal-clear:hover {
-  background: rgba(239, 68, 68, 0.18) !important;
-  border-color: rgba(239, 68, 68, 0.6) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
   color: #FFFFFF !important;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3), inset 0 1px 1.5px rgba(255, 255, 255, 0.2) !important;
-  transform: translateY(-1px) scale(1.02) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px) !important;
 }
 
 .btn-modal-clear:active {
-  transform: scale(0.96) !important;
-  background: rgba(239, 68, 68, 0.25) !important;
+  transform: scale(0.97) !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #EF4444 !important;
 }
 
 /* Z-Index Fixes */
@@ -1952,8 +1975,8 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    width: calc(100% + 36px) !important;
-    max-width: calc(100% + 36px) !important;
+    width: 100% !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
   }
 
@@ -1998,25 +2021,33 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 
   .glass-overlay .glass-box .premium-sticky-header .close-minimal {
     position: relative !important;
-    top: 0 !important;
-    right: 0 !important;
-    width: 30px !important;
-    height: 30px !important;
-    min-width: 30px !important;
-    min-height: 30px !important;
+    top: auto !important;
+    right: auto !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
     border-radius: 50% !important;
     background: rgba(255, 255, 255, 0.08) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    color: #E2E8F0 !important;
-    display: flex !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 12px !important;
     cursor: pointer !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1) !important;
+  }
+  .glass-overlay .glass-box .premium-sticky-header .close-minimal:hover {
+    background: rgba(255, 255, 255, 0.16) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    color: #FFFFFF !important;
   }
   .glass-overlay .glass-box .premium-sticky-header .close-minimal:active {
-    transform: scale(0.9) !important;
-    background: rgba(239, 68, 68, 0.25) !important;
+    transform: scale(0.92) !important;
+    background: rgba(239, 68, 68, 0.2) !important;
     color: #EF4444 !important;
   }
 
@@ -2197,11 +2228,36 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     min-height: 44px !important;
     font-size: 13.5px !important;
     font-weight: 700 !important;
-    flex: 1 !important;
-    max-width: calc(50% - 6px) !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Two or more buttons in mobile dock (e.g. Clear & Save) */
+  .glass-overlay .glass-box .modal-action-dock:has(> :nth-child(2)) button,
+  .glass-overlay .glass-box .modal-action-dock:has(> :nth-child(2)) .apple-glass-shell {
+    flex: 1 1 0% !important;
+    max-width: calc(50% - 6px) !important;
+  }
+
+  /* Single button in mobile dock: Perfectly Centered */
+  .glass-overlay .glass-box .modal-action-dock.dock-center,
+  .glass-overlay .glass-box .modal-action-dock:has(> button:only-child),
+  .glass-overlay .glass-box .modal-action-dock:has(> .apple-glass-shell:only-child) {
+    justify-content: center !important;
+  }
+
+  .glass-overlay .glass-box .modal-action-dock.dock-center button,
+  .glass-overlay .glass-box .modal-action-dock.dock-center .apple-glass-shell,
+  .glass-overlay .glass-box .modal-action-dock button:only-child,
+  .glass-overlay .glass-box .modal-action-dock .apple-glass-shell:only-child,
+  .glass-overlay .glass-box .modal-action-dock:has(> button:only-child) button,
+  .glass-overlay .glass-box .modal-action-dock:has(> .apple-glass-shell:only-child) .apple-glass-shell {
+    max-width: 280px !important;
+    width: 100% !important;
+    flex: 0 1 280px !important;
+    margin: 0 auto !important;
   }
 }
 

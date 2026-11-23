@@ -87,9 +87,13 @@ export default function PasswordModal() {
               type="button"
               className="close-minimal"
               onClick={closeModal}
-              style={{ position: 'relative', top: 0, right: 0 }}
+              aria-label="Close"
+              title="Close"
             >
-              ✖
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
         </div>
@@ -137,13 +141,15 @@ export default function PasswordModal() {
             </div>
           </div>
 
-          <div className="modal-action-dock" style={{ justifyContent: 'center' }}>
+          <div className="modal-action-dock dock-center">
             <OpticalButton
               type="submit"
               disabled={loading}
               variant="primary"
               style={{
+                maxWidth: '280px',
                 width: '100%',
+                margin: '0 auto',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

@@ -343,9 +343,13 @@ export default function PaperSubmitModal() {
               type="button"
               className="close-minimal"
               onClick={closeModal}
-              style={{ position: 'relative', top: 0, right: 0 }}
+              aria-label="Close"
+              title="Close"
             >
-              ✖
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
         </div>
@@ -799,20 +803,19 @@ export default function PaperSubmitModal() {
         <div className="modal-action-dock">
             <OpticalButton
               type="button"
-              variant="outline"
+              variant="secondary"
+              mode="frosted"
               onClick={clearPaperForm}
               className="btn-modal-clear"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '6px',
-                color: 'var(--danger)',
-                borderColor: 'rgba(239, 68, 68, 0.35)',
-                background: 'rgba(239, 68, 68, 0.08)',
+                gap: '8px',
+                minHeight: '44px',
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" />
                 <path d="m5.082 11.09 8.828 8.828" />
               </svg>
