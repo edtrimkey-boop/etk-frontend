@@ -1305,11 +1305,23 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; 
   } 
 
+  /* Header Scrim (Gentle gradient fade behind floating elements like etk-ui.txt) */
   .header-scrim {
-    display: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 140px !important;
+    background: linear-gradient(to bottom, rgba(11, 17, 30, 70%) 0%, rgba(11, 17, 30, 30%) 30%, transparent 100%) !important;
+    pointer-events: none !important;
+    z-index: 90 !important;
+    display: block !important;
+  }
+  [data-theme="light"] .header-scrim {
+    background: linear-gradient(to bottom, rgba(248, 250, 252, 0.95) 0%, rgba(248, 250, 252, 0.8) 40%, transparent 100%) !important;
   }
 
-  /* Sticky Top Bar & Perfectly Spaced Header Elements */
+  /* Sticky Top Bar & Perfectly Spaced Header Elements (Floating & Transparent like etk-ui.txt) */
   .top-bar {
     height: 75px !important;
     min-height: 75px !important;
@@ -1325,13 +1337,16 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     align-items: center !important;
     flex-shrink: 0 !important;
     box-sizing: border-box !important;
-    background: var(--bg) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
   }
   [data-theme="light"] .top-bar {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
   }
   .brandRow {
     display: flex !important;
@@ -1373,7 +1388,15 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   }
 
   /* Notification Bell in sticky top bar */
-  #bellWrapper,
+  #bellWrapper {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
   #bellWrapper .glass-circle-btn,
   #bellWrapper .notification-wrapper {
     width: 42px !important;
@@ -1385,7 +1408,15 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   }
 
   /* Compact profile pill in sticky top bar */
-  #userHeaderInfo,
+  #userHeaderInfo {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
   .user-profile-container,
   .apple-glass-optical-wrap.user-profile-container,
   .apple-glass-optical-wrap.user-profile-container > .apple-glass-inner {
@@ -1830,7 +1861,7 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
 [data-theme="light"] .panel, [data-theme="light"] .glass-box, [data-theme="light"] .kpi-card, [data-theme="light"] .notif-dropdown, [data-theme="light"] .profile-dropdown, [data-theme="light"] .op-left-pane, [data-theme="light"] .op-right-pane { background: var(--card); border-color: var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
 [data-theme="light"] input:not([type="checkbox"]), [data-theme="light"] select, [data-theme="light"] textarea { background: var(--card-light) !important; color: var(--text) !important; border-color: var(--border); }
 [data-theme="light"] .tk-sleek-table td { background: var(--card); border-color: var(--border); color: var(--text); }
-[data-theme="light"] .header-scrim { background: rgba(248, 250, 252, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+[data-theme="light"] .header-scrim { background: linear-gradient(to bottom, rgba(248, 250, 252, 0.95) 0%, rgba(248, 250, 252, 0.8) 40%, transparent 100%); }
 [data-theme="light"] .chat-bubble-other { background: var(--card-light); border-color: var(--border); }
 [data-theme="light"] .premium-sticky-header { background: rgba(255, 255, 255, 0.85); border-bottom-color: var(--border); }
 
