@@ -1792,6 +1792,9 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     align-items: flex-end !important;
     justify-content: center !important;
     padding: 0 !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
   }
 
   .glass-overlay .glass-box {
@@ -1803,30 +1806,180 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     border-right: none !important;
     border-bottom: none !important;
     border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
-    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-    max-height: 88dvh !important;
-    padding: 16px 20px calc(28px + env(safe-area-inset-bottom, 0px)) 20px !important;
-    animation: nativeSheetSlideUp 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
+    background: linear-gradient(180deg, #0e1526 0%, #080d18 100%) !important;
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    max-height: 90dvh !important;
+    padding: 0 18px calc(24px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    animation: nativeSheetSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
     overscroll-behavior: contain !important;
+    position: relative !important;
   }
 
-  /* Apple Grab Indicator Handle at top of Mobile Bottom Sheet */
+  /* Disable detached outer grab handle that caused double border */
   .glass-overlay .glass-box::before {
-    content: "";
-    display: block;
-    width: 44px;
-    height: 5px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.3);
-    margin: 0 auto 14px auto;
+    display: none !important;
   }
 
-  /* Modal Sticky Header adapts inside bottom sheet */
+  /* Seamless Edge-to-Edge Sticky Header with Integrated Apple Grab Indicator */
   .glass-overlay .glass-box .premium-sticky-header {
-    top: -16px !important;
-    margin: -16px -20px 16px -20px !important;
-    padding: 10px 20px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    margin: 0 -18px 16px -18px !important;
+    padding: 24px 18px 14px 18px !important;
     border-radius: 28px 28px 0 0 !important;
+    background: rgba(14, 21, 38, 0.97) !important;
+    backdrop-filter: blur(25px) !important;
+    -webkit-backdrop-filter: blur(25px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  /* Centered Apple Pill Grab Handle attached to the header */
+  .glass-overlay .glass-box .premium-sticky-header::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 8px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 38px !important;
+    height: 5px !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.32) !important;
+    pointer-events: none !important;
+  }
+
+  /* Fallback handle for modals without sticky header (like UploadProgress) */
+  .glass-overlay .glass-box:not(:has(.premium-sticky-header)) {
+    padding-top: 14px !important;
+  }
+  .glass-overlay .glass-box:not(:has(.premium-sticky-header))::before {
+    content: "" !important;
+    display: block !important;
+    width: 38px !important;
+    height: 5px !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.32) !important;
+    margin: 0 auto 16px auto !important;
+    pointer-events: none !important;
+  }
+
+  /* Modal Title & Close Button in Mobile Header */
+  .glass-overlay .glass-box .premium-sticky-header h2 {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .glass-overlay .glass-box .premium-sticky-header .close-minimal {
+    position: relative !important;
+    top: 0 !important;
+    right: 0 !important;
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: #E2E8F0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+  }
+  .glass-overlay .glass-box .premium-sticky-header .close-minimal:active {
+    transform: scale(0.9) !important;
+    background: rgba(239, 68, 68, 0.25) !important;
+    color: #EF4444 !important;
+  }
+
+  /* Modal Form Layout & Spacing */
+  .glass-overlay .glass-box form {
+    margin-top: 0 !important;
+  }
+
+  .glass-overlay .glass-box .grid-2 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .glass-overlay .glass-box .form-group {
+    margin-bottom: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+  }
+
+  .glass-overlay .glass-box .label-text,
+  .glass-overlay .glass-box label:not(.cb-label) {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #94A3B8 !important;
+    letter-spacing: 0.2px !important;
+    margin-bottom: 0 !important;
+    line-height: 1.2 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .glass-overlay .glass-box input[type="text"],
+  .glass-overlay .glass-box input[type="email"],
+  .glass-overlay .glass-box input[type="number"],
+  .glass-overlay .glass-box input[type="password"],
+  .glass-overlay .glass-box input[type="date"],
+  .glass-overlay .glass-box select,
+  .glass-overlay .glass-box textarea {
+    margin-bottom: 0 !important;
+    font-size: 16px !important; /* Prevents iOS Safari from auto-zooming viewport on input focus */
+    padding: 11px 14px !important;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #F8FAFC !important;
+    font-weight: 600 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    min-height: 44px !important;
+  }
+
+  .glass-overlay .glass-box input:focus,
+  .glass-overlay .glass-box select:focus,
+  .glass-overlay .glass-box textarea:focus {
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px rgba(38, 195, 234, 0.25) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .glass-overlay .glass-box select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 14px !important;
+    padding-right: 38px !important;
+  }
+
+  .glass-overlay .glass-box input[type="date"] {
+    color-scheme: dark !important;
+  }
+
+  .glass-overlay .glass-box .upload-box {
+    padding: 16px !important;
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
   }
 }
 
