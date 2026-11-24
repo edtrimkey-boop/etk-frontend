@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
-import { supabase, fetchJobCommunications, sendJobCommunication, DBJobCommunication } from '@/lib/supabase';
+import { supabase, fetchJobCommunications, DBJobCommunication } from '@/lib/supabase';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { playSound } from '@/lib/sound';
 
@@ -76,7 +76,19 @@ export default function JobChatModal() {
       if (dbRows && dbRows.length > 0) {
         const mapped = dbRows.map(formatDBMessage);
         latestMessageIdsRef.current = new Set(dbRows.map((r) => r.id || `${r.created_at}-${r.message}`));
-        setMessages(mapped);
+        setMessages((prev) => {
+          // Keep genuinely in-flight optimistic messages that have not yet landed in DB
+          const stillPending = prev.filter(
+            (m) =>
+              m.isOptimistic &&
+              !mapped.slice(-5).some(
+                (dbm) =>
+                  dbm.message === m.message &&
+                  dbm.actorName.toLowerCase() === m.actorName.toLowerCase()
+              )
+          );
+          return [...mapped, ...stillPending];
+        });
       } else {
         // Fallback to server gateway
         const res = await serverCall('getJobTimeline', { jobId });
@@ -140,6 +152,10 @@ export default function JobChatModal() {
           const formatted = formatDBMessage(newRow);
 
           setMessages((prev) => {
+            if (formatted.id && prev.some((m) => m.id === formatted.id)) {
+              return prev;
+            }
+
             // Replace optimistic pending message if it matches text and actor
             const foundIndex = prev.findIndex(
               (m) =>
@@ -223,39 +239,30 @@ export default function JobChatModal() {
     setSending(true);
 
     try {
-      // 2. Direct Supabase write (Instant database persistence)
-      const dbPayload: DBJobCommunication = {
-        job_code: jobId,
-        actor_name: myFirstName,
-        actor_role: myRole,
-        message_type: mode === 'revision' ? 'revision' : 'note',
-        message: trimmed,
-      };
-
-      const dbRes = await sendJobCommunication(dbPayload);
-
-      // 3. Simultaneously notify backend gateway for audit logs & FCM push notifications
-      serverCall('addJobTimelineEvent', {
+      // Single authoritative backend call: inserts once into job_communications, updates job status/meta, creates in-app notification & fires FCM push
+      const res = await serverCall('addJobTimelineEvent', {
         jobId,
         mode,
         message: trimmed,
         actorName: myFirstName,
         actorRole: myRole,
-      }).catch((e) => console.warn('[Gateway Notification]', e));
+      });
 
-      if (dbRes.success && dbRes.data) {
+      if (res && res.success) {
         playSound('notification');
-        // Mark optimistic message as delivered (WhatsApp Double Check)
+        // Mark optimistic message as delivered (WhatsApp Double Check); realtime or fallback poll reconciles exact DB id
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === tempId ? { ...m, isOptimistic: false, status: 'delivered', id: dbRes.data?.id } : m
+            m.id === tempId ? { ...m, isOptimistic: false, status: 'delivered' } : m
           )
         );
+        setTimeout(() => fetchTimeline(true), 450);
       } else {
-        // Fallback refresh
-        setTimeout(() => fetchTimeline(true), 400);
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        showAlert('Failed to send message: ' + (res?.message || 'Unknown error'), 'Error');
       }
     } catch (err: any) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       showAlert('Network error: ' + err.message, 'Message Delivery');
     } finally {
       setSending(false);

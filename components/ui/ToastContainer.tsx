@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { useDashboard, ToastItem } from '@/lib/dashboard-context';
+import { useDashboard } from '@/lib/dashboard-context';
 
 export default function ToastContainer() {
   const { toasts, removeToast } = useDashboard();
@@ -14,14 +14,14 @@ export default function ToastContainer() {
       id="toastContainer"
       style={{
         position: 'fixed',
-        top: '20px',
-        right: '20px',
+        top: 'calc(16px + env(safe-area-inset-top, 0px))',
+        right: '16px',
         zIndex: 999999,
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
         maxWidth: '380px',
-        width: 'calc(100vw - 40px)',
+        width: 'calc(100vw - 32px)',
         pointerEvents: 'none',
       }}
     >
@@ -41,11 +41,11 @@ export default function ToastContainer() {
             className="tk-toast show"
             style={{
               background: 'rgba(11, 17, 30, 0.94)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               borderLeft: `4px solid ${borderColor}`,
-              borderRadius: '12px',
+              borderRadius: '14px',
               padding: '12px 16px',
               color: 'white',
               fontSize: '13px',
@@ -53,12 +53,12 @@ export default function ToastContainer() {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              boxShadow: '0 12px 35px rgba(0, 0, 0, 0.65)',
+              boxShadow: '0 14px 36px rgba(0, 0, 0, 0.65)',
               pointerEvents: 'auto',
               animation: 'slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
             }}
           >
-            {/* SVG Status Icon Matching index.html lines 7393-7407 */}
+            {/* SVG Status Icon */}
             <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               {toast.type === 'error' ? (
                 <svg width="20" height="20" stroke="var(--danger, #ef4444)" viewBox="0 0 52 52" style={{ strokeWidth: 4, fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round' }}>
@@ -85,12 +85,20 @@ export default function ToastContainer() {
               )}
             </div>
 
-            <div style={{ flex: 1, lineHeight: 1.4, wordBreak: 'break-word' }}>
-              {toast.msg}
+            <div style={{ flex: 1, lineHeight: 1.4, wordBreak: 'break-word', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {toast.title && (
+                <span style={{ fontWeight: 800, fontSize: '13px', color: '#FFFFFF' }}>
+                  {toast.title}
+                </span>
+              )}
+              <span style={{ fontSize: toast.title ? '11.5px' : '13px', color: toast.title ? 'rgba(255,255,255,0.75)' : '#FFFFFF' }}>
+                {toast.msg}
+              </span>
             </div>
 
             <button
               type="button"
+              className="close-minimal"
               onClick={() => removeToast(toast.id)}
               style={{
                 background: 'transparent',
@@ -102,6 +110,9 @@ export default function ToastContainer() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
+                position: 'static',
+                width: '24px',
+                height: '24px',
               }}
               aria-label="Close notification"
             >

@@ -15,7 +15,8 @@ import {
 import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
-import { playSound } from '@/lib/sound';
+import { playSound, unlockAudioEngine } from '@/lib/sound';
+import { requestAndRegisterPush, updateServerDevicePreference } from '@/lib/firebase';
 
 interface OriginalAdminState {
   headerTagline: string;
@@ -42,6 +43,7 @@ export default function SettingsPage() {
     user,
     openModal,
     showAlert,
+    showToast,
     showConfirm,
     refreshData,
     opticalGlassEnabled,
@@ -418,7 +420,7 @@ export default function SettingsPage() {
       const themeValue = isDark ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', themeValue);
       localStorage.setItem('tk_theme', themeValue);
-      showAlert(`Switched to ${isDark ? 'Dark OLED' : 'Light Pro'} theme.`, 'Theme Updated');
+      showToast(`Switched to ${isDark ? 'Dark OLED' : 'Light Pro'} theme`, isDark ? 'success' : 'info');
     }
   };
 
@@ -428,16 +430,17 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       if (enabled) {
         localStorage.removeItem('tk_audio_muted');
-        playSound('success');
-        showAlert('Sound cues enabled.', 'Audio Preferences');
+        unlockAudioEngine(true).then(() => {
+          showToast('System sounds enabled', 'success');
+        });
       } else {
         localStorage.setItem('tk_audio_muted', 'true');
-        showAlert('System sounds muted.', 'Audio Preferences');
+        showToast('System sounds muted', 'warning');
       }
     }
   };
 
-  // Handle Notification Prefs Change
+  // Handle Notification Prefs Change (Synced to Database user_sessions + LocalStorage)
   const updateNotifPref = (key: 'push' | 'wa' | 'sms' | 'email', val: boolean) => {
     if (key === 'push') setPrefPush(val);
     if (key === 'wa') setPrefWa(val);
@@ -452,26 +455,36 @@ export default function SettingsPage() {
         email: key === 'email' ? val : prefEmail,
       };
       localStorage.setItem('tk_notif_prefs', JSON.stringify(updated));
-    } catch (e) {}
+    } catch {}
+
+    const serverKey = key === 'wa' ? 'whatsapp' : key;
+    updateServerDevicePreference(user?.email, serverKey, val);
+
+    if (key === 'push' && val) {
+      handleRequestPushPermission();
+    }
   };
 
   const handleRequestPushPermission = async () => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    showToast('Connecting to Firebase Push Engine...', 'info');
+    const res = await requestAndRegisterPush(user?.email, {
+      isSilent: false,
+      forceEnablePref: true,
+    });
+
+    if (res.success) {
+      setPrefPush(true);
       try {
-        const perm = await Notification.requestPermission();
-        if (perm === 'granted') {
-          setPrefPush(true);
-          updateNotifPref('push', true);
-          playSound('success');
-          showAlert('System push notifications enabled successfully!', 'Permission Granted');
-        } else {
-          showAlert('Push notifications permission denied by browser.', 'Notice');
-        }
-      } catch (e) {
-        showAlert('Push notifications are not supported in this environment.', 'Notice');
-      }
+        localStorage.setItem(
+          'tk_notif_prefs',
+          JSON.stringify({ push: true, wa: prefWa, sms: prefSms, email: prefEmail })
+        );
+      } catch {}
+      showToast('Push Notifications Secured!', 'success');
     } else {
-      showAlert('Web notifications are not supported by this browser.', 'Notice');
+      setPrefPush(false);
+      updateServerDevicePreference(user?.email, 'push', false);
+      showAlert(res.reason || 'Could not enable push notifications on this device.', 'Notice');
     }
   };
 
@@ -499,8 +512,7 @@ export default function SettingsPage() {
     try {
       const data = { subject: teacherSubject, className: teacherClass, alerts: teacherAlerts };
       localStorage.setItem('tk_teacher_defaults', JSON.stringify(data));
-      playSound('success');
-      showAlert('Default submission subject and class saved for quick entry!', 'Preferences Saved');
+      showToast('Teacher defaults saved!', 'success');
     } catch (e) {
       showAlert('Failed to save teacher preferences locally.', 'Error');
     }
@@ -513,8 +525,7 @@ export default function SettingsPage() {
     try {
       await serverCall('updateOperatorStatus', { email: user?.email, status: newStatus });
     } catch (e) {}
-    playSound('notification');
-    showAlert(`Your availability status is now set to ${newStatus}.`, 'Availability Updated');
+    showToast(`Availability status updated to ${newStatus}`, 'info');
   };
 
   // Handle Operator Work Type Request
@@ -701,11 +712,9 @@ export default function SettingsPage() {
         feeTemplate,
       });
 
-      playSound('success');
-      showAlert('All institutional branding, quota alerts, and routing rules successfully updated in database!', 'Database Updated');
+      showToast('All settings & routing rules saved to database!', 'success');
       refreshData(true);
     } catch (err: any) {
-      playSound('warning');
       showAlert('Error saving to database: ' + err.message, 'Save Failed');
     } finally {
       setSaving(false);

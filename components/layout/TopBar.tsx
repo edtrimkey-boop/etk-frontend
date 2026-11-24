@@ -24,7 +24,8 @@ export default function TopBar({
 }: TopBarProps) {
   const {
     user,
-    payload,
+    notifications,
+    markAllNotificationsRead,
     openModal,
     showConfirm,
     showAlert,
@@ -76,9 +77,13 @@ export default function TopBar({
     });
   };
 
-  const notifications = payload?.notifications || [];
   const calculatedUnread = notifications.filter((n: any) => !n.isRead).length;
   const unreadCount = unreadOverride !== null ? unreadOverride : calculatedUnread;
+
+  // Reset optimistic override when new live notifications arrive
+  useEffect(() => {
+    setUnreadOverride(null);
+  }, [notifications.length]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -96,11 +101,7 @@ export default function TopBar({
 
   const handleMarkAllRead = async () => {
     setUnreadOverride(0);
-    try {
-      await serverCall('markNotificationsRead', { email: user?.email });
-    } catch (err: any) {
-      console.warn('Mark notifs error:', err.message);
-    }
+    await markAllNotificationsRead();
   };
 
   const displayName = user?.name || 'Administrator';
@@ -268,13 +269,22 @@ export default function TopBar({
               ) : (
                 notifications.map((n: any, idx: number) => (
                   <div
-                    key={idx}
+                    key={n.id || idx}
+                    onClick={() => {
+                      setNotifDropdownOpen(false);
+                      if (n.refId && n.refId !== 'SYS-ALERT' && !String(n.refId).startsWith('REQ_EDIT_')) {
+                        openModal('jobChat', { jobId: n.refId, mode: 'chat' });
+                      } else {
+                        showAlert(n.msg, n.title || 'System Alert');
+                      }
+                    }}
                     style={{
                       padding: '10px',
                       borderBottom: '1px solid rgba(255,255,255,0.05)',
                       borderRadius: '8px',
                       marginBottom: '6px',
                       background: n.isRead ? 'transparent' : 'rgba(0,251,166,0.05)',
+                      cursor: 'pointer',
                     }}
                   >
                     <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--brand)', marginBottom: '2px' }}>

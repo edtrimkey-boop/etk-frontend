@@ -1,10 +1,21 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { MemoryStore, serverCall } from '@/lib/api-client';
 import { playSound } from '@/lib/sound';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/pricing';
+import { supabase } from '@/lib/supabase';
+import { syncDeviceSession, requestAndRegisterPush, subscribeForegroundPush } from '@/lib/firebase';
+
+export interface NotificationItem {
+  id?: string;
+  title: string;
+  msg: string;
+  time: string;
+  isRead: boolean;
+  refId?: string;
+}
 
 export interface UploadProgressState {
   open: boolean;
@@ -20,6 +31,7 @@ export interface UploadProgressState {
 
 export interface ToastItem {
   id: string;
+  title?: string;
   msg: string;
   type: 'success' | 'warning' | 'error' | 'info';
 }
@@ -40,8 +52,10 @@ interface DashboardContextType {
   confirmState: { open: boolean; msg: string; onConfirm: (() => void) | null };
   closeConfirm: () => void;
   toasts: ToastItem[];
-  showToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  showToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info', title?: string) => void;
   removeToast: (id: string) => void;
+  notifications: NotificationItem[];
+  markAllNotificationsRead: () => Promise<void>;
   showLoader: (text?: string) => void;
   hideLoader: () => void;
   loaderState: { visible: boolean; text: string };
@@ -64,28 +78,32 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Toasts state (Apple / Linear style non-blocking notifications)
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const showToast = useCallback((msg: string, type: 'success' | 'warning' | 'error' | 'info' = 'success') => {
-    const id = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-    setToasts((prev) => [...prev, { id, msg, type }]);
+  const showToast = useCallback(
+    (msg: string, type: 'success' | 'warning' | 'error' | 'info' = 'success', title?: string) => {
+      const id = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+      setToasts((prev) => [...prev, { id, title, msg, type }]);
 
-    if (type === 'success') {
-      playSound('success');
-    } else if (type === 'warning') {
-      playSound('warning');
-    } else if (type === 'error') {
-      playSound('error');
-    } else if (type === 'info') {
-      playSound('notification');
-    }
+      if (type === 'success') {
+        playSound('success');
+      } else if (type === 'warning') {
+        playSound('warning');
+      } else if (type === 'error') {
+        playSound('error');
+      } else if (type === 'info') {
+        playSound('notification');
+      }
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4500);
-  }, []);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4500);
+    },
+    []
+  );
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -333,6 +351,24 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       setPayload(res);
+
+      if (Array.isArray(res?.notifications)) {
+        let localHashes: string[] = [];
+        try {
+          localHashes = JSON.parse(localStorage.getItem('read_notif_hashes') || '[]');
+        } catch {}
+        const hydrated: NotificationItem[] = res.notifications.map((n: any) => {
+          const hash = (String(n.title || '') + String(n.msg || '')).substring(0, 50);
+          return {
+            title: n.title,
+            msg: n.msg,
+            time: n.time || 'Recent',
+            isRead: Boolean(n.isRead) || localHashes.includes(hash),
+            refId: n.refId,
+          };
+        });
+        setNotifications(hydrated);
+      }
     } catch (err: any) {
       console.warn('Dashboard sync note:', err.message);
       if (!silent) {
@@ -344,6 +380,57 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [router, showAlert]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    setNotifications((prev) => {
+      try {
+        const localHashes: string[] = JSON.parse(localStorage.getItem('read_notif_hashes') || '[]');
+        const nextHashes = Array.from(
+          new Set([
+            ...localHashes,
+            ...prev.map((n) => (String(n.title || '') + String(n.msg || '')).substring(0, 50)),
+          ])
+        );
+        localStorage.setItem('read_notif_hashes', JSON.stringify(nextHashes));
+      } catch {}
+      return prev.map((n) => ({ ...n, isRead: true }));
+    });
+    if (user?.email) {
+      serverCall('markNotificationsRead', { email: user.email }).catch(() => {});
+    }
+  }, [user?.email]);
+
+  // Keep refs updated for Realtime callbacks
+  const userRef = useRef<any>(null);
+  const activeModalRef = useRef<string | null>(null);
+  const modalDataRef = useRef<any>(null);
+  const recentToastHashesRef = useRef<Map<string, number>>(new Map());
+  const deviceSyncedForEmailRef = useRef<string | null>(null);
+  const realtimeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+  useEffect(() => {
+    activeModalRef.current = activeModal;
+  }, [activeModal]);
+  useEffect(() => {
+    modalDataRef.current = modalData;
+  }, [modalData]);
+
+  const fireDedupedNotificationToast = useCallback(
+    (title: string, msg: string) => {
+      const key = `${title}::${msg}`.slice(0, 80);
+      const now = Date.now();
+      const prevTs = recentToastHashesRef.current.get(key);
+      if (prevTs && now - prevTs < 5000) return; // Deduplicate identical foreground FCM + Supabase Realtime triggers
+      recentToastHashesRef.current.set(key, now);
+
+      const shortMsg = msg.length > 65 ? msg.substring(0, 65) + '...' : msg;
+      showToast(shortMsg, 'info', title);
+    },
+    [showToast]
+  );
 
   useEffect(() => {
     const token = MemoryStore.getToken();
@@ -359,6 +446,161 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     refreshData(false);
   }, [router, refreshData]);
+
+  // 1. Device Session Sync, Silent FCM Token Refresh & Foreground Push Listener
+  useEffect(() => {
+    if (!user?.email) return;
+    if (deviceSyncedForEmailRef.current === user.email) return;
+    deviceSyncedForEmailRef.current = user.email;
+
+    let unsubscribeForeground: (() => void) | null = null;
+
+    syncDeviceSession(user.email).then((synced) => {
+      if (synced?.preferences) {
+        try {
+          localStorage.setItem(
+            'tk_notif_prefs',
+            JSON.stringify({
+              push: Boolean(synced.preferences.push),
+              wa: Boolean(synced.preferences.whatsapp),
+              sms: Boolean(synced.preferences.sms),
+              email: Boolean(synced.preferences.email),
+            })
+          );
+        } catch {}
+      }
+
+      const browserGranted = typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+      if (synced?.preferences?.push || browserGranted) {
+        requestAndRegisterPush(user.email, {
+          isSilent: true,
+          forceEnablePref: browserGranted && !synced?.preferences?.push,
+        });
+      }
+    });
+
+    subscribeForegroundPush(({ title, body }) => {
+      fireDedupedNotificationToast(title, body);
+      setNotifications((prev) => [
+        {
+          title,
+          msg: body,
+          time: new Date().toLocaleTimeString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          }),
+          isRead: false,
+        },
+        ...prev,
+      ]);
+    }).then((unsub) => {
+      unsubscribeForeground = unsub;
+    });
+
+    return () => {
+      if (unsubscribeForeground) unsubscribeForeground();
+    };
+  }, [user?.email, fireDedupedNotificationToast]);
+
+  // 2. Master Supabase Realtime Engine (In-App Toasts, Bell Alerts, Live Job Queue)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const sessionToken = MemoryStore.getToken();
+    if (sessionToken) {
+      try {
+        supabase.realtime.setAuth(sessionToken);
+      } catch {}
+    }
+
+    const channelName = `system-events-${user.id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (pgPayload) => {
+        const notif: any = pgPayload.new;
+        const curUser = userRef.current;
+        if (!curUser || !notif) return;
+
+        // Parse array or Postgres string arrays cleanly
+        const parseArr = (val: any): string[] => {
+          if (Array.isArray(val)) return val.map((x) => String(x).trim().toLowerCase());
+          if (typeof val === 'string') {
+            return val
+              .replace(/[{}]/g, '')
+              .split(',')
+              .map((x) => x.trim().toLowerCase())
+              .filter(Boolean);
+          }
+          return [];
+        };
+
+        const tUsers = parseArr(notif.target_users);
+        const tRoles = parseArr(notif.target_roles);
+        const myId = String(curUser.id || '').toLowerCase();
+        const myRole = String(curUser.role || '').trim().toLowerCase();
+        const myInstId = String(curUser.institute_id || curUser.instId || '').toLowerCase();
+
+        const isTargetedUser = myId !== '' && tUsers.includes(myId);
+        const isTargetedRole = myRole !== '' && tRoles.includes(myRole);
+        const isGlobalWorker = ['operator', 'system admin', 'super admin'].includes(myRole);
+        const isMyInstitute =
+          !notif.institute_id || isGlobalWorker || String(notif.institute_id).toLowerCase() === myInstId;
+
+        if ((isTargetedUser || isTargetedRole) && isMyInstitute) {
+          const refId = notif.reference_id;
+          const isViewingThisChat =
+            activeModalRef.current === 'jobChat' &&
+            Boolean(refId) &&
+            String(modalDataRef.current?.jobId || '').toUpperCase() === String(refId).toUpperCase();
+
+          if (isViewingThisChat) {
+            try {
+              const hash = (String(notif.title || '') + String(notif.message || '')).substring(0, 50);
+              const localHashes: string[] = JSON.parse(localStorage.getItem('read_notif_hashes') || '[]');
+              if (!localHashes.includes(hash)) {
+                localHashes.push(hash);
+                localStorage.setItem('read_notif_hashes', JSON.stringify(localHashes));
+              }
+            } catch {}
+          } else {
+            fireDedupedNotificationToast(notif.title || 'System Alert', notif.message || '');
+          }
+
+          const newNotif: NotificationItem = {
+            id: notif.id,
+            title: notif.title || 'System Alert',
+            msg: notif.message || '',
+            time: new Date(notif.created_at || Date.now()).toLocaleTimeString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+            }),
+            isRead: isViewingThisChat,
+            refId,
+          };
+
+          setNotifications((prev) => {
+            if (newNotif.id && prev.some((p) => p.id === newNotif.id)) return prev;
+            return [newNotif, ...prev];
+          });
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs_queue' }, () => {
+        if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+        realtimeDebounceRef.current = setTimeout(() => {
+          refreshData(true);
+        }, 800);
+      })
+      .subscribe();
+
+    return () => {
+      if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refreshData, fireDedupedNotificationToast]);
 
   return (
     <DashboardContext.Provider
@@ -380,6 +622,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         toasts,
         showToast,
         removeToast,
+        notifications,
+        markAllNotificationsRead,
         showLoader,
         hideLoader,
         loaderState,
