@@ -641,60 +641,64 @@ export default function PaperSubmitModal() {
             />
 
             {/* Upload Preview Zone */}
+            {/* File attachment specimen area */}
             <div
               id="uploadPreviewZone"
-              style={{
-                display: 'flex',
-                gap: '10px',
-                flexWrap: 'wrap',
-                background: 'rgba(0,0,0,0.2)',
-                padding: '12px',
-                borderRadius: '8px',
-                minHeight: '50px',
-                border: '1px solid var(--border)',
-              }}
+              className={`etk-attachment-card ${pdfFile || imageFiles.length > 0 ? 'has-file' : ''}`}
             >
               {!pdfFile && imageFiles.length === 0 && (
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 'auto', padding: '10px' }}>
-                  No files selected.
-                </p>
+                <div className="etk-attach-empty">
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span className="etk-attach-empty-title">No file attached yet</span>
+                  <span className="etk-attach-empty-sub">Choose a PDF or take photos above</span>
+                </div>
               )}
 
               {pdfFile && (
-                <div
-                  style={{
-                    background: 'rgba(0,0,0,0.4)',
-                    border: '1px solid var(--border)',
-                    color: 'white',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div
-                      style={{
-                        background: 'var(--danger)',
-                        color: 'white',
-                        fontSize: '10px',
-                        fontWeight: 900,
-                        padding: '6px',
-                        borderRadius: '6px',
-                      }}
-                    >
-                      PDF
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
-                      <span style={{ fontSize: '12px', fontWeight: 800 }}>{pdfFile.name}</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {(pdfFile.size / 1048576).toFixed(2)} MB
+                <div className="etk-pdf-specimen">
+                  <div className="etk-pdf-info">
+                    <div className="etk-pdf-badge">PDF</div>
+                    <div className="etk-pdf-meta">
+                      <span className="etk-pdf-name" title={pdfFile.name}>
+                        {pdfFile.name}
                       </span>
+                      <div className="etk-pdf-chips">
+                        <span className="etk-attach-chip chip-success">
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          Ready
+                        </span>
+                        <span className="etk-attach-chip chip-size">
+                          {(pdfFile.size / 1048576).toFixed(2)} MB
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+
+                  <div className="etk-pdf-actions">
                     <button
                       type="button"
                       className="liquid-glass btn-sm btn-outline"
@@ -702,7 +706,7 @@ export default function PaperSubmitModal() {
                         const url = URL.createObjectURL(pdfFile);
                         window.open(url, '_blank');
                       }}
-                      style={{ padding: '6px 14px', fontSize: '10px', fontWeight: 800 }}
+                      title="View PDF"
                     >
                       VIEW
                     </button>
@@ -710,7 +714,7 @@ export default function PaperSubmitModal() {
                       type="button"
                       className="liquid-glass btn-sm btn-danger"
                       onClick={() => setPdfFile(null)}
-                      style={{ padding: '6px 14px', fontSize: '10px', fontWeight: 800 }}
+                      title="Remove PDF"
                     >
                       REMOVE
                     </button>
@@ -719,79 +723,73 @@ export default function PaperSubmitModal() {
               )}
 
               {imageFiles.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', width: '100%' }}>
+                <div className="etk-photos-container">
+                  <div className="etk-photos-header">
+                    <div className="etk-pdf-chips">
+                      <span className="etk-attach-chip chip-success">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        {imageFiles.length} Page{imageFiles.length > 1 ? 's' : ''} Attached
+                      </span>
+                      <span className="etk-attach-chip chip-brand">Merging to PDF</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImageFiles([])}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--danger)',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: '2px 6px',
+                      }}
+                    >
+                      Remove All
+                    </button>
+                  </div>
+
+                  <div className="etk-photos-grid">
                     {imageFiles.map((file, idx) => {
                       const url = URL.createObjectURL(file);
                       return (
-                        <div
-                          key={idx}
-                          style={{
-                            position: 'relative',
-                            width: '70px',
-                            height: '70px',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-                          }}
-                        >
+                        <div key={idx} className="etk-photo-thumb">
                           <img
                             src={url}
-                            alt={`Preview ${idx}`}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                            alt={`Preview ${idx + 1}`}
                             onClick={() => window.open(url, '_blank')}
+                            title="Click to view full image"
                           />
                           <button
                             type="button"
-                            className="liquid-glass glass-circle-btn"
-                            onClick={() => removeImage(idx)}
-                            style={{
-                              position: 'absolute',
-                              top: '4px',
-                              right: '4px',
-                              width: '22px',
-                              height: '22px',
-                              minWidth: '22px',
-                              minHeight: '22px',
-                              background: 'rgba(239,68,68,0.85)',
-                              color: '#fff',
-                              border: '1px solid rgba(255,255,255,0.4)',
-                              fontSize: '10px',
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              padding: 0,
+                            className="etk-photo-delete"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeImage(idx);
                             }}
+                            title="Remove photo"
                           >
                             ✖
                           </button>
                           {idx === 0 && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                background: 'var(--brand)',
-                                color: '#05080F',
-                                fontSize: '9px',
-                                textAlign: 'center',
-                                fontWeight: 800,
-                                padding: '2px 0',
-                              }}
-                            >
+                            <div className="etk-photo-cover-tag">
                               COVER
                             </div>
                           )}
                         </div>
                       );
                     })}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--brand)', fontWeight: 700 }}>
-                    {imageFiles.length} photo(s) selected. Merging into PDF pipeline upon submission.
                   </div>
                 </div>
               )}

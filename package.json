@@ -1,6 +1,6 @@
 {
   "name": "etk-frontend",
-  "version": "2.9.48",
+  "version": "2.9.49",
   "private": true,
   "scripts": {
     "dev": "next dev",
