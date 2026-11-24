@@ -564,7 +564,7 @@ input[readonly], input:disabled {
    ======================================================= */
 
 /* 1. UNIVERSAL BUTTON SHAPE & OPTICAL GLASS PHYSICS (Applies to ALL buttons) */
-button:not(.close-minimal):not(.chat-send-btn):not(.glass-circle-btn):not(.action-tile),
+button:not(.close-minimal):not(.hud-close-btn):not(.chat-send-btn):not(.glass-circle-btn):not(.action-tile),
 .liquid-glass,
 .btn-primary,
 .btn-success,
@@ -636,7 +636,7 @@ button.btn-xs,
 /* 4. PRIMARY ACTION BUTTONS (Solid Electric Blue Filled Glass) */
 .btn-primary,
 .liquid-glass.btn-primary,
-button:not([class*="btn-"]):not(.liquid-glass):not(.apple-glass-shell):not(.close-minimal):not(.chat-send-btn):not(.glass-circle-btn):not(.action-tile) {
+button:not([class*="btn-"]):not(.liquid-glass):not(.apple-glass-shell):not(.close-minimal):not(.hud-close-btn):not(.chat-send-btn):not(.glass-circle-btn):not(.action-tile) {
     background: var(--brand) !important;
     color: #05080F !important;
     border: 1px solid rgba(255, 255, 255, 0.35) !important;
@@ -645,7 +645,7 @@ button:not([class*="btn-"]):not(.liquid-glass):not(.apple-glass-shell):not(.clos
 }
 .btn-primary:hover:not(:disabled),
 .liquid-glass.btn-primary:hover:not(:disabled),
-button:not([class*="btn-"]):not(.liquid-glass):not(.apple-glass-shell):not(.close-minimal):not(.chat-send-btn):not(.glass-circle-btn):not(.action-tile):hover:not(:disabled) {
+button:not([class*="btn-"]):not(.liquid-glass):not(.apple-glass-shell):not(.close-minimal):not(.hud-close-btn):not(.chat-send-btn):not(.glass-circle-btn):not(.action-tile):hover:not(:disabled) {
     background: var(--brand) !important;
     filter: brightness(1.08) !important;
     border-color: rgba(255, 255, 255, 0.6) !important;
@@ -1455,31 +1455,44 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
   content: none !important;
 }
 
-.hud-close-btn {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-  z-index: 10;
-  padding: 0;
+.hud-close-btn,
+.progress-hud-card .close-minimal {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1) !important;
+  z-index: 20 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  outline: none !important;
 }
-.hud-close-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  transform: scale(1.06);
+.hud-close-btn:hover,
+.progress-hud-card .close-minimal:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+  transform: scale(1.06) !important;
 }
-.hud-close-btn:active {
-  transform: scale(0.92);
+.hud-close-btn:active,
+.progress-hud-card .close-minimal:active {
+  transform: scale(0.92) !important;
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #EF4444 !important;
 }
 
 .hud-icon-wrap {

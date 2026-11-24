@@ -72,14 +72,20 @@ export default function UploadProgressModal() {
         {!isSuccess && (
           <button
             type="button"
-            className="hud-close-btn"
+            className="close-minimal hud-close-btn"
             onClick={handleCancel}
             aria-label="Cancel"
             title="Cancel"
+            style={{
+              position: 'absolute',
+              top: '14px',
+              right: '14px',
+              zIndex: 20,
+            }}
           >
             <svg
-              width="12"
-              height="12"
+              width="11"
+              height="11"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
