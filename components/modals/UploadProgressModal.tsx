@@ -1,30 +1,37 @@
 // components/modals/UploadProgressModal.tsx
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 
 export default function UploadProgressModal() {
   const { uploadProgress, closeUploadProgress, closeModal, refreshData } = useDashboard();
   const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(5);
 
   const isSuccess = uploadProgress.state === 'success';
   const isError = uploadProgress.state === 'error';
-  const isUploading = uploadProgress.state === 'uploading';
 
-  // 5-second auto-close on success
+  // 5-second auto-close countdown on success
   useEffect(() => {
     if (isSuccess && uploadProgress.open) {
+      setSecondsLeft(5);
+      const interval = setInterval(() => {
+        setSecondsLeft((prev) => (prev > 1 ? prev - 1 : 1));
+      }, 1000);
+
       autoCloseTimerRef.current = setTimeout(() => {
         handleAcknowledge();
       }, 5000);
+
+      return () => {
+        clearInterval(interval);
+        if (autoCloseTimerRef.current) {
+          clearTimeout(autoCloseTimerRef.current);
+        }
+      };
     }
-    return () => {
-      if (autoCloseTimerRef.current) {
-        clearTimeout(autoCloseTimerRef.current);
-      }
-    };
   }, [isSuccess, uploadProgress.open]);
 
   if (!uploadProgress.open) return null;
@@ -47,7 +54,7 @@ export default function UploadProgressModal() {
   return (
     <div
       id="uploadProgressModal"
-      className="glass-overlay active"
+      className="glass-overlay active hud-overlay"
       style={{
         zIndex: 100001,
         display: 'flex',
@@ -60,27 +67,26 @@ export default function UploadProgressModal() {
         WebkitBackdropFilter: 'blur(16px)',
       }}
     >
-      <div
-        className="glass-box"
-        style={{
-          textAlign: 'center',
-          maxWidth: '420px',
-          width: '90%',
-          padding: '40px',
-          position: 'relative',
-        }}
-      >
-        {/* Cancel Button */}
+      <div className="glass-box progress-hud-card">
+        {/* Cancel Button (During Uploading or Error) */}
         {!isSuccess && (
           <button
             type="button"
-            className="close-minimal"
+            className="hud-close-btn"
             onClick={handleCancel}
             aria-label="Cancel"
             title="Cancel"
-            style={{ zIndex: 10, position: 'absolute', top: '15px', right: '15px' }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -89,90 +95,79 @@ export default function UploadProgressModal() {
 
         {/* Uploading or Error State */}
         {!isSuccess && (
-          <div id="uploadingState">
-            <svg className="premium-cloud-icon" viewBox="0 0 60 60">
-              <circle className="pc-ring-bg" cx="30" cy="30" r="26" />
-              <circle
-                id="cloudProgressRing"
-                className="pc-track"
-                cx="30"
-                cy="30"
-                r="26"
-                style={{
-                  strokeDashoffset: strokeOffset,
-                  stroke: isError ? 'var(--danger)' : 'var(--brand)',
-                }}
-              />
-              <path
-                className="pc-cloud"
-                d="M21,37 c-4.4,0 -8,-3.6 -8,-8 c0,-3.8 2.7,-7.1 6.3,-7.8 c1.5,-4.7 5.9,-8.2 11.2,-8.2 c5.3,0 9.7,3.5 11.2,8.2 c3.6,0.7 6.3,4 6.3,7.8 c0,4.4 -3.6,8 -8,8 l-19,0 z"
-              />
-              <path className="pc-arrow" d="M30 39 v-14 m-5 5 l5 -5 l5 5" />
-            </svg>
+          <div
+            id="uploadingState"
+            style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <div className="hud-icon-wrap">
+              <svg className="premium-cloud-icon" viewBox="0 0 60 60">
+                <circle className="pc-ring-bg" cx="30" cy="30" r="26" />
+                <circle
+                  id="cloudProgressRing"
+                  className="pc-track"
+                  cx="30"
+                  cy="30"
+                  r="26"
+                  style={{
+                    strokeDashoffset: strokeOffset,
+                    stroke: isError ? 'var(--danger)' : 'var(--brand)',
+                  }}
+                />
+                <path
+                  className="pc-cloud"
+                  d="M21,37 c-4.4,0 -8,-3.6 -8,-8 c0,-3.8 2.7,-7.1 6.3,-7.8 c1.5,-4.7 5.9,-8.2 11.2,-8.2 c5.3,0 9.7,3.5 11.2,8.2 c3.6,0.7 6.3,4 6.3,7.8 c0,4.4 -3.6,8 -8,8 l-19,0 z"
+                />
+                <path className="pc-arrow" d="M30 39 v-14 m-5 5 l5 -5 l5 5" />
+              </svg>
+            </div>
 
             <h3
               id="upProgText"
+              className="hud-title"
               style={{
                 color: isError ? 'var(--danger)' : 'var(--brand)',
-                letterSpacing: '1.5px',
-                fontSize: '13px',
-                marginBottom: '20px',
-                fontWeight: 800,
-                textTransform: 'uppercase',
+                marginBottom: '18px',
               }}
             >
               {uploadProgress.text}
             </h3>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: '10px',
-                fontSize: '11px',
-                fontWeight: 700,
-              }}
-            >
-              <span id="upProgPercent" style={{ color: 'white', fontFamily: 'monospace', fontSize: '13px' }}>
+            <div className="hud-progress-meta">
+              <span id="upProgPercent" className="hud-progress-percent">
                 {percent}%
               </span>
-              <span id="upProgStats" style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+              <span id="upProgStats" className="hud-progress-stats">
                 {uploadProgress.stats}
               </span>
             </div>
 
-            <div
-              style={{
-                width: '100%',
-                height: '6px',
-                background: 'rgba(0,0,0,0.5)',
-                borderRadius: '3px',
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.05)',
-              }}
-            >
+            <div className="hud-progress-track">
               <div
                 id="upProgFill"
+                className="hud-progress-fill"
                 style={{
                   width: `${percent}%`,
-                  height: '100%',
                   background: isError
                     ? 'var(--danger)'
                     : percent >= 100
                     ? 'var(--success)'
-                    : 'var(--brand)',
-                  transition: 'width 0.25s linear, background 0.3s ease',
+                    : 'linear-gradient(90deg, #26c3ea 0%, #38bdf8 100%)',
                 }}
               />
             </div>
 
             {isError && uploadProgress.onRetry && (
-              <div id="upRetryZone" style={{ marginTop: '25px' }}>
+              <div id="upRetryZone" style={{ marginTop: '22px', width: '100%' }}>
                 <OpticalButton
                   type="button"
                   id="upRetryBtn"
                   variant="danger"
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', minHeight: '44px', fontWeight: 800, borderRadius: '14px' }}
                   onClick={uploadProgress.onRetry}
                 >
                   ↻ Retry Upload
@@ -187,78 +182,65 @@ export default function UploadProgressModal() {
           <div
             id="uploadSuccessState"
             style={{
-              animation: 'fadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              animation: 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             }}
           >
-            <div style={{ marginBottom: '20px' }}>
+            <div className="hud-icon-wrap hud-success-glow">
               <svg
                 className="anim-icon"
                 stroke="var(--success)"
                 viewBox="0 0 52 52"
-                style={{
-                  margin: '0 auto',
-                  filter: 'drop-shadow(0 0 12px rgba(46, 204, 113, 0.5))',
-                }}
               >
                 <circle className="anim-circle" cx="26" cy="26" r="25" />
                 <path className="anim-check" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
               </svg>
             </div>
 
-            <h3 style={{ color: 'var(--success)', marginBottom: '25px', fontWeight: 800, letterSpacing: '1.5px' }}>
+            <h3 className="hud-title hud-title-success">
               SECURELY TRANSMITTED
             </h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
-              <div
-                style={{
-                  background: 'rgba(38, 195, 234, 0.05)',
-                  border: '1px solid var(--brand)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                  borderRadius: '12px',
-                  padding: '12px 20px',
-                  fontSize: '12px',
-                  color: 'white',
-                  display: 'flex',
-                  gap: '10px',
-                  width: '100%',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Job ID:</span>
-                <span id="succJobId" style={{ fontFamily: 'monospace', fontWeight: 900, letterSpacing: '1px' }}>
+            <p className="hud-subtitle">
+              Your file has been verified and securely submitted.
+            </p>
+
+            <div className="hud-receipt-card">
+              <div className="hud-receipt-row">
+                <span className="hud-receipt-label">Job ID</span>
+                <span id="succJobId" className="hud-receipt-value hud-receipt-code">
                   {uploadProgress.jobId || 'Auto'}
                 </span>
               </div>
-
-              <div
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '12px',
-                  padding: '12px 20px',
-                  fontSize: '12px',
-                  color: 'white',
-                  display: 'flex',
-                  gap: '10px',
-                  width: '100%',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Timestamp:</span>
-                <span id="succTime" style={{ fontWeight: 800 }}>
+              <div className="hud-receipt-divider" />
+              <div className="hud-receipt-row">
+                <span className="hud-receipt-label">Timestamp</span>
+                <span id="succTime" className="hud-receipt-value">
                   {uploadProgress.timestamp}
                 </span>
               </div>
+            </div>
 
-              <OpticalButton
-                type="button"
-                variant="primary"
-                onClick={handleAcknowledge}
-                style={{ width: '100%', marginTop: '15px', padding: '14px' }}
-              >
-                Acknowledge &amp; Close
-              </OpticalButton>
+            <OpticalButton
+              type="button"
+              variant="primary"
+              onClick={handleAcknowledge}
+              style={{
+                width: '100%',
+                minHeight: '44px',
+                fontWeight: 800,
+                fontSize: '14px',
+                borderRadius: '14px',
+              }}
+            >
+              Acknowledge &amp; Close
+            </OpticalButton>
+
+            <div className="hud-autoclose-hint">
+              Auto-closing in {secondsLeft}s
             </div>
           </div>
         )}
