@@ -78,6 +78,13 @@ export function initSoundEngine() {
 export function playSound(name: SoundType) {
   if (typeof window === 'undefined') return;
 
+  // Check if system audio is globally muted in Settings
+  try {
+    if (localStorage.getItem('tk_audio_muted') === 'true') {
+      return;
+    }
+  } catch (e) {}
+
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
