@@ -1,70 +1,180 @@
 // components/modals/JobChatModal.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
+import { supabase, fetchJobCommunications, sendJobCommunication, DBJobCommunication } from '@/lib/supabase';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { playSound } from '@/lib/sound';
 
-interface TimelineEvent {
+interface ChatMessage {
+  id?: string;
   type?: string;
   actorName: string;
   actorRole: string;
   message: string;
   timestamp: string;
   isOptimistic?: boolean;
+  status?: 'sending' | 'delivered';
 }
 
 export default function JobChatModal() {
   const { activeModal, modalData, closeModal, user, showAlert } = useDashboard();
-  const [messages, setMessages] = useState<TimelineEvent[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const latestMessageIdsRef = useRef<Set<string>>(new Set());
 
   const isOpen = activeModal === 'jobChat';
   const jobId = modalData?.jobId || '';
   const mode = (modalData?.mode || 'chat') as 'chat' | 'revision';
   const isRevision = mode === 'revision';
 
-  const scrollToBottom = () => {
+  const myFirstName = user?.name ? user.name.split(' ')[0] : 'Me';
+  const myRole = user?.role || 'Staff';
+
+  const scrollToBottom = (smooth = true) => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
     }
   };
 
-  const fetchTimeline = async (silent = false) => {
+  // Convert DB row to UI ChatMessage
+  const formatDBMessage = useCallback((row: DBJobCommunication): ChatMessage => {
+    const timeStr = row.created_at
+      ? new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    return {
+      id: row.id,
+      type: row.message_type,
+      actorName: row.actor_name,
+      actorRole: row.actor_role,
+      message: row.message,
+      timestamp: timeStr,
+      status: 'delivered',
+    };
+  }, []);
+
+  // Fetch timeline from Supabase directly with fallback to serverCall
+  const fetchTimeline = useCallback(async (silent = false) => {
     if (!jobId) return;
     if (!silent) setLoading(true);
 
     try {
-      const res = await serverCall('getJobTimeline', { jobId });
-      if (res && res.success && Array.isArray(res.history)) {
-        setMessages(res.history);
+      // 1. Direct Supabase load (Zero Latency)
+      const dbRows = await fetchJobCommunications(jobId);
+      if (dbRows && dbRows.length > 0) {
+        const mapped = dbRows.map(formatDBMessage);
+        latestMessageIdsRef.current = new Set(dbRows.map((r) => r.id || `${r.created_at}-${r.message}`));
+        setMessages(mapped);
       } else {
-        setMessages([]);
+        // Fallback to server gateway
+        const res = await serverCall('getJobTimeline', { jobId });
+        if (res && res.success && Array.isArray(res.history)) {
+          const formatted: ChatMessage[] = res.history.map((h: any) => ({
+            id: h.id || Math.random().toString(),
+            type: h.type,
+            actorName: h.actorName,
+            actorRole: h.actorRole,
+            message: h.message,
+            timestamp: h.timestamp || '',
+            status: 'delivered' as const,
+          }));
+          setMessages(formatted);
+        } else {
+          setMessages([]);
+        }
       }
     } catch (err: any) {
-      console.warn('Failed to load job timeline:', err);
+      console.warn('[JobChatModal] Failed to load messages:', err);
     } finally {
       if (!silent) setLoading(false);
-      setTimeout(scrollToBottom, 100);
+      setTimeout(() => scrollToBottom(false), 80);
     }
-  };
+  }, [jobId, formatDBMessage]);
 
+  // Real-Time Supabase Subscription (WhatsApp Instant Delivery)
   useEffect(() => {
-    if (isOpen && jobId) {
-      setInputText('');
-      fetchTimeline(false);
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-    }
-  }, [isOpen, jobId]);
+    if (!isOpen || !jobId) return;
+
+    fetchTimeline(false);
+
+    // Subscribe to live Postgres changes for this exact job code
+    const channelName = `chat-${jobId}-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'job_communications',
+          filter: `job_code=eq.${jobId}`,
+        },
+        (payload) => {
+          const newRow = payload.new as DBJobCommunication;
+          const msgKey = newRow.id || `${newRow.created_at}-${newRow.message}`;
+
+          if (latestMessageIdsRef.current.has(msgKey)) return;
+          latestMessageIdsRef.current.add(msgKey);
+
+          const isFromMe =
+            newRow.actor_name?.toLowerCase() === myFirstName.toLowerCase() &&
+            newRow.actor_role?.toLowerCase() === myRole.toLowerCase();
+
+          // WhatsApp Chime for incoming message from other party
+          if (!isFromMe) {
+            playSound('notification');
+          }
+
+          const formatted = formatDBMessage(newRow);
+
+          setMessages((prev) => {
+            // Replace optimistic pending message if it matches text and actor
+            const foundIndex = prev.findIndex(
+              (m) =>
+                m.isOptimistic &&
+                m.message === newRow.message &&
+                m.actorName.toLowerCase() === newRow.actor_name.toLowerCase()
+            );
+
+            if (foundIndex !== -1) {
+              const next = [...prev];
+              next[foundIndex] = formatted;
+              return next;
+            }
+
+            return [...prev, formatted];
+          });
+
+          setTimeout(() => scrollToBottom(true), 60);
+        }
+      )
+      .subscribe((status) => {
+        setIsLiveConnected(status === 'SUBSCRIBED');
+      });
+
+    // 3-second heartbeat polling fallback in case browser throttles socket
+    const pollInterval = setInterval(() => {
+      fetchTimeline(true);
+    }, 3000);
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+      setIsLiveConnected(false);
+    };
+  }, [isOpen, jobId, myFirstName, myRole, fetchTimeline, formatDBMessage]);
 
   if (!isOpen) return null;
 
@@ -88,17 +198,19 @@ export default function JobChatModal() {
       return;
     }
 
-    const currentUserName = user?.name ? user.name.split(' ')[0] : 'Me';
-    const currentUserRole = user?.role || 'Staff';
     const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const tempId = `temp-${Date.now()}`;
 
-    // Optimistic UI update
-    const optimisticMsg: TimelineEvent = {
-      actorName: currentUserName,
-      actorRole: currentUserRole,
+    // 1. WhatsApp Optimistic Instant UI Insertion
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      type: mode === 'revision' ? 'revision' : 'note',
+      actorName: myFirstName,
+      actorRole: myRole,
       message: trimmed,
       timestamp: timeNow,
       isOptimistic: true,
+      status: 'sending',
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
@@ -106,30 +218,45 @@ export default function JobChatModal() {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    setTimeout(scrollToBottom, 50);
+    setTimeout(() => scrollToBottom(true), 40);
 
     setSending(true);
+
     try {
-      const payload = {
+      // 2. Direct Supabase write (Instant database persistence)
+      const dbPayload: DBJobCommunication = {
+        job_code: jobId,
+        actor_name: myFirstName,
+        actor_role: myRole,
+        message_type: mode === 'revision' ? 'revision' : 'note',
+        message: trimmed,
+      };
+
+      const dbRes = await sendJobCommunication(dbPayload);
+
+      // 3. Simultaneously notify backend gateway for audit logs & FCM push notifications
+      serverCall('addJobTimelineEvent', {
         jobId,
         mode,
         message: trimmed,
-        actorName: currentUserName,
-        actorRole: currentUserRole,
-      };
+        actorName: myFirstName,
+        actorRole: myRole,
+      }).catch((e) => console.warn('[Gateway Notification]', e));
 
-      const res = await serverCall('addJobTimelineEvent', payload);
-      if (res && res.success) {
+      if (dbRes.success && dbRes.data) {
         playSound('notification');
-        setTimeout(() => {
-          fetchTimeline(true);
-        }, 500);
+        // Mark optimistic message as delivered (WhatsApp Double Check)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...m, isOptimistic: false, status: 'delivered', id: dbRes.data?.id } : m
+          )
+        );
       } else {
-        showAlert('Failed to send message: ' + (res?.message || 'Unknown error'), 'Error');
-        fetchTimeline(true);
+        // Fallback refresh
+        setTimeout(() => fetchTimeline(true), 400);
       }
     } catch (err: any) {
-      showAlert('Network error: ' + err.message, 'Network Error');
+      showAlert('Network error: ' + err.message, 'Message Delivery');
     } finally {
       setSending(false);
     }
@@ -141,63 +268,103 @@ export default function JobChatModal() {
         className="glass-box"
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: '550px',
+          maxWidth: '560px',
           width: '95%',
           padding: 0,
           display: 'flex',
           flexDirection: 'column',
-          height: '85vh',
-          maxHeight: '800px',
+          height: '86vh',
+          maxHeight: '820px',
           overflow: 'hidden',
           position: 'relative',
+          borderRadius: '24px',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.7), 0 0 30px rgba(38,195,234,0.15)',
         }}
       >
-        {/* Sticky Header */}
+        {/* WhatsApp-Style Sticky Header */}
         <div
           className="premium-sticky-header"
           style={{
             flexShrink: 0,
             margin: 0,
-            padding: '20px 25px',
-            borderBottom: '1px solid var(--border)',
-            background: 'rgba(15, 15, 20, 0.95)',
-            borderRadius: '20px 20px 0 0',
+            padding: '16px 20px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(20px)',
             zIndex: 10,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <h2
-              id="corrModalTitle"
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
               style={{
-                color: isRevision ? 'var(--danger)' : 'var(--brand)',
-                fontSize: '16px',
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                background: isRevision ? 'rgba(239, 68, 68, 0.15)' : 'rgba(38, 195, 234, 0.15)',
+                border: `1px solid ${isRevision ? 'rgba(239, 68, 68, 0.3)' : 'rgba(38, 195, 234, 0.3)'}`,
                 display: 'flex',
                 alignItems: 'center',
-                margin: 0,
+                justifyContent: 'center',
+                color: isRevision ? 'var(--danger)' : 'var(--brand)',
               }}
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                style={{ marginRight: '8px' }}
-              >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              <span>{isRevision ? 'Request Revision' : 'Group Communication'}</span>
-            </h2>
-            <p id="corrModalDesc" style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
-              {isRevision
-                ? `Job ID: ${jobId} | This sends the job back to the operator.`
-                : `Job ID: ${jobId} | Visible to Admins, Teachers & Operators.`}
-            </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: '15px',
+                    fontWeight: 800,
+                    margin: 0,
+                    letterSpacing: '-0.2px',
+                  }}
+                >
+                  {isRevision ? 'Revision Request' : 'Job Group Chat'}
+                </h3>
+
+                {isLiveConnected && (
+                  <span
+                    style={{
+                      fontSize: '9.5px',
+                      fontWeight: 800,
+                      padding: '2px 7px',
+                      borderRadius: '999px',
+                      background: 'rgba(34, 197, 94, 0.15)',
+                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                      color: '#22C55E',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '5px',
+                        height: '5px',
+                        borderRadius: '50%',
+                        background: '#22C55E',
+                        boxShadow: '0 0 6px #22C55E',
+                      }}
+                    />
+                    LIVE
+                  </span>
+                )}
+              </div>
+
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                {jobId} • {isRevision ? 'Sends job back to operator' : 'Instant updates for all assigned staff'}
+              </span>
+            </div>
           </div>
+
           <button
             type="button"
             className="close-minimal"
@@ -206,56 +373,188 @@ export default function JobChatModal() {
             title="Close"
             style={{ position: 'static' }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
 
-        {/* Scrollable Chat Body */}
-        <div id="jobTimelineContainer" ref={chatContainerRef} className="chat-container">
+        {/* WhatsApp-Style Scrollable Chat Body */}
+        <div
+          id="jobTimelineContainer"
+          ref={chatContainerRef}
+          className="chat-container"
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '16px 18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            background: 'radial-gradient(circle at 50% 20%, rgba(38,195,234,0.03) 0%, rgba(5,8,15,0.7) 100%)',
+          }}
+        >
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
-              <IOSSpinner size={24} color="var(--brand)" />
-              <p style={{ marginTop: '10px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Fetching secure chat...
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <IOSSpinner size={26} color="var(--brand)" />
+              <p style={{ marginTop: '12px', fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Connecting to encrypted real-time channel...
               </p>
             </div>
           ) : messages.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>
-              No messages yet in this timeline.
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '60px 20px',
+                color: 'var(--text-muted)',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>No messages yet in this timeline.</span>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                Type below to communicate instantly with operators and teachers.
+              </span>
             </div>
           ) : (
             messages.map((ev, idx) => {
               const isSys = ev.actorRole === 'automation' || ev.type === 'system';
               if (isSys) {
                 return (
-                  <div key={idx} className="chat-bubble-sys">
+                  <div
+                    key={ev.id || idx}
+                    className="chat-bubble-sys"
+                    style={{
+                      alignSelf: 'center',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '999px',
+                      padding: '4px 12px',
+                      fontSize: '10.5px',
+                      color: 'var(--text-muted)',
+                      fontWeight: 600,
+                      margin: '6px 0',
+                    }}
+                  >
                     {ev.message} • {ev.timestamp}
                   </div>
                 );
               }
 
-              const myFirstName = user?.name ? user.name.split(' ')[0] : '';
-              const isMe = ev.actorName === myFirstName && ev.actorRole === user?.role;
-              const bubbleClass = isMe ? 'chat-bubble-user' : 'chat-bubble-other';
+              const isMe =
+                ev.actorName?.toLowerCase() === myFirstName.toLowerCase() ||
+                (ev.actorRole === myRole && ev.actorName === 'Me');
+
+              const isRevMsg = ev.type === 'revision';
 
               return (
-                <div key={idx} className={`chat-bubble ${bubbleClass}`}>
-                  {!isMe && (
-                    <div className="chat-meta">
-                      <span className="chat-sender" style={{ color: 'var(--brand)' }}>
-                        {ev.actorName} <span className="chat-role">{ev.actorRole}</span>
-                      </span>
-                    </div>
-                  )}
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{ev.message}</div>
+                <div
+                  key={ev.id || idx}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignSelf: isMe ? 'flex-end' : 'flex-start',
+                    maxWidth: '82%',
+                  }}
+                >
                   <div
-                    className="chat-time"
-                    style={{ color: isMe ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.4)' }}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: isMe ? '16px 16px 3px 16px' : '16px 16px 16px 3px',
+                      background: isMe
+                        ? isRevMsg
+                          ? 'linear-gradient(135deg, #DC2626, #B91C1C)'
+                          : 'linear-gradient(135deg, #0284C7, #0369A1)'
+                        : 'rgba(255, 255, 255, 0.08)',
+                      border: isMe
+                        ? '1px solid rgba(255,255,255,0.2)'
+                        : '1px solid rgba(255,255,255,0.1)',
+                      color: '#FFFFFF',
+                      boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
+                      wordBreak: 'break-word',
+                    }}
                   >
-                    {ev.timestamp} {ev.isOptimistic && '• Sending...'}
+                    {!isMe && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color:
+                              ev.actorRole === 'operator'
+                                ? 'var(--brand)'
+                                : ev.actorRole === 'admin'
+                                ? 'var(--purple)'
+                                : 'var(--accent)',
+                          }}
+                        >
+                          {ev.actorName}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '999px',
+                            background: 'rgba(255,255,255,0.08)',
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {ev.actorRole}
+                        </span>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '13px', lineHeight: '1.45', whiteSpace: 'pre-wrap' }}>
+                      {ev.message}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: '4px',
+                        marginTop: '4px',
+                        fontSize: '10px',
+                        color: isMe ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>{ev.timestamp}</span>
+                      {isMe && (
+                        <span>
+                          {ev.isOptimistic ? (
+                            // Single Gray Check (Sending)
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            // Double Blue/Cyan Check (Delivered, WhatsApp Style)
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#67E8F9" strokeWidth="2.5">
+                              <polyline points="17 6 9 17 4 12" />
+                              <polyline points="21 8 13 17 11 15" />
+                            </svg>
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -263,33 +562,76 @@ export default function JobChatModal() {
           )}
         </div>
 
-        {/* Sticky Bottom Input */}
-        <div className="chat-input-wrapper" id="timelineActionZone">
+        {/* WhatsApp-Style Sticky Bottom Input Zone */}
+        <div
+          className="chat-input-wrapper"
+          id="timelineActionZone"
+          style={{
+            padding: '12px 16px',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(15, 23, 42, 0.95)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
           <textarea
             ref={textareaRef}
             id="correctionNoteText"
             className="chat-textarea"
             rows={1}
-            placeholder="Type a message to the group..."
+            placeholder={
+              isRevision
+                ? 'Type details for the operator revision request...'
+                : 'Type an instant message to the group...'
+            }
             value={inputText}
             onChange={handleTextareaInput}
             onKeyDown={handleKeyDown}
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              borderRadius: '20px',
+              border: '1px solid rgba(255,255,255,0.14)',
+              background: 'rgba(0,0,0,0.35)',
+              color: '#FFFFFF',
+              fontSize: '13px',
+              fontFamily: 'inherit',
+              outline: 'none',
+              resize: 'none',
+              maxHeight: '120px',
+              lineHeight: '1.4',
+            }}
           />
+
           <button
             type="button"
             id="corrSubmitBtn"
             className="chat-send-btn"
             onClick={handleSend}
-            disabled={sending}
+            disabled={sending || !inputText.trim()}
             style={{
-              background: isRevision ? 'var(--danger) !important' : 'var(--brand) !important',
-              color: isRevision ? '#fff !important' : '#05080F !important',
+              width: '42px',
+              height: '42px',
+              minWidth: '42px',
+              minHeight: '42px',
+              borderRadius: '50%',
+              background: isRevision ? '#DC2626' : 'var(--brand)',
+              color: isRevision ? '#FFFFFF' : '#05080F',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: sending || !inputText.trim() ? 'not-allowed' : 'pointer',
+              opacity: !inputText.trim() ? 0.6 : 1,
+              transition: 'all 0.2s ease',
+              boxShadow: !inputText.trim() ? 'none' : '0 4px 14px rgba(38,195,234,0.3)',
             }}
           >
             {sending ? (
               <IOSSpinner size={18} color={isRevision ? '#fff' : '#05080F'} />
             ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '2px' }}>
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
               </svg>
             )}

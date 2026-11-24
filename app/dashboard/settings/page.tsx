@@ -4,6 +4,14 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall, MemoryStore } from '@/lib/api-client';
+import {
+  fetchInstituteSettings,
+  saveInstituteSettings,
+  fetchCommunicationTemplates,
+  saveCommunicationTemplates,
+  uploadLogoToStorage,
+  DBCommunicationTemplate,
+} from '@/lib/supabase';
 import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
@@ -78,6 +86,7 @@ export default function SettingsPage() {
   const [headerTagline, setHeaderTagline] = useState('');
   const [footerAddress, setFooterAddress] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [stagedLogoFile, setStagedLogoFile] = useState<File | null>(null);
 
   // 7. Institute Admin Access Control
   const [secContacts, setSecContacts] = useState(true);
@@ -186,8 +195,8 @@ export default function SettingsPage() {
     setFooterAddress(initialAddress);
     setLogoUrl(initialLogo);
 
-    // Snapshot initial state for dirty detection
-    setInitialAdminState({
+    // Initial fallback snapshot
+    const baselineSnapshot: OriginalAdminState = {
       headerTagline: initialTagline,
       footerAddress: initialAddress,
       logoUrl: initialLogo,
@@ -205,8 +214,133 @@ export default function SettingsPage() {
       feeChanPush: false,
       feeChanEmail: true,
       feeTemplate: 'Dear Parent, a fee balance is pending for [NAME]. Please clear it soon. - [INST]',
-    });
-  }, [user]);
+    };
+
+    setInitialAdminState(baselineSnapshot);
+
+    // 🔥 Direct Database Hydration from Supabase
+    const instId = user?.institute_id || user?.instId;
+    if (instId && isInstAdmin) {
+      Promise.all([
+        fetchInstituteSettings(instId),
+        fetchCommunicationTemplates(instId),
+      ]).then(([settings, templates]) => {
+        let curTagline = initialTagline;
+        let curAddress = initialAddress;
+        let curAlertPaper = '10';
+        let curAlertDoc = '50';
+        let curSecContacts = true;
+        let curSecEdit = false;
+
+        if (settings) {
+          if (settings.paper_header !== undefined && settings.paper_header !== null) {
+            curTagline = settings.paper_header;
+            setHeaderTagline(settings.paper_header);
+          }
+          if (settings.paper_footer !== undefined && settings.paper_footer !== null) {
+            curAddress = settings.paper_footer;
+            setFooterAddress(settings.paper_footer);
+          }
+          if (settings.alert_paper_threshold !== undefined && settings.alert_paper_threshold !== null) {
+            curAlertPaper = String(settings.alert_paper_threshold);
+            setAlertPaper(String(settings.alert_paper_threshold));
+          }
+          if (settings.alert_doc_threshold !== undefined && settings.alert_doc_threshold !== null) {
+            curAlertDoc = String(settings.alert_doc_threshold);
+            setAlertDoc(String(settings.alert_doc_threshold));
+          }
+          if (settings.allow_teacher_contacts !== undefined && settings.allow_teacher_contacts !== null) {
+            curSecContacts = settings.allow_teacher_contacts;
+            setSecContacts(settings.allow_teacher_contacts);
+          }
+          if (settings.allow_teacher_edit !== undefined && settings.allow_teacher_edit !== null) {
+            curSecEdit = settings.allow_teacher_edit;
+            setSecEdit(settings.allow_teacher_edit);
+          }
+        }
+
+        let curChanSms = true;
+        let curChanWa = false;
+        let curChanPush = true;
+        let curChanEmail = true;
+        let curAttTemplate = 'Dear Parent, your ward [NAME] is absent today on [DATE]. - [INST]';
+
+        let curFeeChanSms = true;
+        let curFeeChanWa = true;
+        let curFeeChanPush = false;
+        let curFeeChanEmail = true;
+        let curFeeTemplate = 'Dear Parent, a fee balance is pending for [NAME]. Please clear it soon. - [INST]';
+
+        if (templates && templates.length > 0) {
+          templates.forEach((t) => {
+            if (t.event_type === 'ATTENDANCE_ABSENT') {
+              if (t.channel === 'SMS') {
+                curChanSms = t.is_active;
+                setChanSms(t.is_active);
+              }
+              if (t.channel === 'WHATSAPP') {
+                curChanWa = t.is_active;
+                setChanWa(t.is_active);
+              }
+              if (t.channel === 'PUSH') {
+                curChanPush = t.is_active;
+                setChanPush(t.is_active);
+              }
+              if (t.channel === 'EMAIL') {
+                curChanEmail = t.is_active;
+                setChanEmail(t.is_active);
+              }
+              if (t.template_body) {
+                curAttTemplate = t.template_body;
+                setAttTemplate(t.template_body);
+              }
+            } else if (t.event_type === 'FEE_REMINDER') {
+              if (t.channel === 'SMS') {
+                curFeeChanSms = t.is_active;
+                setFeeChanSms(t.is_active);
+              }
+              if (t.channel === 'WHATSAPP') {
+                curFeeChanWa = t.is_active;
+                setFeeChanWa(t.is_active);
+              }
+              if (t.channel === 'PUSH') {
+                curFeeChanPush = t.is_active;
+                setFeeChanPush(t.is_active);
+              }
+              if (t.channel === 'EMAIL') {
+                curFeeChanEmail = t.is_active;
+                setFeeChanEmail(t.is_active);
+              }
+              if (t.template_body) {
+                curFeeTemplate = t.template_body;
+                setFeeTemplate(t.template_body);
+              }
+            }
+          });
+        }
+
+        setInitialAdminState({
+          headerTagline: curTagline,
+          footerAddress: curAddress,
+          logoUrl: initialLogo,
+          secContacts: curSecContacts,
+          secEdit: curSecEdit,
+          alertPaper: curAlertPaper,
+          alertDoc: curAlertDoc,
+          chanSms: curChanSms,
+          chanWa: curChanWa,
+          chanPush: curChanPush,
+          chanEmail: curChanEmail,
+          attTemplate: curAttTemplate,
+          feeChanSms: curFeeChanSms,
+          feeChanWa: curFeeChanWa,
+          feeChanPush: curFeeChanPush,
+          feeChanEmail: curFeeChanEmail,
+          feeTemplate: curFeeTemplate,
+        });
+      });
+    }
+  }, [user, isInstAdmin]);
 
   // Compute dirty state (Admin settings modified vs baseline)
   const isDirty = useMemo(() => {
@@ -396,7 +530,7 @@ export default function SettingsPage() {
     );
   };
 
-  // Handle Logo Upload (Base64)
+  // Handle Logo Upload (Staged File + Base64 Preview)
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -407,30 +541,135 @@ export default function SettingsPage() {
       return;
     }
 
+    setStagedLogoFile(file);
+
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
       const base64 = uploadEvent.target?.result as string;
       if (base64) {
         setLogoUrl(base64);
-        try {
-          localStorage.setItem('tk_saved_inst_logo', base64);
-        } catch (err) {}
         playSound('success');
-        showAlert('New institute logo loaded in live preview.', 'Logo Staged');
+        showAlert('New institute logo staged for live preview.', 'Logo Staged');
       }
     };
     reader.readAsDataURL(file);
   };
 
-  // Handle Institute Admin Settings Save
+  // Handle Institute Admin Settings Save (Direct Supabase + Gateway Sync)
   const handleSaveSettings = async () => {
+    const instId = user?.institute_id || user?.instId;
+    if (!instId) {
+      showAlert('Institute ID missing from current session.', 'Error');
+      return;
+    }
+
     setSaving(true);
     try {
-      await serverCall('updateInstituteSettings', {
-        instId: user?.institute_id || user?.instId,
+      let finalLogoUrl = logoUrl;
+
+      // 1. Upload Logo to Storage if new file was staged
+      if (stagedLogoFile) {
+        const uploadResult = await uploadLogoToStorage(
+          instId,
+          user?.code || user?.id || 'inst',
+          stagedLogoFile
+        );
+        if (uploadResult.success && uploadResult.url) {
+          finalLogoUrl = uploadResult.url;
+          setLogoUrl(uploadResult.url);
+          setStagedLogoFile(null);
+        } else if (uploadResult.error) {
+          console.warn('[Logo Upload Warning]:', uploadResult.error);
+        }
+      }
+
+      // 2. Direct Database Upsert to `institute_settings` Table
+      const settingsPayload = {
+        institute_id: instId,
+        paper_header: headerTagline,
+        paper_footer: footerAddress,
+        alert_paper_threshold: Number(alertPaper) || 10,
+        alert_doc_threshold: Number(alertDoc) || 50,
+        allow_teacher_contacts: secContacts,
+        allow_teacher_edit: secEdit,
+      };
+
+      const settingsResult = await saveInstituteSettings(settingsPayload);
+      if (!settingsResult.success) {
+        throw new Error(settingsResult.error || 'Failed to update institute_settings');
+      }
+
+      // 3. Direct Database Upsert to `communication_templates` Table
+      const commsPayload: DBCommunicationTemplate[] = [
+        {
+          institute_id: instId,
+          event_type: 'ATTENDANCE_ABSENT',
+          channel: 'SMS',
+          is_active: chanSms,
+          template_body: attTemplate,
+        },
+        {
+          institute_id: instId,
+          event_type: 'ATTENDANCE_ABSENT',
+          channel: 'WHATSAPP',
+          is_active: chanWa,
+          template_body: attTemplate,
+        },
+        {
+          institute_id: instId,
+          event_type: 'ATTENDANCE_ABSENT',
+          channel: 'PUSH',
+          is_active: chanPush,
+          template_body: attTemplate,
+        },
+        {
+          institute_id: instId,
+          event_type: 'ATTENDANCE_ABSENT',
+          channel: 'EMAIL',
+          is_active: chanEmail,
+          template_body: attTemplate,
+        },
+        {
+          institute_id: instId,
+          event_type: 'FEE_REMINDER',
+          channel: 'SMS',
+          is_active: feeChanSms,
+          template_body: feeTemplate,
+        },
+        {
+          institute_id: instId,
+          event_type: 'FEE_REMINDER',
+          channel: 'WHATSAPP',
+          is_active: feeChanWa,
+          template_body: feeTemplate,
+        },
+        {
+          institute_id: instId,
+          event_type: 'FEE_REMINDER',
+          channel: 'PUSH',
+          is_active: feeChanPush,
+          template_body: feeTemplate,
+        },
+        {
+          institute_id: instId,
+          event_type: 'FEE_REMINDER',
+          channel: 'EMAIL',
+          is_active: feeChanEmail,
+          template_body: feeTemplate,
+        },
+      ];
+
+      const commsResult = await saveCommunicationTemplates(commsPayload);
+      if (!commsResult.success) {
+        throw new Error(commsResult.error || 'Failed to update communication_templates');
+      }
+
+      // 4. Secondary sync to Vercel Gateway (Non-blocking background notification)
+      serverCall('updateInstituteSettings', {
+        instId,
         headerTagline,
         footerAddress,
-        logoUrl,
+        logoUrl: finalLogoUrl,
         secContacts,
         secEdit,
         alertPaper: parseInt(alertPaper, 10),
@@ -439,13 +678,13 @@ export default function SettingsPage() {
         attTemplate,
         feeChannels: { sms: feeChanSms, wa: feeChanWa, push: feeChanPush, email: feeChanEmail },
         feeTemplate,
-      });
+      }).catch((e) => console.warn('[Gateway Sync]:', e));
 
-      // Update baseline state so isDirty clears
+      // 5. Update baseline state so isDirty clears
       setInitialAdminState({
         headerTagline,
         footerAddress,
-        logoUrl,
+        logoUrl: finalLogoUrl,
         secContacts,
         secEdit,
         alertPaper,
@@ -463,30 +702,11 @@ export default function SettingsPage() {
       });
 
       playSound('success');
-      showAlert('All institutional preferences and security settings saved successfully!', 'Saved');
+      showAlert('All institutional branding, quota alerts, and routing rules successfully updated in database!', 'Database Updated');
       refreshData(true);
     } catch (err: any) {
-      playSound('success');
-      showAlert('Settings updated locally and synced with gateway cache.', 'Success');
-      setInitialAdminState({
-        headerTagline,
-        footerAddress,
-        logoUrl,
-        secContacts,
-        secEdit,
-        alertPaper,
-        alertDoc,
-        chanSms,
-        chanWa,
-        chanPush,
-        chanEmail,
-        attTemplate,
-        feeChanSms,
-        feeChanWa,
-        feeChanPush,
-        feeChanEmail,
-        feeTemplate,
-      });
+      playSound('warning');
+      showAlert('Error saving to database: ' + err.message, 'Save Failed');
     } finally {
       setSaving(false);
     }
