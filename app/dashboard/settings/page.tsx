@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall, MemoryStore } from '@/lib/api-client';
@@ -8,6 +8,26 @@ import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
 import { playSound } from '@/lib/sound';
+
+interface OriginalAdminState {
+  headerTagline: string;
+  footerAddress: string;
+  logoUrl: string;
+  secContacts: boolean;
+  secEdit: boolean;
+  alertPaper: string;
+  alertDoc: string;
+  chanSms: boolean;
+  chanWa: boolean;
+  chanPush: boolean;
+  chanEmail: boolean;
+  attTemplate: string;
+  feeChanSms: boolean;
+  feeChanWa: boolean;
+  feeChanPush: boolean;
+  feeChanEmail: boolean;
+  feeTemplate: string;
+}
 
 export default function SettingsPage() {
   const {
@@ -27,6 +47,9 @@ export default function SettingsPage() {
   const isTeacher = normRole === 'teacher';
   const isInstAdmin = normRole === 'admin' || normRole === 'super_admin';
   const isSysAdmin = normRole === 'super_admin';
+
+  // Active Tab State (Apple Segmented Navigation)
+  const [activeTab, setActiveTab] = useState<string>('general');
 
   // 1. Device Telemetry
   const [osName, setOsName] = useState('Windows');
@@ -82,6 +105,13 @@ export default function SettingsPage() {
   );
 
   const [saving, setSaving] = useState(false);
+
+  // Textarea refs for variable chip cursor insertion
+  const attTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const feeTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Baseline state tracking for Unsaved Changes Dock
+  const [initialAdminState, setInitialAdminState] = useState<OriginalAdminState | null>(null);
 
   // Load telemetry, local settings, and institute data
   useEffect(() => {
@@ -140,14 +170,112 @@ export default function SettingsPage() {
       if (savedOpStatus) setOpStatus(savedOpStatus);
     }
 
+    let initialTagline = '';
+    let initialAddress = '';
+    let initialLogo = '';
+
     if (user?.instDetails) {
-      setHeaderTagline(user.instDetails.tagline || '');
-      setFooterAddress(user.instDetails.address || '');
-      setLogoUrl(user.instDetails.logoUrl || user.logo || '');
+      initialTagline = user.instDetails.tagline || '';
+      initialAddress = user.instDetails.address || '';
+      initialLogo = user.instDetails.logoUrl || user.logo || '';
     } else if (user?.logo) {
-      setLogoUrl(user.logo);
+      initialLogo = user.logo;
     }
+
+    setHeaderTagline(initialTagline);
+    setFooterAddress(initialAddress);
+    setLogoUrl(initialLogo);
+
+    // Snapshot initial state for dirty detection
+    setInitialAdminState({
+      headerTagline: initialTagline,
+      footerAddress: initialAddress,
+      logoUrl: initialLogo,
+      secContacts: true,
+      secEdit: false,
+      alertPaper: '10',
+      alertDoc: '50',
+      chanSms: true,
+      chanWa: false,
+      chanPush: true,
+      chanEmail: true,
+      attTemplate: 'Dear Parent, your ward [NAME] is absent today on [DATE]. - [INST]',
+      feeChanSms: true,
+      feeChanWa: true,
+      feeChanPush: false,
+      feeChanEmail: true,
+      feeTemplate: 'Dear Parent, a fee balance is pending for [NAME]. Please clear it soon. - [INST]',
+    });
   }, [user]);
+
+  // Compute dirty state (Admin settings modified vs baseline)
+  const isDirty = useMemo(() => {
+    if (!isInstAdmin || !initialAdminState) return false;
+    return (
+      headerTagline !== initialAdminState.headerTagline ||
+      footerAddress !== initialAdminState.footerAddress ||
+      logoUrl !== initialAdminState.logoUrl ||
+      secContacts !== initialAdminState.secContacts ||
+      secEdit !== initialAdminState.secEdit ||
+      alertPaper !== initialAdminState.alertPaper ||
+      alertDoc !== initialAdminState.alertDoc ||
+      chanSms !== initialAdminState.chanSms ||
+      chanWa !== initialAdminState.chanWa ||
+      chanPush !== initialAdminState.chanPush ||
+      chanEmail !== initialAdminState.chanEmail ||
+      attTemplate !== initialAdminState.attTemplate ||
+      feeChanSms !== initialAdminState.feeChanSms ||
+      feeChanWa !== initialAdminState.feeChanWa ||
+      feeChanPush !== initialAdminState.feeChanPush ||
+      feeChanEmail !== initialAdminState.feeChanEmail ||
+      feeTemplate !== initialAdminState.feeTemplate
+    );
+  }, [
+    isInstAdmin,
+    initialAdminState,
+    headerTagline,
+    footerAddress,
+    logoUrl,
+    secContacts,
+    secEdit,
+    alertPaper,
+    alertDoc,
+    chanSms,
+    chanWa,
+    chanPush,
+    chanEmail,
+    attTemplate,
+    feeChanSms,
+    feeChanWa,
+    feeChanPush,
+    feeChanEmail,
+    feeTemplate,
+  ]);
+
+  // Discard all unsaved changes
+  const handleDiscardChanges = () => {
+    if (!initialAdminState) return;
+    setHeaderTagline(initialAdminState.headerTagline);
+    setFooterAddress(initialAdminState.footerAddress);
+    setLogoUrl(initialAdminState.logoUrl);
+    setSecContacts(initialAdminState.secContacts);
+    setSecEdit(initialAdminState.secEdit);
+    setAlertPaper(initialAdminState.alertPaper);
+    setAlertDoc(initialAdminState.alertDoc);
+    setChanSms(initialAdminState.chanSms);
+    setChanWa(initialAdminState.chanWa);
+    setChanPush(initialAdminState.chanPush);
+    setChanEmail(initialAdminState.chanEmail);
+    setAttTemplate(initialAdminState.attTemplate);
+    setFeeChanSms(initialAdminState.feeChanSms);
+    setFeeChanWa(initialAdminState.feeChanWa);
+    setFeeChanPush(initialAdminState.feeChanPush);
+    setFeeChanEmail(initialAdminState.feeChanEmail);
+    setFeeTemplate(initialAdminState.feeTemplate);
+
+    playSound('warning');
+    showAlert('All unsaved modifications have been discarded.', 'Reverted');
+  };
 
   // Handle Theme Toggle
   const handleThemeChange = (isDark: boolean) => {
@@ -288,7 +416,7 @@ export default function SettingsPage() {
           localStorage.setItem('tk_saved_inst_logo', base64);
         } catch (err) {}
         playSound('success');
-        showAlert('New institute logo loaded. Tap "Save All Settings" to sync.', 'Logo Staged');
+        showAlert('New institute logo loaded in live preview.', 'Logo Staged');
       }
     };
     reader.readAsDataURL(file);
@@ -313,12 +441,52 @@ export default function SettingsPage() {
         feeTemplate,
       });
 
+      // Update baseline state so isDirty clears
+      setInitialAdminState({
+        headerTagline,
+        footerAddress,
+        logoUrl,
+        secContacts,
+        secEdit,
+        alertPaper,
+        alertDoc,
+        chanSms,
+        chanWa,
+        chanPush,
+        chanEmail,
+        attTemplate,
+        feeChanSms,
+        feeChanWa,
+        feeChanPush,
+        feeChanEmail,
+        feeTemplate,
+      });
+
       playSound('success');
       showAlert('All institutional preferences and security settings saved successfully!', 'Saved');
       refreshData(true);
     } catch (err: any) {
       playSound('success');
       showAlert('Settings updated locally and synced with gateway cache.', 'Success');
+      setInitialAdminState({
+        headerTagline,
+        footerAddress,
+        logoUrl,
+        secContacts,
+        secEdit,
+        alertPaper,
+        alertDoc,
+        chanSms,
+        chanWa,
+        chanPush,
+        chanEmail,
+        attTemplate,
+        feeChanSms,
+        feeChanWa,
+        feeChanPush,
+        feeChanEmail,
+        feeTemplate,
+      });
     } finally {
       setSaving(false);
     }
@@ -331,7 +499,7 @@ export default function SettingsPage() {
         exportedAt: new Date().toISOString(),
         user: { email: user?.email, role: user?.role, instId: user?.instId },
         settings: { headerTagline, footerAddress, secContacts, secEdit, alertPaper, alertDoc },
-        systemVersion: 'V2.9.49 (ED TRIMKEY OS)',
+        systemVersion: 'V2.9.51 (ED TRIMKEY OS)',
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -358,30 +526,192 @@ export default function SettingsPage() {
     );
   };
 
+  // Cursor-aware variable tag inserter
+  const insertVariable = (
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+    currentVal: string,
+    setter: (val: string) => void,
+    tag: string
+  ) => {
+    playSound('notification');
+    const el = textareaRef.current;
+    if (!el) {
+      setter(currentVal ? `${currentVal} ${tag}` : tag);
+      return;
+    }
+    const start = el.selectionStart ?? currentVal.length;
+    const end = el.selectionEnd ?? currentVal.length;
+    const nextVal = currentVal.substring(0, start) + tag + currentVal.substring(end);
+    setter(nextVal);
+    setTimeout(() => {
+      el.focus();
+      const newPos = start + tag.length;
+      el.setSelectionRange(newPos, newPos);
+    }, 10);
+  };
+
+  // Role-based tabs definition
+  const tabs = useMemo(() => {
+    const list: { id: string; label: string; icon: React.ReactNode }[] = [
+      {
+        id: 'general',
+        label: 'General',
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        ),
+      },
+    ];
+
+    if (isInstAdmin) {
+      list.push({
+        id: 'branding',
+        label: 'Document Branding',
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+        ),
+      });
+      list.push({
+        id: 'routing',
+        label: 'Routing Engine',
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+        ),
+      });
+      list.push({
+        id: 'access',
+        label: 'Staff Access',
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        ),
+      });
+    }
+
+    if (isTeacher) {
+      list.push({
+        id: 'teacher',
+        label: 'Academic Defaults',
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+        ),
+      });
+    }
+
+    if (isOperator) {
+      list.push({
+        id: 'operator',
+        label: 'Operations',
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+            <line x1="8" y1="21" x2="16" y2="21" />
+            <line x1="12" y1="17" x2="12" y2="21" />
+          </svg>
+        ),
+      });
+    }
+
+    list.push({
+      id: 'notifications',
+      label: 'Notifications',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+      ),
+    });
+
+    if (isSysAdmin) {
+      list.push({
+        id: 'system',
+        label: 'System & Backup',
+        icon: (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
+          </svg>
+        ),
+      });
+    }
+
+    return list;
+  }, [isInstAdmin, isTeacher, isOperator, isSysAdmin]);
+
+  // Ensure active tab is valid
+  useEffect(() => {
+    if (!tabs.find((t) => t.id === activeTab)) {
+      setActiveTab('general');
+    }
+  }, [tabs, activeTab]);
+
   return (
-    <div id="view-settings" className="page-view active" style={{ display: 'block', paddingBottom: '40px' }}>
-      <div className="panel" style={{ maxWidth: '960px', margin: '0 auto' }}>
-        {/* Main Panel Header */}
-        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+    <div id="view-settings" className="page-view active" style={{ display: 'block', paddingBottom: '90px' }}>
+      <div className="panel" style={{ maxWidth: '980px', margin: '0 auto', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+        
+        {/* Header Block */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '20px',
+            padding: '4px 2px',
+          }}
+        >
           <div>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <h2
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                margin: 0,
+                fontSize: '22px',
+                fontWeight: 900,
+                letterSpacing: '-0.3px',
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
-              Settings &amp; System Preferences
-            </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+              Settings
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
               <span
                 style={{
-                  fontSize: '11px',
+                  fontSize: '10.5px',
                   fontWeight: 800,
                   padding: '2px 8px',
                   borderRadius: '999px',
                   color: roleBadge.color,
                   background: roleBadge.bg,
                   border: `1px solid ${roleBadge.border}`,
-                  letterSpacing: '0.3px',
+                  letterSpacing: '0.4px',
                 }}
               >
                 {roleBadge.label}
@@ -391,655 +721,1093 @@ export default function SettingsPage() {
               </span>
             </div>
           </div>
-
-          {isInstAdmin && (
-            <OpticalButton
-              type="button"
-              variant="success"
-              onClick={handleSaveSettings}
-              disabled={saving}
-              style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-              </svg>
-              {saving ? 'Saving...' : 'Save All Settings'}
-            </OpticalButton>
-          )}
         </div>
 
-        {/* =======================================================
-            1. SECURITY & CURRENT DEVICE TELEMETRY (ALL ROLES)
-            ======================================================= */}
-        <div className="grid-2" style={{ marginBottom: '25px' }}>
-          {/* Security Options */}
-          <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px' }}>
-            <h4 style={{ color: 'var(--brand)', marginTop: 0, marginBottom: '15px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 22c-3.806-1.45-7-3.966-7-9V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v4" />
-                <circle cx="17.695" cy="17.695" r="3" />
-              </svg>
-              Security Options
-            </h4>
-            <OpticalButton
-              type="button"
-              onClick={() => openModal('password')}
-              variant="outline"
-              style={{ width: '100%', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="16" r="1" />
-                <rect x="3" y="10" width="18" height="12" rx="2" />
-                <path d="M7 10V7a5 5 0 0 1 10 0v3" />
-              </svg>
-              Change Password
-            </OpticalButton>
-            <OpticalButton
-              type="button"
-              onClick={handleLogoutAll}
-              variant="danger"
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8" />
-                <rect width="6" height="10" x="16" y="12" rx="2" />
-              </svg>
-              Logout All Devices
-            </OpticalButton>
-          </div>
-
-          {/* Current Device Telemetry */}
-          <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px' }}>
-            <h4 style={{ color: 'var(--accent)', marginTop: 0, marginBottom: '15px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-              </svg>
-              Current Device Telemetry
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, display: 'flex', justifyContent: 'space-between' }}>
-                <strong>Operating System:</strong> <span style={{ color: '#F8FAFC', fontWeight: 700 }}>{osName}</span>
-              </p>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, display: 'flex', justifyContent: 'space-between' }}>
-                <strong>Browser Engine:</strong> <span style={{ color: '#F8FAFC', fontWeight: 700 }}>{browserName}</span>
-              </p>
-              <p style={{ fontSize: '13px', color: 'var(--success)', fontWeight: 800, margin: '6px 0 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 8px var(--success)' }} />
-                Active Session Connected &amp; Encrypted
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* =======================================================
-            2. APPEARANCE, THEME & SYSTEM AUDIO (ALL ROLES)
-            ======================================================= */}
-        <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '25px' }}>
-          <h4 style={{ color: 'var(--brand)', marginTop: 0, marginBottom: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-            Appearance &amp; Audio Engine
-          </h4>
-
-          {/* Theme Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 800 }}>Global Dark Theme</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '2px' }}>
-                Toggle system interface between deep OLED dark mode and high-contrast light mode.
-              </div>
-            </div>
-            {opticalGlassEnabled ? (
-              <GlassSwitch checked={darkMode} onCheckedChange={handleThemeChange} ariaLabel="Global Dark Theme" />
-            ) : (
-              <label className="switch" style={{ margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={darkMode}
-                  onChange={(e) => handleThemeChange(e.target.checked)}
-                />
-                <span className="slider" />
-              </label>
-            )}
-          </div>
-
-          {/* Optical Glass Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <div style={{ color: 'var(--brand)', fontSize: '13px', fontWeight: 800 }}>
-                ✦ Apple Optical Liquid Glass Refraction
-              </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '2px' }}>
-                Physical SDF displacement &amp; specular refraction on pills, buttons, and switches.
-              </div>
-            </div>
-            <GlassSwitch
-              checked={opticalGlassEnabled}
-              onCheckedChange={setOpticalGlassEnabled}
-              ariaLabel="Apple Optical Liquid Glass"
-            />
-          </div>
-
-          {/* System Sounds Audio Mute Row (From index.html) */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 800 }}>Incoming Notification Sounds</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '2px' }}>
-                Play instant Web Audio sound cues for uploads, alerts, errors, and approvals.
-              </div>
-            </div>
-            {opticalGlassEnabled ? (
-              <GlassSwitch checked={audioEnabled} onCheckedChange={handleAudioToggle} ariaLabel="Notification Sounds" />
-            ) : (
-              <label className="switch" style={{ margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={audioEnabled}
-                  onChange={(e) => handleAudioToggle(e.target.checked)}
-                />
-                <span className="slider" />
-              </label>
-            )}
-          </div>
-        </div>
-
-        {/* =======================================================
-            3. GLOBAL NOTIFICATION PREFERENCES (ALL ROLES)
-            ======================================================= */}
-        <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '25px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <h4 style={{ color: 'var(--brand)', margin: 0, fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-                Global Notification Channels
-              </h4>
-              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                Manage how you receive alerts across the system. Applies to all connected devices.
-              </p>
-            </div>
-            <OpticalButton
-              type="button"
-              variant="outline"
-              onClick={handleRequestPushPermission}
-              style={{ padding: '6px 14px', fontSize: '11.5px', fontWeight: 800 }}
-            >
-              🔔 Enable Push Alerts
-            </OpticalButton>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-            {/* Push */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ color: '#F8FAFC', fontSize: '12.5px', fontWeight: 800 }}>Push Pop-ups</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Real-time browser notifications</div>
-              </div>
-              <GlassSwitch checked={prefPush} onCheckedChange={(val) => updateNotifPref('push', val)} ariaLabel="Push Notifications" />
-            </div>
-
-            {/* WhatsApp */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ color: '#F8FAFC', fontSize: '12.5px', fontWeight: 800 }}>WhatsApp Alerts</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Critical job &amp; student updates</div>
-              </div>
-              <GlassSwitch checked={prefWa} onCheckedChange={(val) => updateNotifPref('wa', val)} ariaLabel="WhatsApp Alerts" />
-            </div>
-
-            {/* SMS */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ color: '#F8FAFC', fontSize: '12.5px', fontWeight: 800 }}>SMS Text Messages</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Standard cellular text alerts</div>
-              </div>
-              <GlassSwitch checked={prefSms} onCheckedChange={(val) => updateNotifPref('sms', val)} ariaLabel="SMS Notifications" />
-            </div>
-
-            {/* Email */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ color: '#F8FAFC', fontSize: '12.5px', fontWeight: 800 }}>Email Summaries</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Detailed reports to inbox</div>
-              </div>
-              <GlassSwitch checked={prefEmail} onCheckedChange={(val) => updateNotifPref('email', val)} ariaLabel="Email Notifications" />
-            </div>
-          </div>
-        </div>
-
-        {/* =======================================================
-            4. TEACHER PREFERENCES (TEACHER ROLE SPECIFIC)
-            ======================================================= */}
-        {isTeacher && (
-          <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--brand)', padding: '20px', marginBottom: '25px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <div>
-                <h4 style={{ color: 'var(--brand)', margin: 0, fontWeight: 800 }}>Teacher Submission Preferences</h4>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  Pre-selects your primary class and subject on Question Paper submission forms for instant drafting.
-                </p>
-              </div>
-              <OpticalButton
-                type="button"
-                variant="primary"
-                onClick={handleSaveTeacherDefaults}
-                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 800 }}
-              >
-                Save Defaults
-              </OpticalButton>
-            </div>
-
-            <div className="grid-2">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="label-text">Default Subject</label>
-                <select
-                  className="form-input"
-                  value={teacherSubject}
-                  onChange={(e) => setTeacherSubject(e.target.value)}
-                >
-                  <option value="Science">Science</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="English">English</option>
-                  <option value="Social Science">Social Science</option>
-                  <option value="Hindi">Hindi</option>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Biology">Biology</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="label-text">Default Class</label>
-                <select
-                  className="form-input"
-                  value={teacherClass}
-                  onChange={(e) => setTeacherClass(e.target.value)}
-                >
-                  {Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`).map((cls) => (
-                    <option key={cls} value={cls}>
-                      {cls}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =======================================================
-            5. OPERATOR CONTROLS (OPERATOR ROLE SPECIFIC)
-            ======================================================= */}
-        {isOperator && (
-          <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--purple)', padding: '20px', marginBottom: '25px' }}>
-            <h4 style={{ color: 'var(--purple)', marginTop: 0, marginBottom: '15px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-              </svg>
-              Operator Availability &amp; Module Assignment
-            </h4>
-
-            <div className="grid-2" style={{ marginBottom: '16px' }}>
-              {/* Availability Dropdown */}
-              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '16px', border: '1px solid var(--border)' }}>
-                <label className="label-text" style={{ color: '#F8FAFC', fontWeight: 800, fontSize: '13px' }}>
-                  Live Availability Status
-                </label>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 12px 0' }}>
-                  Setting status to Busy or Away notifies Administrators and queues assignments.
-                </p>
-                <select
-                  className="form-input"
-                  style={{ marginBottom: 0, fontWeight: 800 }}
-                  value={opStatus}
-                  onChange={(e) => handleOperatorStatusChange(e.target.value)}
-                >
-                  <option value="Active">🟢 Online (Accepting Jobs)</option>
-                  <option value="Busy">🟡 Busy (Finishing Current Batch)</option>
-                  <option value="Away">🔴 Away / Offline</option>
-                </select>
-              </div>
-
-              {/* Work Type Change Request */}
-              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '16px', border: '1px dashed var(--accent)' }}>
-                <label className="label-text" style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '13px' }}>
-                  Request Work Type Assignment
-                </label>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 12px 0' }}>
-                  Select processing modules you are trained for. Sent to Super Admin for approval.
-                </p>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                  {['Papers', 'Report Cards', 'Admit Cards'].map((type) => {
-                    const checked = opWorkTypes.includes(type);
-                    return (
-                      <label
-                        key={type}
-                        className="cb-pill"
-                        style={{
-                          margin: 0,
-                          padding: '6px 12px',
-                          cursor: 'pointer',
-                          background: checked ? 'rgba(245, 158, 11, 0.18)' : 'rgba(255,255,255,0.05)',
-                          borderColor: checked ? 'var(--accent)' : 'var(--border)',
-                          color: checked ? '#F59E0B' : '#94A3B8',
-                          fontWeight: 700,
-                          fontSize: '11.5px',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            if (e.target.checked) setOpWorkTypes([...opWorkTypes, type]);
-                            else setOpWorkTypes(opWorkTypes.filter((t) => t !== type));
-                          }}
-                        />
-                        {type}
-                      </label>
-                    );
-                  })}
-                </div>
-                <OpticalButton
+        {/* 1. Apple Segmented Pill Switcher (Horizontal Scroll on Mobile, Centered) */}
+        <div className="etk-segmented-nav-wrap">
+          <nav className="etk-segmented-nav" aria-label="Settings Categories">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
                   type="button"
-                  variant="warning"
-                  onClick={handleRequestWorkTypeChange}
-                  style={{ width: '100%', padding: '10px', fontSize: '12px' }}
+                  className={`etk-segmented-pill ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    playSound('notification');
+                  }}
                 >
-                  Submit Change Request
-                </OpticalButton>
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* =======================================================
+            TAB 1: GENERAL & APPEARANCE (ALL ROLES)
+            ======================================================= */}
+        {activeTab === 'general' && (
+          <div>
+            {/* Group: Appearance & Visual Engine */}
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+                Appearance &amp; Display
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Dark OLED Theme</span>
+                    <span className="etk-inset-sublabel">Toggle between Deep OLED Dark and High-Contrast Light Pro mode</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={darkMode}
+                      onCheckedChange={handleThemeChange}
+                      activeColor="var(--brand)"
+                    />
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Apple Optical Glass Refraction</span>
+                    <span className="etk-inset-sublabel">Specular highlights, optical edge physics, and dynamic backdrop filtration</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={opticalGlassEnabled}
+                      onCheckedChange={(checked) => setOpticalGlassEnabled(checked)}
+                      activeColor="var(--brand)"
+                    />
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Sound Effects &amp; Audio Cues</span>
+                    <span className="etk-inset-sublabel">Tactile Web Audio playback for notifications, actions, and confirmations</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={audioEnabled}
+                      onCheckedChange={handleAudioToggle}
+                      activeColor="var(--success)"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Quick Link to Operator Workspace */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <Link href="/operator/workspace">
-                <OpticalButton type="button" variant="primary" style={{ padding: '8px 16px', fontSize: '12px' }}>
-                  Open Operator Workspace →
-                </OpticalButton>
-              </Link>
+            {/* Group: Security & Device Telemetry */}
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Security &amp; Active Device Telemetry
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Active Operating System</span>
+                    <span className="etk-inset-sublabel">Client runtime environment detected</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      {osName}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Browser Engine</span>
+                    <span className="etk-inset-sublabel">Hardware accelerated rendering engine</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      {browserName}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Account Password</span>
+                    <span className="etk-inset-sublabel">Update account credentials with secure encryption</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <button
+                      type="button"
+                      className="liquid-glass btn-secondary btn-xs"
+                      onClick={() => openModal('password')}
+                    >
+                      Change Password
+                    </button>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label" style={{ color: 'var(--danger)' }}>
+                      Logout All Devices
+                    </span>
+                    <span className="etk-inset-sublabel">Terminate all other active sessions and clear tokens</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <button
+                      type="button"
+                      className="liquid-glass btn-danger btn-xs"
+                      onClick={handleLogoutAll}
+                    >
+                      Sign Out Everywhere
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* =======================================================
-            6. INSTITUTE ADMINISTRATION (ADMIN & SUPER ADMIN)
+            TAB 2: DOCUMENT BRANDING & LIVE A4 SPECIMEN (ADMIN)
             ======================================================= */}
-        {isInstAdmin && (
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '25px', marginTop: '10px' }}>
-            <h3 style={{ color: 'var(--text)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '20px' }}>
-              Institute Administration Panel
-            </h3>
+        {activeTab === 'branding' && isInstAdmin && (
+          <div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) 320px',
+                gap: '24px',
+                alignItems: 'start',
+              }}
+              className="etk-branding-grid"
+            >
+              {/* Form Controls Column */}
+              <div>
+                <div className="etk-inset-group">
+                  <h3 className="etk-inset-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    Institutional Header &amp; Footer
+                  </h3>
+                  <div className="etk-inset-card">
+                    <div className="etk-inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                      <div className="etk-inset-left">
+                        <span className="etk-inset-label">Paper Header Tagline</span>
+                        <span className="etk-inset-sublabel">Motto or accreditation printed directly below the institute title</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={headerTagline}
+                        onChange={(e) => setHeaderTagline(e.target.value)}
+                        placeholder="e.g. Excellence in Holistic Education &amp; Innovation"
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          background: 'rgba(0,0,0,0.25)',
+                          color: '#FFFFFF',
+                          fontSize: '13px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
 
-            <div className="grid-2" style={{ marginBottom: '25px' }}>
-              {/* 1. Document Branding */}
-              <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px' }}>
-                <h4 style={{ color: 'var(--brand)', marginTop: 0, marginBottom: '15px', fontWeight: 800 }}>
-                  1. Document Branding &amp; Logo
-                </h4>
-                <div className="form-group" style={{ marginBottom: '15px' }}>
-                  <label className="label-text">Paper Header Tagline</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. Excellence in Education"
-                    value={headerTagline}
-                    onChange={(e) => setHeaderTagline(e.target.value)}
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: '15px' }}>
-                  <label className="label-text">Paper Footer Address / Contact</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. 123 Main St | Ph: 9876543210"
-                    value={footerAddress}
-                    onChange={(e) => setFooterAddress(e.target.value)}
-                  />
+                    <div className="etk-inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                      <div className="etk-inset-left">
+                        <span className="etk-inset-label">Paper Footer &amp; Campus Address</span>
+                        <span className="etk-inset-sublabel">Official address, affiliation numbers, and contact details on bottom margin</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={footerAddress}
+                        onChange={(e) => setFooterAddress(e.target.value)}
+                        placeholder="e.g. Keystone Campus, Main Boulevard | Affiliation No. 2130890"
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          background: 'rgba(0,0,0,0.25)',
+                          color: '#FFFFFF',
+                          fontSize: '13px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+
+                    <div className="etk-inset-row">
+                      <div className="etk-inset-left">
+                        <span className="etk-inset-label">Institute Emblem / Logo</span>
+                        <span className="etk-inset-sublabel">High-resolution PNG, JPG or WebP (max 5MB)</span>
+                      </div>
+                      <div className="etk-inset-right">
+                        <label
+                          className="liquid-glass btn-secondary btn-xs"
+                          style={{ cursor: 'pointer', margin: 0 }}
+                        >
+                          Upload Logo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={handleLogoUpload}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Institute Logo Upload (Restored from index.html) */}
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="label-text">Update Institute Logo</label>
-                  <div
+                {/* Quota Limits & Thresholds */}
+                <div className="etk-inset-group">
+                  <h3 className="etk-inset-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="20" x2="18" y2="10" />
+                      <line x1="12" y1="20" x2="12" y2="4" />
+                      <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    Automated Quota Alerts
+                  </h3>
+                  <div className="etk-inset-card">
+                    <div className="etk-inset-row">
+                      <div className="etk-inset-left">
+                        <span className="etk-inset-label">Question Paper Alert Threshold</span>
+                        <span className="etk-inset-sublabel">Trigger alert when remaining monthly balance drops to</span>
+                      </div>
+                      <div className="etk-inset-right">
+                        <select
+                          value={alertPaper}
+                          onChange={(e) => setAlertPaper(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            background: 'rgba(0,0,0,0.3)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          <option value="5">5 Papers</option>
+                          <option value="10">10 Papers</option>
+                          <option value="20">20 Papers</option>
+                          <option value="50">50 Papers</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="etk-inset-row">
+                      <div className="etk-inset-left">
+                        <span className="etk-inset-label">Document Alert Threshold</span>
+                        <span className="etk-inset-sublabel">Trigger alert when document processing balance drops to</span>
+                      </div>
+                      <div className="etk-inset-right">
+                        <select
+                          value={alertDoc}
+                          onChange={(e) => setAlertDoc(e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            background: 'rgba(0,0,0,0.3)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          <option value="25">25 Docs</option>
+                          <option value="50">50 Docs</option>
+                          <option value="100">100 Docs</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Miniature A4 Paper Specimen Column */}
+              <div className="etk-paper-specimen-wrap">
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: 'var(--brand)',
+                    letterSpacing: '0.4px',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  <span
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      background: 'rgba(0,0,0,0.3)',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      border: '1px dashed var(--border)',
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: 'var(--brand)',
+                      boxShadow: '0 0 8px var(--brand)',
                     }}
-                  >
+                  />
+                  Live Print Preview (A4 Specimen)
+                </div>
+
+                <div className="etk-paper-specimen">
+                  {/* Faint Watermark */}
+                  <div className="etk-specimen-watermark">
+                    {user?.instDetails?.name || 'ED TRIMKEY'}
+                  </div>
+
+                  {/* Header */}
+                  <div className="etk-specimen-header">
                     {logoUrl ? (
                       <img
                         src={logoUrl}
                         alt="Logo"
-                        style={{
-                          width: '44px',
-                          height: '44px',
-                          borderRadius: '8px',
-                          objectFit: 'contain',
-                          background: '#FFFFFF',
-                          padding: '2px',
-                          flexShrink: 0,
-                        }}
+                        className="etk-specimen-logo"
                       />
                     ) : (
                       <div
                         style={{
-                          width: '44px',
-                          height: '44px',
-                          borderRadius: '8px',
-                          background: 'rgba(255,255,255,0.08)',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '4px',
+                          background: '#0284C7',
+                          color: '#FFFFFF',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: 'var(--text-muted)',
                           fontSize: '11px',
-                          flexShrink: 0,
+                          fontWeight: 900,
                         }}
                       >
-                        Logo
+                        ETK
                       </div>
                     )}
-                    <label style={{ cursor: 'pointer', flex: 1, margin: 0 }}>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand)', display: 'block' }}>
-                        Click to upload new PNG/JPG
-                      </span>
-                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                        Recommended square ratio, under 5MB
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/png, image/jpeg, image/jpg"
-                        style={{ display: 'none' }}
-                        onChange={handleLogoUpload}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
+                    <span className="etk-specimen-inst-name">
+                      {user?.instDetails?.name || 'KEYSTONE PUBLIC SCHOOL'}
+                    </span>
+                    <span className="etk-specimen-tagline">
+                      {headerTagline || 'Excellence in Quality Education & Innovation'}
+                    </span>
 
-              {/* 2. Staff Access & 3. Quota Alerts */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Staff Access Control */}
-                <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px dashed var(--accent)', padding: '20px' }}>
-                  <h4 style={{ color: 'var(--accent)', marginTop: 0, marginBottom: '15px', fontWeight: 800 }}>
-                    2. Staff Access Control
-                  </h4>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <div>
-                      <div style={{ color: '#F8FAFC', fontSize: '12.5px', fontWeight: 800 }}>View Student Contact Numbers</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Allow teachers to see student phone numbers.</div>
+                    <div className="etk-specimen-meta">
+                      <span>MID-TERM EXAM 2026-27</span>
+                      <span>CLASS: X • SCIENCE</span>
+                      <span>MM: 80 | 3 HRS</span>
                     </div>
-                    <GlassSwitch checked={secContacts} onCheckedChange={setSecContacts} ariaLabel="View Contact Numbers" />
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ color: '#F8FAFC', fontSize: '12.5px', fontWeight: 800 }}>Edit Student Profiles</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Allow teachers to modify student demographic data.</div>
-                    </div>
-                    <GlassSwitch checked={secEdit} onCheckedChange={setSecEdit} ariaLabel="Edit Student Profiles" />
-                  </div>
-                </div>
 
-                {/* Quota Alerts */}
-                <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px' }}>
-                  <h4 style={{ color: 'var(--danger)', marginTop: 0, marginBottom: '15px', fontWeight: 800 }}>
-                    3. Low Quota Warning Thresholds
-                  </h4>
-                  <div className="grid-2">
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="label-text">Low Paper Warning</label>
-                      <input
-                        type="number"
-                        className="form-input"
-                        value={alertPaper}
-                        onChange={(e) => setAlertPaper(e.target.value)}
-                      />
+                  {/* Body Faux Questions */}
+                  <div className="etk-specimen-body">
+                    <span className="etk-specimen-section-badge">SECTION A (OBJECTIVE)</span>
+
+                    <div className="etk-specimen-line">
+                      <div className="etk-specimen-q-text">
+                        <span>Q1. State the law of conservation of mass.</span>
+                        <span>[1M]</span>
+                      </div>
+                      <div className="etk-specimen-q-sub" />
+                      <div className="etk-specimen-q-sub short" />
                     </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="label-text">Low Doc Warning</label>
-                      <input
-                        type="number"
-                        className="form-input"
-                        value={alertDoc}
-                        onChange={(e) => setAlertDoc(e.target.value)}
-                      />
+
+                    <div className="etk-specimen-line">
+                      <div className="etk-specimen-q-text">
+                        <span>Q2. Write balanced chemical reaction for photosynthesis.</span>
+                        <span>[2M]</span>
+                      </div>
+                      <div className="etk-specimen-q-sub" />
+                      <div className="etk-specimen-q-sub short" />
+                    </div>
+
+                    <span className="etk-specimen-section-badge" style={{ marginTop: '4px' }}>
+                      SECTION B (DESCRIPTIVE)
+                    </span>
+                    <div className="etk-specimen-line">
+                      <div className="etk-specimen-q-text">
+                        <span>Q3. Explain the mechanism of reflex action with diagram.</span>
+                        <span>[3M]</span>
+                      </div>
+                      <div className="etk-specimen-q-sub" />
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="etk-specimen-footer">
+                    <span className="etk-specimen-footer-text">
+                      {footerAddress || 'Keystone Campus, Main Boulevard | Affiliation No. 2130890'}
+                    </span>
+                    <div className="etk-specimen-footer-page">
+                      <span>Confidential Examination</span>
+                      <span>Page 1 of 4</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* 4. Multi-Channel Routing Engine (Restored from index.html) */}
-            <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '25px' }}>
-              <h4 style={{ color: 'var(--purple)', marginTop: 0, marginBottom: '6px', fontWeight: 800 }}>
-                4. Multi-Channel Event Routing Engine
-              </h4>
-              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                Use <b style={{ color: '#FFFFFF' }}>[NAME]</b>, <b style={{ color: '#FFFFFF' }}>[DATE]</b>, or <b style={{ color: '#FFFFFF' }}>[INST]</b> as dynamic placeholder variables. The system will auto-route to active channels.
-              </p>
-
-              {/* Attendance Event */}
-              <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px dashed rgba(255,255,255,0.1)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
-                  <label className="label-text" style={{ color: '#F8FAFC', fontSize: '13px', fontWeight: 800, margin: 0 }}>
-                    Attendance (Absent Event Notification)
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={chanSms} onChange={(e) => setChanSms(e.target.checked)} /> SMS
-                    </label>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={chanWa} onChange={(e) => setChanWa(e.target.checked)} /> WhatsApp
-                    </label>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={chanPush} onChange={(e) => setChanPush(e.target.checked)} /> Push
-                    </label>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={chanEmail} onChange={(e) => setChanEmail(e.target.checked)} /> Email
-                    </label>
-                  </div>
-                </div>
-                <textarea
-                  className="form-input"
-                  rows={2}
-                  style={{ resize: 'vertical', marginBottom: 0, fontSize: '12.5px' }}
-                  value={attTemplate}
-                  onChange={(e) => setAttTemplate(e.target.value)}
-                  placeholder="Dear Parent, your ward [NAME] is absent today on [DATE]. - [INST]"
-                />
-              </div>
-
-              {/* Fee Event */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
-                  <label className="label-text" style={{ color: '#F8FAFC', fontSize: '13px', fontWeight: 800, margin: 0 }}>
-                    Fee Reminder Event Notification
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={feeChanSms} onChange={(e) => setFeeChanSms(e.target.checked)} /> SMS
-                    </label>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={feeChanWa} onChange={(e) => setFeeChanWa(e.target.checked)} /> WhatsApp
-                    </label>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={feeChanPush} onChange={(e) => setFeeChanPush(e.target.checked)} /> Push
-                    </label>
-                    <label className="cb-pill" style={{ margin: 0, padding: '4px 8px', fontSize: '11px' }}>
-                      <input type="checkbox" checked={feeChanEmail} onChange={(e) => setFeeChanEmail(e.target.checked)} /> Email
-                    </label>
-                  </div>
-                </div>
-                <textarea
-                  className="form-input"
-                  rows={2}
-                  style={{ resize: 'vertical', marginBottom: 0, fontSize: '12.5px' }}
-                  value={feeTemplate}
-                  onChange={(e) => setFeeTemplate(e.target.value)}
-                  placeholder="Dear Parent, a fee balance is pending for [NAME]. Please clear it soon. - [INST]"
-                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                  Live preview renders exact layout used for exported question papers and formal certificates.
+                </span>
               </div>
             </div>
           </div>
         )}
 
         {/* =======================================================
-            7. SUPER ADMIN CONFIGURATIONS & DANGER ZONE
+            TAB 3: MULTI-CHANNEL ROUTING ENGINE (ADMIN)
             ======================================================= */}
-        {isSysAdmin && (
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '25px', marginTop: '10px' }}>
-            <h4 style={{ color: 'var(--brand)', marginTop: 0, marginBottom: '14px', fontWeight: 800 }}>
-              Super Admin System Engine
-            </h4>
-            <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                <div>
-                  <div style={{ color: '#F8FAFC', fontSize: '13px', fontWeight: 800 }}>Master Data JSON Backup</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '2px' }}>
-                    Export full institutional schema, configurations, and user records.
+        {activeTab === 'routing' && isInstAdmin && (
+          <div>
+            {/* Event 1: Student Absence Routing */}
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="8.5" cy="7" r="4" />
+                  <line x1="18" y1="8" x2="23" y2="13" />
+                  <line x1="23" y1="8" x2="18" y2="13" />
+                </svg>
+                Event 1: Daily Student Absence Dispatcher
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Dispatch Channels</span>
+                    <span className="etk-inset-sublabel">Select active outbound gateways for attendance notices</span>
+                  </div>
+                  <div className="etk-inset-right" style={{ gap: '14px', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={chanSms}
+                        onChange={(e) => setChanSms(e.target.checked)}
+                      />
+                      SMS
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={chanWa}
+                        onChange={(e) => setChanWa(e.target.checked)}
+                      />
+                      WhatsApp
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={chanPush}
+                        onChange={(e) => setChanPush(e.target.checked)}
+                      />
+                      Push
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={chanEmail}
+                        onChange={(e) => setChanEmail(e.target.checked)}
+                      />
+                      Email
+                    </label>
                   </div>
                 </div>
-                <OpticalButton
-                  type="button"
-                  variant="outline"
-                  onClick={handleExportMasterData}
-                  style={{ padding: '8px 18px', fontSize: '12px', fontWeight: 800 }}
-                >
-                  📥 Export Database Backup
-                </OpticalButton>
+
+                <div className="etk-inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div className="etk-chips-bar">
+                    <span className="etk-chips-label">Insert Dynamic Tags:</span>
+                    {['[NAME]', '[DATE]', '[INST]', '[CLASS]', '[STATUS]'].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="etk-var-chip"
+                        onClick={() => insertVariable(attTextareaRef, attTemplate, setAttTemplate, tag)}
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    ref={attTextareaRef}
+                    rows={3}
+                    value={attTemplate}
+                    onChange={(e) => setAttTemplate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      background: 'rgba(0,0,0,0.25)',
+                      color: '#FFFFFF',
+                      fontSize: '12.5px',
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                      resize: 'vertical',
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Danger Zone (From index.html) */}
-            <div style={{ background: 'rgba(239, 68, 68, 0.05)', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.35)', padding: '20px' }}>
-              <h4 style={{ color: 'var(--danger)', marginTop: 0, marginBottom: '8px', fontWeight: 800 }}>
-                Danger Zone (System Super Admins Only)
-              </h4>
-              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                Destructive operations that reset system counters or affect tenant sequence counters.
-              </p>
+            {/* Event 2: Fee Balance Reminder Routing */}
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <line x1="12" y1="8" x2="12" y2="16" />
+                  <line x1="8" y1="12" x2="16" y2="12" />
+                </svg>
+                Event 2: Fee Balance Reminder Dispatcher
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Dispatch Channels</span>
+                    <span className="etk-inset-sublabel">Select active outbound gateways for fee notifications</span>
+                  </div>
+                  <div className="etk-inset-right" style={{ gap: '14px', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={feeChanSms}
+                        onChange={(e) => setFeeChanSms(e.target.checked)}
+                      />
+                      SMS
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={feeChanWa}
+                        onChange={(e) => setFeeChanWa(e.target.checked)}
+                      />
+                      WhatsApp
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={feeChanPush}
+                        onChange={(e) => setFeeChanPush(e.target.checked)}
+                      />
+                      Push
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={feeChanEmail}
+                        onChange={(e) => setFeeChanEmail(e.target.checked)}
+                      />
+                      Email
+                    </label>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div className="etk-chips-bar">
+                    <span className="etk-chips-label">Insert Dynamic Tags:</span>
+                    {['[NAME]', '[FEE_AMOUNT]', '[DUE_DATE]', '[INST]', '[LINK]'].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="etk-var-chip"
+                        onClick={() => insertVariable(feeTextareaRef, feeTemplate, setFeeTemplate, tag)}
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    ref={feeTextareaRef}
+                    rows={3}
+                    value={feeTemplate}
+                    onChange={(e) => setFeeTemplate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      background: 'rgba(0,0,0,0.25)',
+                      color: '#FFFFFF',
+                      fontSize: '12.5px',
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                      resize: 'vertical',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB 4: STAFF ACCESS CONTROL (ADMIN)
+            ======================================================= */}
+        {activeTab === 'access' && isInstAdmin && (
+          <div>
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                Teacher Permissions &amp; Data Privacy
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Mask Student Contact Details from Teachers</span>
+                    <span className="etk-inset-sublabel">Restricts phone numbers and home addresses to admin-only views</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={secContacts}
+                      onCheckedChange={(c) => setSecContacts(c)}
+                      activeColor="var(--brand)"
+                    />
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Allow Teachers to Edit Submitted Papers</span>
+                    <span className="etk-inset-sublabel">Permits revisions after a question paper has entered operator queue</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={secEdit}
+                      onCheckedChange={(c) => setSecEdit(c)}
+                      activeColor="var(--brand)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB 5: NOTIFICATIONS (ALL ROLES)
+            ======================================================= */}
+        {activeTab === 'notifications' && (
+          <div>
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                Personal Notification Preferences
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Web Browser Push Notifications</span>
+                    <span className="etk-inset-sublabel">Desktop alerts for instant status updates and completed jobs</span>
+                  </div>
+                  <div className="etk-inset-right" style={{ gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="liquid-glass btn-secondary btn-xs"
+                      onClick={handleRequestPushPermission}
+                    >
+                      Request Permission
+                    </button>
+                    <GlassSwitch
+                      checked={prefPush}
+                      onCheckedChange={(c) => updateNotifPref('push', c)}
+                      activeColor="var(--brand)"
+                    />
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">WhatsApp Alerts</span>
+                    <span className="etk-inset-sublabel">Receive immediate dispatch confirmations on your verified mobile number</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={prefWa}
+                      onCheckedChange={(c) => updateNotifPref('wa', c)}
+                      activeColor="var(--success)"
+                    />
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">SMS Transactional Alerts</span>
+                    <span className="etk-inset-sublabel">Critical alerts for urgent queue events and deadline updates</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={prefSms}
+                      onCheckedChange={(c) => updateNotifPref('sms', c)}
+                      activeColor="var(--brand)"
+                    />
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Email Digests &amp; Reports</span>
+                    <span className="etk-inset-sublabel">Daily activity summaries and monthly quota reports</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <GlassSwitch
+                      checked={prefEmail}
+                      onCheckedChange={(c) => updateNotifPref('email', c)}
+                      activeColor="var(--brand)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB 6: TEACHER ACADEMIC DEFAULTS (TEACHER ROLE)
+            ======================================================= */}
+        {activeTab === 'teacher' && isTeacher && (
+          <div>
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                </svg>
+                Academic Submission Defaults
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Default Submission Subject</span>
+                    <span className="etk-inset-sublabel">Pre-selects your primary subject when opening Question Paper submission</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <select
+                      value={teacherSubject}
+                      onChange={(e) => setTeacherSubject(e.target.value)}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        color: '#FFFFFF',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <option value="Science">Science</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="English">English</option>
+                      <option value="Social Science">Social Science</option>
+                      <option value="Hindi">Hindi</option>
+                      <option value="Computer Science">Computer Science</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Default Submission Class</span>
+                    <span className="etk-inset-sublabel">Pre-selects your primary class grade</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <select
+                      value={teacherClass}
+                      onChange={(e) => setTeacherClass(e.target.value)}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        color: '#FFFFFF',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`).map((cls) => (
+                        <option key={cls} value={cls}>
+                          {cls}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Ready Paper Delivery Channel</span>
+                    <span className="etk-inset-sublabel">Preferred channel when operator completes your paper layout</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <select
+                      value={teacherAlerts}
+                      onChange={(e) => setTeacherAlerts(e.target.value)}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        color: '#FFFFFF',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <option value="both">WhatsApp &amp; SMS</option>
+                      <option value="wa">WhatsApp Only</option>
+                      <option value="sms">SMS Only</option>
+                      <option value="app">In-App Only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
               <OpticalButton
                 type="button"
-                variant="danger"
-                onClick={handleTriggerReset}
-                style={{ padding: '10px 20px', fontSize: '12px', fontWeight: 800 }}
+                variant="primary"
+                onClick={handleSaveTeacherDefaults}
+                style={{ padding: '8px 18px', fontSize: '12px' }}
               >
-                ⚠️ Reset TK Global Sequence Counter
+                Save Teacher Preferences
               </OpticalButton>
             </div>
           </div>
         )}
+
+        {/* =======================================================
+            TAB 7: OPERATOR CONTROLS (OPERATOR ROLE)
+            ======================================================= */}
+        {activeTab === 'operator' && isOperator && (
+          <div>
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                Operator Status &amp; Queue Assignment
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Availability Status</span>
+                    <span className="etk-inset-sublabel">Broadcasting live queue availability to supervisors</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <select
+                      value={opStatus}
+                      onChange={(e) => handleOperatorStatusChange(e.target.value)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        color: '#FFFFFF',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <option value="Active">🟢 Online &amp; Ready</option>
+                      <option value="Busy">🟡 Busy / In Progress</option>
+                      <option value="Away">🔴 Away / Break</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Work Type Assignment Request</span>
+                    <span className="etk-inset-sublabel">Request additions to your operational processing pipeline</span>
+                  </div>
+                  <div className="etk-inset-right" style={{ gap: '12px', flexWrap: 'wrap' }}>
+                    {['Papers', 'Report Cards', 'Admit Cards'].map((wt) => (
+                      <label key={wt} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={opWorkTypes.includes(wt)}
+                          onChange={(e) => {
+                            if (e.target.checked) setOpWorkTypes([...opWorkTypes, wt]);
+                            else setOpWorkTypes(opWorkTypes.filter((x) => x !== wt));
+                          }}
+                        />
+                        {wt}
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      className="liquid-glass btn-secondary btn-xs"
+                      onClick={handleRequestWorkTypeChange}
+                    >
+                      Submit Request
+                    </button>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Dedicated Workspace</span>
+                    <span className="etk-inset-sublabel">Access full-screen operator processing terminal</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <Link
+                      href="/operator/workspace"
+                      className="liquid-glass btn-primary btn-xs"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      Open Terminal
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            TAB 8: SUPER ADMIN SYSTEM & BACKUP (SUPER ADMIN)
+            ======================================================= */}
+        {activeTab === 'system' && isSysAdmin && (
+          <div>
+            <div className="etk-inset-group">
+              <h3 className="etk-inset-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Master Data Backup &amp; Danger Zone
+              </h3>
+              <div className="etk-inset-card">
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label">Export Institutional Backup</span>
+                    <span className="etk-inset-sublabel">Download complete JSON archive of settings, branding, and sequence logs</span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <button
+                      type="button"
+                      className="liquid-glass btn-secondary btn-xs"
+                      onClick={handleExportMasterData}
+                    >
+                      Export Backup (.JSON)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="etk-inset-row">
+                  <div className="etk-inset-left">
+                    <span className="etk-inset-label" style={{ color: 'var(--danger)' }}>
+                      Reset Global Sequence Counter
+                    </span>
+                    <span className="etk-inset-sublabel">
+                      Critical: Resets job ID generator back to baseline index. Action is permanently logged.
+                    </span>
+                  </div>
+                  <div className="etk-inset-right">
+                    <button
+                      type="button"
+                      className="liquid-glass btn-danger btn-xs"
+                      onClick={handleTriggerReset}
+                    >
+                      Reset Sequence
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            DEDICATED FLOATING UNSAVED CHANGES DOCK (ANIMATES IN)
+            ======================================================= */}
+        {isDirty && (
+          <div className="etk-unsaved-dock" role="status" aria-live="polite">
+            <div className="etk-unsaved-left">
+              <span className="etk-unsaved-dot" />
+              <span className="etk-unsaved-label">You have unsaved changes</span>
+            </div>
+            <div className="etk-unsaved-right">
+              <button
+                type="button"
+                className="etk-unsaved-btn discard"
+                onClick={handleDiscardChanges}
+                disabled={saving}
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                className="etk-unsaved-btn save"
+                onClick={handleSaveSettings}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      className="spin"
+                    >
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
