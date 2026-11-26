@@ -131,6 +131,24 @@ export default function CommandPalette() {
         },
       },
       {
+        id: 'qa-new-admission',
+        title: 'New Student Admission',
+        subtitle: 'Enroll a student or capture an admission enquiry',
+        category: 'Quick Actions',
+        shortcut: 'A',
+        keywords: ['admission', 'enroll', 'student', 'enquiry', 'form', 'new'],
+        icon: (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c3 3 9 3 12 0v-5" />
+          </svg>
+        ),
+        action: () => {
+          setOpen(false);
+          router.push('/admission?new=1');
+        },
+      },
+      {
         id: 'qa-send-broadcast',
         title: 'New Broadcast Message',
         subtitle: 'Compose circular or announcement to parents/staff',
@@ -273,6 +291,23 @@ export default function CommandPalette() {
         action: () => {
           setOpen(false);
           router.push('/dashboard/students');
+        },
+      },
+      {
+        id: 'nav-admission',
+        title: 'Admission System',
+        subtitle: 'Enquiries, new admissions, seat matrix & admission slips',
+        category: 'Navigation',
+        keywords: ['admission', 'portal', 'enroll', 'promote', 'enquiry', 'slip'],
+        icon: (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c3 3 9 3 12 0v-5" />
+          </svg>
+        ),
+        action: () => {
+          setOpen(false);
+          router.push('/admission');
         },
       },
       {

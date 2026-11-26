@@ -77,6 +77,7 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
     else if (tab === 'inst-billing') router.push('/dashboard/billing');
     else if (tab === 'inst-teachers') router.push('/dashboard/teachers');
     else if (tab === 'inst-students') router.push('/dashboard/students');
+    else if (tab === 'admission') router.push('/admission');
     else if (tab === 'op-workspace') router.push('/operator/workspace');
     else if (tab === 'op-finance') router.push('/operator/earnings');
     else if (tab === 'settings') router.push('/dashboard/settings');

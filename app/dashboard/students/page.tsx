@@ -276,6 +276,14 @@ export default function StudentsPage() {
 
             <OpticalLink
               href="/admission"
+              variant="outline"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              Admission System
+            </OpticalLink>
+
+            <OpticalLink
+              href="/admission?new=1"
               variant="primary"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
