@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
-import { incrementInstituteQuota } from '@/lib/pricing';
 
 export interface FlowPaymentModalData {
   checkoutUrl: string;
@@ -20,6 +19,7 @@ export default function FlowPaymentModal() {
     closeModal,
     refreshData,
     showAlert,
+    showToast,
     openModal,
     playNotificationSound,
     user,
@@ -38,19 +38,22 @@ export default function FlowPaymentModal() {
   const [iframeSrc, setIframeSrc] = useState<string>('about:blank');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSettlingRef = useRef<boolean>(false);
 
   // Initialize or reset iframe when modal opens
   useEffect(() => {
     if (isOpen && data.checkoutUrl) {
+      isSettlingRef.current = false;
       setIsLoading(true);
       setIframeSrc(data.checkoutUrl);
 
-      // Auto-reveal safety timeout: dissolves loader after 1.2s to guarantee smooth entry (matching index.html)
+      // Auto-reveal safety timeout: dissolves loader after 1.2s to guarantee smooth entry
       if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
       loadTimeoutRef.current = setTimeout(() => {
         setIsLoading(false);
       }, 1200);
     } else {
+      isSettlingRef.current = false;
       setIframeSrc('about:blank');
       setIsLoading(true);
     }
@@ -60,44 +63,49 @@ export default function FlowPaymentModal() {
     };
   }, [isOpen, data.checkoutUrl]);
 
-  // Dual-channel reconciliation handshake with backend (confirmFlowPayment)
+  // Verified settlement handler (Server strictly checks Trim Key Flow status === 'SUCCESS')
   const handleReconcilePayment = useCallback(async (eventData?: any) => {
+    if (isSettlingRef.current) return;
     const pNum = eventData?.paymentNumber || eventData?.flow_payment_number || data.paymentNumber;
+    if (!pNum || String(pNum).startsWith('TKF-PAY-DEV-')) {
+      showAlert('Payment verification requires a valid live Trim Key Flow transaction.', 'Verification Failed');
+      return;
+    }
+
+    isSettlingRef.current = true;
     const provPayId = eventData?.provider_payment_id || eventData?.razorpay_payment_id || '';
     const provOrdId = eventData?.provider_order_id || eventData?.razorpay_order_id || '';
 
     try {
-      // 1. Dispatch backend reconciliation to increment quota and post ledger entry
+      // 1. Server verifies payment status with Trim Key Flow API before crediting quota
       const res = await serverCall('confirmFlowPayment', {
         paymentNumber: pNum,
-        instCode: user?.code || 'KPS',
-        serviceType: data.serviceType || 'Admit Card',
+        instCode: user?.code,
+        serviceType: data.serviceType,
         amount: data.amount,
         quantity: data.quantity || 1,
         providerPaymentId: provPayId,
         providerOrderId: provOrdId,
       });
 
-      console.log('[Flow Reconciliation Success]:', res);
+      if (!res || !res.success || res.verified !== true) {
+        isSettlingRef.current = false;
+        showAlert(res?.message || 'Payment could not be verified as captured with Trim Key Flow.', 'Payment Not Captured');
+        return;
+      }
 
-      // Increment Supabase quota directly in realtime
-      const updatedQuotas = await incrementInstituteQuota(
-        user?.code || 'KPS',
-        data.serviceType || 'Admit Card',
-        Number(data.quantity || 1)
-      );
-
-      // Broadcast payment settlement so BillingPage instantly updates ledger and KPIs
+      // Broadcast verified settlement so BillingPage refreshes ledger and KPIs from DB
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('tk_payment_settled', {
             detail: {
-              serviceType: data.serviceType,
-              quantity: data.quantity,
-              amount: data.amount,
+              verified: true,
+              serviceType: res.serviceType || data.serviceType,
+              quantity: res.quantity || data.quantity,
+              amount: res.amount || data.amount,
               paymentNumber: pNum,
-              ledgerRef: res?.ledgerRef,
-              updatedQuotas,
+              ledgerRef: res.ledgerRef,
+              updatedQuotas: res.updatedQuotas,
             },
           })
         );
@@ -116,30 +124,32 @@ export default function FlowPaymentModal() {
       // 2. Refresh dashboard quotas & transaction ledger
       await refreshData(true);
 
-      // 3. Immediately display the Official Receipt Modal with the confirmed transaction
-      const ledId = res?.ledgerRef || (pNum ? (pNum.startsWith('LED-') ? pNum : `LED-${pNum}`) : `LED-TRX-${Date.now()}`);
+      // 3. Immediately display the Official Receipt Modal with verified details
+      const ledId = res.ledgerRef || `LED-${pNum}`;
+      const finalAmt = Number(res.amount || data.amount || 0);
+      const finalQty = Number(res.quantity || data.quantity || 1);
       openModal('billingReceipt', {
         ledId,
         date: new Date().toISOString(),
-        service: data.serviceType || 'Recharge',
-        amount: Number(data.amount || 0),
-        quantity: Number(data.quantity || 1),
-        unitPrice: Number(data.amount || 0) / Number(data.quantity || 1),
+        service: res.serviceType || data.serviceType || 'Recharge',
+        amount: finalAmt,
+        quantity: finalQty,
+        unitPrice: finalQty > 0 ? finalAmt / finalQty : finalAmt,
         paymentNumber: pNum,
-        gatewayPaymentId: provPayId || 'pay_online_verified',
+        gatewayPaymentId: res.providerPaymentId || provPayId || 'verified_flow_payment',
         paymentGateway: 'Trim Key Flow',
         paymentMethod: 'ONLINE',
         customerName: user?.name || user?.full_name || 'Institute Admin',
         customerEmail: user?.email || '',
         customerPhone: user?.phone || '',
-        instName: user?.institute || 'Keystone Public School',
-        instCode: user?.code || 'KPS',
+        instName: user?.institute || '',
+        instCode: user?.code || '',
         status: 'PAID',
       });
     } catch (err: any) {
+      isSettlingRef.current = false;
       console.warn('Reconciliation note:', err);
-      closeModal();
-      refreshData(true);
+      showAlert(err?.message || 'Could not confirm payment status with server.', 'Verification Error');
     }
   }, [data, user, closeModal, playNotificationSound, showAlert, refreshData, openModal]);
 
@@ -208,35 +218,12 @@ export default function FlowPaymentModal() {
     }
   };
 
-  // Close handler with fail-safe reconciliation
+  // Close handler: strictly verifies with server; ZERO increment unless Trim Key Flow confirms SUCCESS
   const handleClose = async () => {
-    if (data.paymentNumber && Number(data.amount) > 0) {
-      try {
-        // Dispatches reconciliation in case user completed payment and closed the window
-        await serverCall('confirmFlowPayment', {
-          paymentNumber: data.paymentNumber,
-          instCode: user?.code || 'KPS',
-          serviceType: data.serviceType || 'Admit Card',
-          amount: data.amount,
-          quantity: data.quantity || 1,
-        });
-        await incrementInstituteQuota(user?.code || 'KPS', data.serviceType || 'Admit Card', Number(data.quantity || 1));
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('tk_payment_settled', {
-              detail: {
-                serviceType: data.serviceType,
-                quantity: data.quantity,
-                amount: data.amount,
-                paymentNumber: data.paymentNumber,
-              },
-            })
-          );
-        }
-      } catch (e) {
-        console.warn('Close reconciliation note:', e);
-      }
-    }
+    const pNum = data.paymentNumber;
+    const svcType = data.serviceType || 'Recharge';
+    const qty = Number(data.quantity || 1);
+    const amt = Number(data.amount || 0);
 
     closeModal();
     if (iframeRef.current) {
@@ -244,10 +231,46 @@ export default function FlowPaymentModal() {
         if (iframeRef.current) iframeRef.current.src = 'about:blank';
       }, 300);
     }
-    showAlert('Checking status with Trim Key Flow and syncing your quota...', 'Verifying Payment');
-    setTimeout(() => {
-      refreshData(true);
-    }, 1500);
+
+    if (isSettlingRef.current) return;
+
+    if (pNum && !String(pNum).startsWith('TKF-PAY-DEV-') && amt > 0) {
+      try {
+        const res = await serverCall('confirmFlowPayment', {
+          paymentNumber: pNum,
+          instCode: user?.code,
+          serviceType: svcType,
+          amount: amt,
+          quantity: qty,
+        });
+
+        if (res && res.success && res.verified === true) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('tk_payment_settled', {
+                detail: {
+                  verified: true,
+                  serviceType: res.serviceType || svcType,
+                  quantity: res.quantity || qty,
+                  amount: res.amount || amt,
+                  paymentNumber: pNum,
+                  ledgerRef: res.ledgerRef,
+                  updatedQuotas: res.updatedQuotas,
+                },
+              })
+            );
+          }
+          playNotificationSound('success');
+          showToast('Verified payment captured & quota updated!', 'success');
+          await refreshData(true);
+          return;
+        }
+      } catch (e) {
+        console.warn('Close verification check:', e);
+      }
+    }
+
+    showToast('Checkout closed. No payment was captured.', 'info');
   };
 
   if (!isOpen) return null;

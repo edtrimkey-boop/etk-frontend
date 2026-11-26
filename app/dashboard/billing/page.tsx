@@ -69,10 +69,11 @@ export default function BillingPage() {
     }
   }, [instDetails]);
 
-  // 2. Sync from Supabase institutes table (real-time source of truth)
+  // 2. Sync from Supabase institutes table (only when user?.code is known)
   const syncSupabaseQuotas = useCallback(async () => {
+    if (!user?.code) return;
     try {
-      const q = await fetchInstituteQuotas(user?.code || 'KPS');
+      const q = await fetchInstituteQuotas(user.code);
       if (q) {
         setQuotas((prev) => ({
           ...prev,
@@ -266,11 +267,13 @@ export default function BillingPage() {
   const [filterType, setFilterType] = useState<'All' | 'Recharge' | 'Usage'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Fetch real-time billing records directly from Supabase billing_ledger
+  // Fetch real-time billing records directly from Supabase billing_ledger (scoped to institute)
   const loadLiveLedger = useCallback(async () => {
     try {
+      const instId = user?.institute_id || user?.instId;
+      const instFilter = instId ? `&institute_id=eq.${encodeURIComponent(instId)}` : '';
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/billing_ledger?select=*&order=created_at.desc&limit=60`,
+        `${SUPABASE_URL}/rest/v1/billing_ledger?select=*${instFilter}&order=created_at.desc&limit=60`,
         {
           method: 'GET',
           headers: {
@@ -290,14 +293,15 @@ export default function BillingPage() {
     } catch (e) {
       console.warn('[Ledger] Live ledger fetch notice:', e);
     }
-  }, []);
+  }, [user?.institute_id, user?.instId]);
 
   useEffect(() => {
     loadLiveLedger();
 
     const onPaymentSettled = (e: any) => {
       const d = e.detail;
-      if (d?.updatedQuotas) {
+      // Only update quotas if server returned verified settlement payload
+      if (d?.verified === true && d?.updatedQuotas) {
         setQuotas((prev) => ({
           ...prev,
           papersTotal: Number(d.updatedQuotas.papers_total ?? prev.papersTotal),
@@ -309,31 +313,14 @@ export default function BillingPage() {
           smsTotal: Number(d.updatedQuotas.sms_total ?? prev.smsTotal),
           smsRemaining: Number(d.updatedQuotas.sms_remaining ?? prev.smsRemaining),
         }));
-      } else if (d?.serviceType) {
-        const qty = Number(d.quantity || 1);
-        const sType = String(d.serviceType).toLowerCase();
-        setQuotas((prev) => {
-          if (sType.includes('admit') || sType.includes('ac')) {
-            return { ...prev, acTotal: prev.acTotal + qty, acLeft: prev.acLeft + qty };
-          }
-          if (sType.includes('report') || sType.includes('rc')) {
-            return { ...prev, rcTotal: prev.rcTotal + qty, rcLeft: prev.rcLeft + qty };
-          }
-          if (sType.includes('paper') || sType.includes('mcq') || sType.includes('math') || sType.includes('physics')) {
-            return { ...prev, papersTotal: prev.papersTotal + qty, papersLeft: prev.papersLeft + qty };
-          }
-          if (sType.includes('sms')) {
-            return { ...prev, smsTotal: prev.smsTotal + qty, smsRemaining: prev.smsRemaining + qty };
-          }
-          return prev;
-        });
       }
       loadLiveLedger();
+      syncSupabaseQuotas();
     };
 
     window.addEventListener('tk_payment_settled', onPaymentSettled);
     return () => window.removeEventListener('tk_payment_settled', onPaymentSettled);
-  }, [loadLiveLedger]);
+  }, [loadLiveLedger, syncSupabaseQuotas]);
 
   // Merge live Supabase ledger records with payload ledger records (deduplicated)
   const combinedBilling = useMemo(() => {
@@ -416,19 +403,21 @@ export default function BillingPage() {
   }, [filteredBilling, displayLimit]);
   const hasMoreBilling = displayLimit < filteredBilling.length;
 
-  // Instant Manual Reconciliation Handler
+  // Verified Manual Reconciliation Handler (Strictly queries Flow for captured SUCCESS payments)
   const handleManualReconcile = async () => {
     setIsReconciling(true);
-    showLoader('RECONCILING WITH PAYMENT GATEWAY...');
+    showLoader('VERIFYING WITH PAYMENT GATEWAY...');
     try {
-      const res = await serverCall('confirmFlowPayment', {
-        instCode: user?.code || 'KPS',
+      const res = await serverCall('reconcileFlowPayments', {
+        instCode: user?.code,
       });
-      console.log('[Manual Reconcile Result]:', res);
       await refreshData(true);
       await loadLiveLedger();
       await syncSupabaseQuotas();
-      showAlert('Payment reconciled and institute quota updated successfully!', 'Reconciliation Complete');
+      showAlert(
+        res?.message || 'Ledger and quotas synchronized with Trim Key Flow.',
+        res?.reconciledCount > 0 ? 'Reconciliation Complete' : 'Sync Complete'
+      );
     } catch (err: any) {
       showAlert('Reconciliation notice: ' + err.message, 'Notice');
     } finally {
