@@ -540,11 +540,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         const tRoles = parseArr(notif.target_roles);
         const myId = String(curUser.id || '').toLowerCase();
         const myRole = String(curUser.role || '').trim().toLowerCase();
+        const myRoleAlt = myRole.replace(/\s+/g, '_');
         const myInstId = String(curUser.institute_id || curUser.instId || '').toLowerCase();
 
         const isTargetedUser = myId !== '' && tUsers.includes(myId);
-        const isTargetedRole = myRole !== '' && tRoles.includes(myRole);
-        const isGlobalWorker = ['operator', 'system admin', 'super admin'].includes(myRole);
+        const isTargetedRole =
+          myRole !== '' &&
+          (tRoles.includes(myRole) || tRoles.includes(myRoleAlt) || tRoles.includes('all'));
+        const isGlobalWorker = ['operator', 'system admin', 'super admin', 'super_admin'].includes(myRole);
         const isMyInstitute =
           !notif.institute_id || isGlobalWorker || String(notif.institute_id).toLowerCase() === myInstId;
 

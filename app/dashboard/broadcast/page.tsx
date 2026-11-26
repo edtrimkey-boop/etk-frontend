@@ -612,8 +612,14 @@ export default function BroadcastPage() {
     const list: any[] = [];
     const seenIds = new Set<string>();
 
+    const myInstId = String(user?.institute_id || user?.instId || '').toLowerCase();
+
     const matchesRolePrivacy = (n: any) => {
       if (isSuperAdmin) return true; // Super admin sees all system activity
+
+      if (!isOperator && n.instituteId && myInstId && String(n.instituteId).toLowerCase() !== myInstId) {
+        return false;
+      }
 
       const targetText = String(n.target || n.target_roles || n.targetAudience || n.targetRaw || '').toLowerCase();
 
@@ -635,6 +641,7 @@ export default function BroadcastPage() {
           targetText.includes('class') ||
           targetText.includes('student') ||
           targetText.includes('inst_') ||
+          targetText.includes('all') ||
           targetText.includes('global')
         );
       }
@@ -658,6 +665,7 @@ export default function BroadcastPage() {
         }
         const record = {
           id: idKey,
+          instituteId: n.institute_id || null,
           title: n.title || 'Institutional Notice',
           message: n.message || '',
           time: n.created_at,
@@ -821,44 +829,7 @@ export default function BroadcastPage() {
         : target;
 
     try {
-      // 1. Direct insertion to Supabase notifications table for instant live sync
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
-          method: 'POST',
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=minimal',
-          },
-          body: JSON.stringify({
-            sender_id: user?.id || null,
-            institute_id: user?.instId || null,
-            title,
-            message,
-            type:
-              category === 'Examination'
-                ? 'exam_broadcast'
-                : category === 'Fee'
-                ? 'fee_broadcast'
-                : 'system_broadcast',
-            status: 'sent',
-            reference_id: `BC-${Date.now().toString().slice(-6)}`,
-            target_roles: isSuperAdmin
-              ? [target]
-              : target === 'inst_teachers'
-              ? ['teacher']
-              : target === 'inst_students' || target === 'inst_specific_class'
-              ? ['student', 'parent']
-              : ['all'],
-            target_users: [],
-          }),
-        });
-      } catch (dbErr) {
-        console.warn('[Broadcast] Direct database sync notice:', dbErr);
-      }
-
-      // 2. Gateway API call to trigger Push Notifications, FCM, and server dispatch
+      // Authoritative Server Gateway Dispatch: inserts verified notification row + sends FCM push notifications
       const res = await serverCall('sendNotification', {
         senderEmail: user?.email,
         senderName: user?.name || user?.full_name || `${roleBadge.label} User`,
@@ -866,20 +837,25 @@ export default function BroadcastPage() {
         targetRaw: finalTarget,
         targetAudience: finalTarget,
         targetClass: target === 'inst_specific_class' ? selectedClass : undefined,
-        title,
-        msg: message,
-        message,
-        instituteId: user?.instId || user?.code,
+        title: title.trim(),
+        msg: message.trim(),
+        message: message.trim(),
+        instituteId: user?.institute_id || user?.instId || user?.code,
         channels,
         priority,
         category,
         estimatedReach,
+        referenceId: `BC-${Date.now().toString().slice(-6)}`,
       });
 
-      if (res && res.success !== false) {
+      if (res && res.success) {
         playNotificationSound('success');
+        const pushInfo =
+          channels.includes('push') && typeof res.pushSentCount === 'number'
+            ? ` (${res.pushSentCount} push notification${res.pushSentCount === 1 ? '' : 's'} dispatched)`
+            : '';
         showAlert(
-          `Broadcast successfully dispatched to ${readableAudience} via ${channels.length} delivery channels!`,
+          `Broadcast dispatched to ${readableAudience} via ${channels.length} channel(s)${pushInfo}.`,
           'Broadcast Launched'
         );
         setTitle('');
