@@ -10,21 +10,30 @@ import IOSSpinner from '@/components/ui/IOSSpinner';
 import { SkeletonBlock } from '@/components/ui/Skeleton';
 
 export default function TeachersPage() {
-  const { user, payload, openModal, showAlert, showConfirm, refreshData } = useDashboard();
+  const { user, payload, openModal, showAlert, showConfirm, showToast, refreshData } = useDashboard();
   const role = normalizeRole(user?.role);
-
-  // Strict Privacy Route Guard: Institute Admin Only
-  if (role !== 'admin') {
-    return <AccessDenied requiredRole="Institute Administrator" moduleName="Faculty & Teachers Directory" />;
-  }
 
   const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [reqBusyId, setReqBusyId] = useState<string | null>(null);
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
+
+  const loadPendingRequests = async () => {
+    if (role !== 'admin') return;
+    try {
+      const res = await serverCall('getPendingProfileRequests', {});
+      if (res?.success && Array.isArray(res.requests)) {
+        setPendingRequests(res.requests);
+      }
+    } catch {}
+  };
 
   const loadTeachers = async () => {
-    const instId = user?.instId || user?.code;
+    if (role !== 'admin') return;
+    const instId = user?.institute_id || user?.instId || user?.code;
     if (!instId) {
       if (payload?.data?.instTeachers) {
         setTeachers(payload.data.instTeachers);
@@ -53,7 +62,54 @@ export default function TeachersPage() {
 
   useEffect(() => {
     loadTeachers();
-  }, [user, payload]);
+    loadPendingRequests();
+  }, [user, payload, role]);
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [search]);
+
+  // Strict Privacy Route Guard: Institute Admin Only
+  if (role !== 'admin') {
+    return <AccessDenied requiredRole="Institute Administrator" moduleName="Faculty & Teachers Directory" />;
+  }
+
+  const handleReviewRequest = (req: any) => {
+    openModal('teacherEdit', {
+      ...req.user,
+      isApprovalRequest: true,
+      requestMessage: req.message,
+      requestNotifId: req.notifId,
+      onResolved: () => {
+        loadPendingRequests();
+        loadTeachers();
+      },
+    });
+  };
+
+  const handleQuickReject = (req: any) => {
+    const reqName = req.user?.full_name || req.user?.name || 'this teacher';
+    showConfirm(`Reject profile change request from ${reqName}?`, async () => {
+      setReqBusyId(req.notifId || req.targetUserId);
+      try {
+        const res = await serverCall('rejectProfileChange', {
+          targetUserId: req.targetUserId,
+          notifId: req.notifId,
+        });
+        if (res?.success) {
+          showToast(`Declined profile request from ${reqName}.`, 'warning');
+          loadPendingRequests();
+          refreshData(true);
+        } else {
+          showAlert(res?.message || 'Failed to reject request.', 'Error');
+        }
+      } catch (err: any) {
+        showAlert(err.message || 'Failed to reject request.', 'Error');
+      } finally {
+        setReqBusyId(null);
+      }
+    });
+  };
 
   const handleRemove = (teacher: any) => {
     const tId = teacher.id || teacher.userId || teacher.teacherId;
@@ -128,12 +184,6 @@ export default function TeachersPage() {
     });
   };
 
-  const [displayLimit, setDisplayLimit] = useState<number>(30);
-
-  useEffect(() => {
-    setDisplayLimit(30);
-  }, [search]);
-
   const filtered = teachers.filter((t) => {
     const name = (t.full_name || t.name || '').toLowerCase();
     const email = (t.email || '').toLowerCase();
@@ -203,6 +253,102 @@ export default function TeachersPage() {
             </OpticalButton>
           </div>
         </div>
+
+        {/* Pending Profile Change Requests Approval Queue (Institute Admin) */}
+        {pendingRequests.length > 0 && (
+          <div
+            style={{
+              marginTop: '18px',
+              marginBottom: '6px',
+              padding: '16px',
+              borderRadius: '14px',
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  Pending Profile Change Requests
+                </span>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  {pendingRequests.length}
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Review, approve, or reject faculty requests for your institute
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {pendingRequests.map((req: any) => {
+                const prof = req.user?.teacher_profiles?.[0] || req.user?.teacher_profiles || {};
+                const busy = reqBusyId === (req.notifId || req.targetUserId);
+                return (
+                  <div
+                    key={req.notifId || req.targetUserId}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: 'rgba(0,0,0,0.28)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ flex: '1 1 260px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 800, color: 'white', fontSize: '13px' }}>
+                          {req.user?.full_name || 'Teacher'}
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--brand)', fontWeight: 700 }}>
+                          Current: {prof.assigned_class || 'No Class'}
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>• {req.time}</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text)', marginTop: '4px', lineHeight: 1.4 }}>
+                        {req.message}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="liquid-glass btn-sm btn-success"
+                        disabled={busy}
+                        onClick={() => handleReviewRequest(req)}
+                        style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
+                      >
+                        Review &amp; Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="liquid-glass btn-sm btn-danger"
+                        disabled={busy}
+                        onClick={() => handleQuickReject(req)}
+                        style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 700 }}
+                      >
+                        {busy ? '...' : 'Reject'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Sleek Data Table Wrapper with Vertical Scroll Containment & Sticky Headers */}
         <div className="tk-table-wrapper" style={{ marginTop: '20px' }}>

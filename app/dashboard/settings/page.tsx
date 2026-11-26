@@ -529,16 +529,28 @@ export default function SettingsPage() {
   };
 
   // Handle Operator Work Type Request
-  const handleRequestWorkTypeChange = () => {
+  const handleRequestWorkTypeChange = async () => {
     if (opWorkTypes.length === 0) {
       showAlert('Please select at least one work type module.', 'Selection Required');
       return;
     }
-    playSound('success');
-    showAlert(
-      `Change request for [${opWorkTypes.join(', ')}] submitted to Super Admin for approval.`,
-      'Request Dispatched'
-    );
+    try {
+      const res = await serverCall('requestAcademicChange', {
+        userName: user?.name || user?.full_name || user?.email,
+        requestedWorkTypes: opWorkTypes.join(', '),
+      });
+      if (res && res.success) {
+        playSound('success');
+        showAlert(
+          res.message || `Change request for [${opWorkTypes.join(', ')}] submitted to Super Admin for approval.`,
+          'Request Dispatched'
+        );
+      } else {
+        showAlert(res?.message || 'Failed to submit change request.', 'Error');
+      }
+    } catch (err: any) {
+      showAlert(err.message || 'Failed to submit work type request.', 'Error');
+    }
   };
 
   // Handle Logo Upload (Staged File + Base64 Preview)

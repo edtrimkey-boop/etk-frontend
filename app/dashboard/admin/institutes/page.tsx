@@ -2,27 +2,52 @@
 
 import React, { useState } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
+import { serverCall } from '@/lib/api-client';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
 
 export default function AdminInstitutesPage() {
-  const { user, payload } = useDashboard();
+  const { user, payload, showToast, showAlert, refreshData } = useDashboard();
   const role = normalizeRole(user?.role);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [displayLimit, setDisplayLimit] = useState<number>(30);
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    setDisplayLimit(30);
+  }, [search, statusFilter]);
 
   // Strict Privacy Route Guard: Super Admin Only
   if (role !== 'super_admin') {
     return <AccessDenied requiredRole="Super Administrator" moduleName="Global Institutes Administration" />;
   }
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [displayLimit, setDisplayLimit] = useState<number>(30);
+  const handleToggleApp = async (inst: any, appType: 'attendance' | 'admission' | 'fee', checked: boolean) => {
+    const key = `${inst.code}_${appType}`;
+    setTogglingKey(key);
+    try {
+      const res = await serverCall('toggleInstituteApp', {
+        instId: inst.id,
+        instCode: inst.code,
+        appType,
+        stateStr: checked ? 'YES' : 'Deactivated',
+      });
+      if (res?.success) {
+        showToast(`${inst.code} ${appType} module ${checked ? 'enabled' : 'disabled'}.`, 'success');
+        refreshData(true);
+      } else {
+        showAlert(res?.message || 'Failed to update module toggle.', 'Error');
+      }
+    } catch (err: any) {
+      showAlert(err.message || 'Module toggle failed.', 'Error');
+    } finally {
+      setTogglingKey(null);
+    }
+  };
 
   const institutes = payload?.superAdmin?.institutes || [];
-
-  React.useEffect(() => {
-    setDisplayLimit(30);
-  }, [search, statusFilter]);
 
   const filtered = institutes.filter((inst: any) => {
     const name = (inst.name || '').toLowerCase();
@@ -87,20 +112,21 @@ export default function AdminInstitutesPage() {
                 <th>Institute Name</th>
                 <th>Plan</th>
                 <th>Status</th>
-                <th>Quotas (Pap / Doc)</th>
+                <th>Quotas (Pap / RC / AC)</th>
+                <th>Connected Modules</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     No institute records found in database.
                   </td>
                 </tr>
               ) : (
                 visible.map((inst: any, idx: number) => (
-                  <tr key={idx}>
+                  <tr key={inst.id || idx}>
                     <td>
                       <span style={{ fontWeight: 800, color: 'var(--brand)', fontFamily: 'monospace' }}>
                         {inst.code || 'KPS'}
@@ -130,17 +156,43 @@ export default function AdminInstitutesPage() {
                     </td>
                     <td>
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        P: <b style={{ color: 'white' }}>{inst.papers || 0}</b> | D:{' '}
-                        <b style={{ color: 'white' }}>{inst.rc || 0}</b>
+                        P: <b style={{ color: 'white' }}>{inst.papers || 0}</b> | RC:{' '}
+                        <b style={{ color: 'white' }}>{inst.rc || 0}</b> | AC:{' '}
+                        <b style={{ color: 'white' }}>{inst.ac || 0}</b>
                       </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {(['attendance', 'admission', 'fee'] as const).map((mod) => {
+                          const enabled = inst.toggles?.[mod] === 'YES';
+                          const busy = togglingKey === `${inst.code}_${mod}`;
+                          return (
+                            <label key={mod} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={enabled}
+                                disabled={busy}
+                                onChange={(e) => handleToggleApp(inst, mod, e.target.checked)}
+                              />
+                              {mod === 'attendance' ? 'Attd' : mod === 'admission' ? 'Adm' : 'Fee'}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </td>
                     <td>
                       <button
                         type="button"
                         className="liquid-glass btn-sm btn-outline"
                         style={{ color: 'var(--brand)' }}
+                        onClick={() =>
+                          showAlert(
+                            `${inst.name} (${inst.code})\nPlan: ${inst.plan || 'Standard'}\nPapers Left: ${inst.papers || 0} | Report Cards: ${inst.rc || 0} | Admit Cards: ${inst.ac || 0}`,
+                            'Institute Summary'
+                          )
+                        }
                       >
-                        Manage
+                        View
                       </button>
                     </td>
                   </tr>

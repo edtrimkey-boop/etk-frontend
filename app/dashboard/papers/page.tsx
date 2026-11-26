@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import SleekJobsTable from '@/components/shared/SleekJobsTable';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
+import { normalizeRole } from '@/lib/rbac';
 
 function getSessionFromDate(dateStr?: string) {
   if (!dateStr) return '';
@@ -24,9 +25,9 @@ export default function PapersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
-  const userRole = (user?.role || '').toLowerCase();
-  const isSuperAdmin = userRole === 'super admin' || userRole === 'system admin' || userRole === 'all';
-  const showInstFilter = isSuperAdmin || userRole === 'operator';
+  const normRole = normalizeRole(user?.role);
+  const isSuperAdmin = normRole === 'super_admin';
+  const showInstFilter = isSuperAdmin || normRole === 'operator';
 
   const papers = useMemo(() => {
     return Array.isArray(payload?.data?.papers) ? payload.data.papers : [];
@@ -123,7 +124,7 @@ export default function PapersPage() {
     } else if (action === 'revision') {
       openModal('jobChat', { jobId: job.id, mode: 'revision', job });
     } else if (action === 'assign') {
-      showAlert(`Assignment dispatcher opened for job ${job.id}.`, `Assign Job`);
+      openModal('assignModal', { jobId: job.id, jobType: 'Paper', job });
     }
   };
 

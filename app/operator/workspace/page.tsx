@@ -1,23 +1,139 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/lib/dashboard-context';
+import { serverCall } from '@/lib/api-client';
+import { supabase } from '@/lib/supabase';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
+import IOSSpinner from '@/components/ui/IOSSpinner';
 
 export default function OperatorWorkspacePage() {
-  const { user } = useDashboard();
+  const router = useRouter();
+  const { user, payload, showToast, showAlert, refreshData } = useDashboard();
   const role = normalizeRole(user?.role);
+
+  const [activeJob, setActiveJob] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loadingChat, setLoadingChat] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [launching, setLaunching] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const activeJobs = useMemo(() => {
+    const papers = Array.isArray(payload?.data?.papers) ? payload.data.papers : [];
+    const docs = Array.isArray(payload?.data?.docs) ? payload.data.docs : [];
+    return [...papers, ...docs]
+      .filter((j: any) => ['Pending', 'Assigned', 'Pending Revision', 'In Progress'].includes(String(j.status || '').trim()))
+      .sort((a: any, b: any) => new Date(a.deadline || 0).getTime() - new Date(b.deadline || 0).getTime());
+  }, [payload]);
+
+  const loadTimeline = async (jobId: string) => {
+    setLoadingChat(true);
+    try {
+      const res = await serverCall('getJobTimeline', { jobId });
+      if (res?.success && Array.isArray(res.history)) {
+        setMessages(res.history);
+      }
+    } catch {}
+    finally {
+      setLoadingChat(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!activeJob?.id) return;
+    loadTimeline(activeJob.id);
+
+    const ch = supabase
+      .channel(`op-ws-chat-${activeJob.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'job_communications', filter: `job_code=eq.${activeJob.id}` },
+        (pgPayload: any) => {
+          const row = pgPayload.new;
+          if (!row) return;
+          setMessages((prev) => [
+            ...prev,
+            {
+              type: row.message_type || 'note',
+              actorName: row.actor_name || 'User',
+              actorRole: row.actor_role || 'Staff',
+              message: row.message,
+              timestamp: new Date(row.created_at || Date.now()).toLocaleTimeString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              }),
+            },
+          ]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [activeJob?.id]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
 
   // Strict Privacy Route Guard: Operator or Super Admin Only
   if (role !== 'operator' && role !== 'super_admin') {
     return <AccessDenied requiredRole="Production Operator" moduleName="Operator Production Workspace" />;
   }
 
-  const [activeJob, setActiveJob] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [chatInput, setChatInput] = useState('');
+  const handleLaunchTool = async (job: any) => {
+    setLaunching(true);
+    try {
+      const res = await serverCall('updateJobStatus', { jobId: job.id, status: 'In Progress' });
+      if (res?.success) {
+        refreshData(true);
+        const toolPath = job.subject
+          ? '/operator/tools/questions-formatter'
+          : String(job.type || '').toLowerCase().includes('report')
+          ? '/operator/tools/report-card'
+          : '/operator/tools/admit-card';
+        router.push(`${toolPath}?jobId=${encodeURIComponent(job.id)}`);
+      } else {
+        showAlert(res?.message || 'Failed to update job status.', 'Error');
+      }
+    } catch (err: any) {
+      showAlert(err.message || 'Network error.', 'Error');
+    } finally {
+      setLaunching(false);
+    }
+  };
+
+  const handleSendChat = async () => {
+    if (!activeJob?.id || !chatInput.trim() || sending) return;
+    const text = chatInput.trim();
+    setChatInput('');
+    setSending(true);
+    try {
+      const res = await serverCall('addJobTimelineEvent', {
+        jobId: activeJob.id,
+        actorName: user?.name || 'Operator',
+        actorRole: user?.role || 'operator',
+        mode: 'note',
+        message: text,
+      });
+      if (!res?.success) {
+        showToast(res?.message || 'Message failed to send.', 'error');
+        setChatInput(text);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Send error.', 'error');
+      setChatInput(text);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div id="view-op-workspace" className="page-view active" style={{ display: 'block', height: '100%' }}>
@@ -29,37 +145,100 @@ export default function OperatorWorkspacePage() {
               Priority Queue
             </h3>
             <span className="badge bg-danger" id="opQueueCount">
-              0 Pending
+              {activeJobs.length} Pending
             </span>
           </div>
-          <div className="op-queue-list" id="opQueueList">
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>
-              No jobs currently in active queue.
-            </div>
+          <div className="op-queue-list" id="opQueueList" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px', overflowY: 'auto' }}>
+            {activeJobs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>
+                No jobs currently in active queue.
+              </div>
+            ) : (
+              activeJobs.map((job: any) => {
+                const isSelected = activeJob?.id === job.id;
+                const detailLabel = job.subject ? `${job.subject} | ${job.class || '-'}` : `${job.type || 'Doc'} | ${job.class || '-'}`;
+                return (
+                  <div
+                    key={job.id}
+                    className={`op-job-card ${isSelected ? 'active' : ''}`}
+                    onClick={() => setActiveJob(job)}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      border: isSelected ? '1px solid var(--brand)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(0,251,166,0.08)' : 'rgba(255,255,255,0.03)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span className="flat-pill" style={{ fontFamily: 'monospace', fontSize: '11px' }}>{job.id}</span>
+                      <span className="flat-pill" style={{ fontSize: '10px', color: 'var(--accent)' }}>{job.status}</span>
+                    </div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: 'white' }}>{job.inst}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--brand)', fontWeight: 700, marginTop: '2px' }}>{detailLabel}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>Deadline: {job.deadline || '48h'}</div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
         {/* Right Pane: Active Workspace & Chat */}
         {activeJob ? (
           <div className="op-right-pane" id="opActiveWorkspace" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div className="op-ws-header">
+            <div className="op-ws-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div className="op-ws-details">
                 <h2 id="wsJobId" style={{ color: 'var(--brand)', margin: 0, fontSize: '18px', fontWeight: 900, letterSpacing: '1px' }}>
                   {activeJob.id}
                 </h2>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', gap: '10px' }}>
-                  <span>{activeJob.institute}</span>
-                  <span>📄 {activeJob.details}</span>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <span>{activeJob.inst}</span>
+                  <span>• {activeJob.subject || activeJob.type} ({activeJob.class || '-'})</span>
                 </div>
               </div>
+              <button
+                type="button"
+                className="liquid-glass btn-sm btn-success"
+                onClick={() => handleLaunchTool(activeJob)}
+                disabled={launching}
+                style={{ fontSize: '11px', fontWeight: 800 }}
+              >
+                {launching ? 'Starting...' : 'Launch Formatter Tool'}
+              </button>
             </div>
 
-            <div id="wsChatContainer" className="chat-container" style={{ flex: 1, overflowY: 'auto' }}>
-              {messages.map((m, i) => (
-                <div key={i} className="chat-msg">
-                  {m.text}
+            <div id="wsChatContainer" className="chat-container" style={{ flex: 1, overflowY: 'auto', padding: '14px' }}>
+              {loadingChat ? (
+                <div style={{ textAlign: 'center', padding: '30px' }}><IOSSpinner size={22} color="var(--brand)" /></div>
+              ) : messages.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                  No timeline messages yet.
                 </div>
-              ))}
+              ) : (
+                messages.map((m, i) => {
+                  const isSys = m.type === 'system' || m.actorRole === 'automation';
+                  if (isSys) {
+                    return <div key={i} className="chat-bubble-sys">{m.message} • {m.timestamp}</div>;
+                  }
+                  const isMe = String(m.actorName || '').toLowerCase() === String(user?.name || '').split(' ')[0].toLowerCase() ||
+                    String(m.actorName || '').toLowerCase() === String(user?.name || '').toLowerCase();
+                  return (
+                    <div key={i} className={`chat-bubble ${isMe ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
+                      {!isMe && (
+                        <div className="chat-meta">
+                          <span className="chat-sender" style={{ color: 'var(--brand)' }}>
+                            {m.actorName} <span className="chat-role">{m.actorRole}</span>
+                          </span>
+                        </div>
+                      )}
+                      <div>{m.message}</div>
+                      <div className="chat-time">{m.timestamp}</div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatEndRef} />
             </div>
 
             <div className="chat-input-wrapper">
@@ -67,11 +246,17 @@ export default function OperatorWorkspacePage() {
                 id="wsChatInput"
                 className="chat-textarea"
                 rows={1}
-                placeholder="Type a message to the group..."
+                placeholder="Type a message to the institute..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendChat();
+                  }
+                }}
               />
-              <button type="button" id="btnWsChatSubmit" className="chat-send-btn">
+              <button type="button" id="btnWsChatSubmit" className="chat-send-btn" onClick={handleSendChat} disabled={sending}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>

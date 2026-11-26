@@ -9,6 +9,8 @@ import PaperSubmitModal from './PaperSubmitModal';
 import DocSubmitModal from './DocSubmitModal';
 import TeacherRegModal from './TeacherRegModal';
 import TeacherEditModal from './TeacherEditModal';
+import OperatorEditModal from './OperatorEditModal';
+import AssignModal from './AssignModal';
 import JobChatModal from './JobChatModal';
 import UploadProgressModal from './UploadProgressModal';
 import ProfilePhotoModal from './ProfilePhotoModal';
@@ -30,6 +32,8 @@ export default function ModalHost() {
       <DocSubmitModal />
       <TeacherRegModal />
       <TeacherEditModal />
+      <OperatorEditModal />
+      <AssignModal />
       <JobChatModal />
       <BillingReceiptModal />
       <FlowPaymentModal />

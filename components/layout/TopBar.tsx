@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalSurface } from '@/components/ui/OpticalGlass';
@@ -22,6 +23,7 @@ export default function TopBar({
   onOpenProfileEditor,
   onLogout,
 }: TopBarProps) {
+  const router = useRouter();
   const {
     user,
     notifications,
@@ -30,6 +32,8 @@ export default function TopBar({
     showConfirm,
     showAlert,
     showToast,
+    showLoader,
+    hideLoader,
     updateUserAvatar,
     playNotificationSound,
     opticalGlassEnabled,
@@ -102,6 +106,57 @@ export default function TopBar({
   const handleMarkAllRead = async () => {
     setUnreadOverride(0);
     await markAllNotificationsRead();
+  };
+
+  const handleNotificationItemClick = async (n: any) => {
+    setNotifDropdownOpen(false);
+    const refId = n.refId ? String(n.refId).trim() : '';
+
+    if (refId.startsWith('REQ_EDIT_')) {
+      const targetId = refId.replace('REQ_EDIT_', '').trim();
+      if (!targetId) {
+        showAlert(n.msg, n.title || 'Profile Request');
+        return;
+      }
+      showLoader('FETCHING PROFILE REQUEST...');
+      try {
+        const res = await serverCall('getUserDetailsForEdit', { targetId });
+        hideLoader();
+        if (res?.success && res.data) {
+          const u = res.data;
+          const reqRole = String(u.role || '').trim().toLowerCase();
+          const modalPayload = {
+            ...u,
+            isApprovalRequest: true,
+            requestMessage: n.msg,
+            requestNotifId: n.id,
+          };
+          if (reqRole === 'operator') {
+            openModal('operatorEdit', modalPayload);
+          } else {
+            openModal('teacherEdit', modalPayload);
+          }
+        } else {
+          showAlert(res?.message || 'Could not load user profile for review.', 'Error');
+        }
+      } catch (err: any) {
+        hideLoader();
+        showAlert(err.message || 'Failed to load profile request.', 'Error');
+      }
+      return;
+    }
+
+    if (refId === 'BILLING-REQUIRED') {
+      router.push('/dashboard/billing');
+      return;
+    }
+
+    const upperRef = refId.toUpperCase();
+    if (upperRef && upperRef !== 'SYS-ALERT' && !upperRef.startsWith('BC-') && !upperRef.startsWith('REQ_')) {
+      openModal('jobChat', { jobId: refId, mode: 'chat' });
+    } else {
+      showAlert(n.msg, n.title || 'System Alert');
+    }
   };
 
   const displayName = user?.name || 'Administrator';
@@ -270,14 +325,7 @@ export default function TopBar({
                 notifications.map((n: any, idx: number) => (
                   <div
                     key={n.id || idx}
-                    onClick={() => {
-                      setNotifDropdownOpen(false);
-                      if (n.refId && n.refId !== 'SYS-ALERT' && !String(n.refId).startsWith('REQ_EDIT_')) {
-                        openModal('jobChat', { jobId: n.refId, mode: 'chat' });
-                      } else {
-                        showAlert(n.msg, n.title || 'System Alert');
-                      }
-                    }}
+                    onClick={() => handleNotificationItemClick(n)}
                     style={{
                       padding: '10px',
                       borderBottom: '1px solid rgba(255,255,255,0.05)',
