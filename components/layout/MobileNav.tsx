@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { OpticalSurface } from '@/components/ui/OpticalGlass';
+import { useOptionalDashboard } from '@/lib/dashboard-context';
 
 interface MobileNavProps {
   userRole?: string;
@@ -19,6 +20,8 @@ export default function MobileNav({
   onOpenAction,
 }: MobileNavProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const dash = useOptionalDashboard();
   const [fabOpen, setFabOpen] = useState(false);
   const [optimisticTab, setOptimisticTab] = useState<string | null>(null);
 
@@ -26,6 +29,11 @@ export default function MobileNav({
   useEffect(() => {
     setOptimisticTab(null);
   }, [activeTab]);
+
+  // Auto-close FAB sheet when route changes or any system modal opens
+  useEffect(() => {
+    setFabOpen(false);
+  }, [pathname, dash?.activeModal, dash?.alertState?.open, dash?.confirmState?.open]);
 
   const currentTab = optimisticTab || activeTab;
 

@@ -4,9 +4,9 @@
  * Initial Baseline: V2.9.2 (Commit 1: 0626107)
  */
 
-export const SYSTEM_VERSION_RAW = '2.9.61';
-export const SYSTEM_VERSION = 'V2.9.61';
+export const SYSTEM_VERSION_RAW = '2.9.63';
+export const SYSTEM_VERSION = 'V2.9.63';
 export const OS_LABEL = 'ED TRIMKEY OS';
-export const SYSTEM_VERSION_STRING = 'Version V2.9.61 (ED TRIMKEY OS)';
+export const SYSTEM_VERSION_STRING = 'Version V2.9.63 (ED TRIMKEY OS)';
 
 export default SYSTEM_VERSION_STRING;

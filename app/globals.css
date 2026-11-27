@@ -282,7 +282,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Background Canvas Depth Stacking (Apple macOS / iOS Modal Physics) */
 .app-shell-root.has-active-modal .main-wrapper,
 .main-wrapper.canvas-depth-recessed,
-body:has(> .glass-overlay.active) .app-shell-root .main-wrapper {
+body:has(.glass-overlay.active:not(#fab-overlay)) .app-shell-root .main-wrapper {
   transform: scale(0.982) translateY(5px);
   filter: brightness(0.8) contrast(1.04) saturate(0.9);
   border-radius: 18px;
@@ -290,15 +290,19 @@ body:has(> .glass-overlay.active) .app-shell-root .main-wrapper {
   user-select: none;
 }
 
-/* Hide Mobile Nav, FAB & Sara AI whenever any system/admission modal is open */
+/* Hide Mobile Nav, FAB & Sara AI whenever any system/admission modal is open (never self-match #fab-overlay) */
 .app-shell-root.has-active-modal #mobile-nav-bar,
+.app-shell-root.has-active-modal #mobile-nav-bar .nav-pill-box,
+.app-shell-root.has-active-modal #mobile-nav-bar .fab-dock,
 .app-shell-root.has-active-modal #fab-overlay,
 .app-shell-root.has-active-modal #fab-action-sheet,
 .app-shell-root.has-active-modal #sara-chat-widget,
-body:has(.glass-overlay.active) #mobile-nav-bar,
-body:has(.glass-overlay.active) #fab-overlay,
-body:has(.glass-overlay.active) #fab-action-sheet,
-body:has(.glass-overlay.active) #sara-chat-widget {
+body:has(.glass-overlay.active:not(#fab-overlay)) #mobile-nav-bar,
+body:has(.glass-overlay.active:not(#fab-overlay)) #mobile-nav-bar .nav-pill-box,
+body:has(.glass-overlay.active:not(#fab-overlay)) #mobile-nav-bar .fab-dock,
+body:has(.glass-overlay.active:not(#fab-overlay)) #fab-overlay,
+body:has(.glass-overlay.active:not(#fab-overlay)) #fab-action-sheet,
+body:has(.glass-overlay.active:not(#fab-overlay)) #sara-chat-widget {
   opacity: 0 !important;
   pointer-events: none !important;
   visibility: hidden !important;
