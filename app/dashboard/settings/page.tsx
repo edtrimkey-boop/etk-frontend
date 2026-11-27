@@ -553,9 +553,10 @@ export default function SettingsPage() {
     }
   };
 
-  // Handle Logo Upload (Staged File + Base64 Preview)
+  // Handle Logo Upload (Opens 1:1 Square Cropper -> Direct Storage Upload & DB Sync)
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
@@ -564,15 +565,26 @@ export default function SettingsPage() {
       return;
     }
 
-    setStagedLogoFile(file);
-
+    const instId = user?.institute_id || user?.instId;
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
       const base64 = uploadEvent.target?.result as string;
       if (base64) {
-        setLogoUrl(base64);
-        playSound('success');
-        showAlert('New institute logo staged for live preview.', 'Logo Staged');
+        openModal('adjustProfilePic', {
+          mode: 'logo',
+          title: 'Adjust Institute Logo (1:1)',
+          subtitle: 'Crop your institute emblem into a 1:1 square for headers and question papers.',
+          imageSrc: base64,
+          instId,
+          instCode: user?.code || user?.id || 'inst',
+          onComplete: (uploadedUrl: string) => {
+            if (uploadedUrl) {
+              setLogoUrl(uploadedUrl);
+              setStagedLogoFile(null);
+              setInitialAdminState((prev) => (prev ? { ...prev, logoUrl: uploadedUrl } : prev));
+            }
+          },
+        });
       }
     };
     reader.readAsDataURL(file);
@@ -1218,10 +1230,24 @@ export default function SettingsPage() {
 
                     <div className="etk-inset-row">
                       <div className="etk-inset-left">
-                        <span className="etk-inset-label">Institute Emblem / Logo</span>
-                        <span className="etk-inset-sublabel">High-resolution PNG, JPG or WebP (max 5MB)</span>
+                        <span className="etk-inset-label">Institute Emblem / Logo (1:1)</span>
+                        <span className="etk-inset-sublabel">Crop &amp; upload PNG, JPG or WebP (max 5MB)</span>
                       </div>
-                      <div className="etk-inset-right">
+                      <div className="etk-inset-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {logoUrl && (
+                          <img
+                            src={logoUrl}
+                            alt="Current Emblem"
+                            style={{
+                              width: '34px',
+                              height: '34px',
+                              borderRadius: '8px',
+                              objectFit: 'cover',
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              background: '#fff',
+                            }}
+                          />
+                        )}
                         <label
                           className="liquid-glass btn-secondary btn-xs"
                           style={{ cursor: 'pointer', margin: 0 }}
@@ -1229,7 +1255,7 @@ export default function SettingsPage() {
                           Upload Logo
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
                             style={{ display: 'none' }}
                             onChange={handleLogoUpload}
                           />

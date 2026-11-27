@@ -15,6 +15,7 @@ export default function ProfilePhotoModal() {
   const { activeModal, modalData, closeModal, user, updateUserAvatar, showAlert, showLoader, hideLoader, refreshData } =
     useDashboard();
   const isOpen = activeModal === 'adjustProfilePic';
+  const mode: 'profile' | 'logo' = modalData?.mode === 'logo' ? 'logo' : 'profile';
 
   const [imageSrc, setImageSrc] = useState<string>('');
   const [uploading, setUploading] = useState(false);
@@ -75,12 +76,16 @@ export default function ProfilePhotoModal() {
     const canvas = cropperRef.current.getCroppedCanvas({ width: 500, height: 500 });
     if (!canvas) {
       playSound('error');
-      showAlert('Could not generate cropped image. Please try selecting another photo.', 'Crop Error');
+      showAlert('Could not generate cropped image. Please try selecting another image.', 'Crop Error');
       return;
     }
 
+    const isLogo = mode === 'logo';
+    const mimeType = isLogo ? 'image/png' : 'image/jpeg';
+    const quality = isLogo ? 0.95 : 0.9;
+
     setUploading(true);
-    showLoader('UPLOADING PROFILE PICTURE...');
+    showLoader(isLogo ? 'UPLOADING INSTITUTE LOGO...' : 'UPLOADING PROFILE PICTURE...');
 
     canvas.toBlob(
       async (blob) => {
@@ -92,44 +97,74 @@ export default function ProfilePhotoModal() {
           return;
         }
 
-        const safeCode = String(user?.code || user?.id || 'TK').replace(/[^a-zA-Z0-9_-]/g, '');
-        const fileName = `profile_${safeCode}_${Date.now()}.jpg`;
+        const safeCode = String(
+          (isLogo ? modalData?.instCode || modalData?.instId : user?.code || user?.id) || 'TK'
+        ).replace(/[^a-zA-Z0-9_-]/g, '');
+
+        const fileName = isLogo
+          ? `logo_${safeCode}_${Date.now()}.png`
+          : `profile_${safeCode}_${Date.now()}.jpg`;
+        const bucket = isLogo ? 'logo' : 'profile_pics';
 
         try {
           let finalUrl = '';
 
-          // Primary path (mirrored from index.html): upload Blob directly to Supabase Storage `profile_pics`
+          // Primary path: upload cropped 500x500 Blob directly to Supabase Storage bucket
           const { error: uploadError } = await supabase.storage
-            .from('profile_pics')
-            .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+            .from(bucket)
+            .upload(fileName, blob, { contentType: mimeType, upsert: true });
 
           if (!uploadError) {
-            const { data: pubData } = supabase.storage.from('profile_pics').getPublicUrl(fileName);
+            const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(fileName);
             finalUrl = pubData?.publicUrl || '';
           }
 
           let res: any;
-          if (finalUrl) {
-            res = await serverCall('updateProfilePic', { email: user?.email, url: finalUrl });
+          if (isLogo) {
+            const targetInstId = modalData?.instId || user?.institute_id || user?.instId;
+            if (finalUrl) {
+              res = await serverCall('updateInstituteLogo', { instId: targetInstId, url: finalUrl });
+            } else {
+              const dataUrl = canvas.toDataURL(mimeType, quality);
+              const fileBase64 = dataUrl.split(',')[1];
+              res = await serverCall('updateInstituteLogo', {
+                instId: targetInstId,
+                instCode: safeCode,
+                fileBase64,
+                mimeType,
+              });
+              finalUrl = res?.url || '';
+            }
           } else {
-            // Fallback path via backend admin storage if bucket policy blocks direct anon upload
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            const fileBase64 = dataUrl.split(',')[1];
-            res = await serverCall('updateProfilePic', {
-              email: user?.email,
-              fileBase64,
-              mimeType: 'image/jpeg',
-            });
-            finalUrl = res?.url || '';
+            if (finalUrl) {
+              res = await serverCall('updateProfilePic', { email: user?.email, url: finalUrl });
+            } else {
+              const dataUrl = canvas.toDataURL(mimeType, quality);
+              const fileBase64 = dataUrl.split(',')[1];
+              res = await serverCall('updateProfilePic', {
+                email: user?.email,
+                fileBase64,
+                mimeType,
+              });
+              finalUrl = res?.url || '';
+            }
           }
 
           hideLoader();
           if (res && res.success) {
             playSound('success');
-            if (finalUrl) updateUserAvatar(finalUrl);
+            if (!isLogo && finalUrl) {
+              updateUserAvatar(finalUrl);
+            }
+            if (typeof modalData?.onComplete === 'function') {
+              modalData.onComplete(finalUrl);
+            }
             handleClose();
             refreshData(true);
-            showAlert('Profile Picture Updated Successfully!', 'Success');
+            showAlert(
+              isLogo ? 'Institute Logo Updated Successfully!' : 'Profile Picture Updated Successfully!',
+              'Success'
+            );
           } else {
             playSound('error');
             showAlert('Database Update Failed: ' + (res?.message || 'Unknown error'), 'Error');
@@ -142,10 +177,19 @@ export default function ProfilePhotoModal() {
           setUploading(false);
         }
       },
-      'image/jpeg',
-      0.9
+      mimeType,
+      quality
     );
   };
+
+  const titleText =
+    modalData?.title || (mode === 'logo' ? 'Adjust Institute Logo (1:1)' : 'Adjust Profile Picture');
+  const subtitleText =
+    modalData?.subtitle ||
+    (mode === 'logo'
+      ? 'Drag and resize to fit a crisp 1:1 square emblem for headers & question papers.'
+      : 'Drag to position and scale to perfectly fit the 1:1 ratio.');
+  const uploadBtnLabel = mode === 'logo' ? 'Upload Logo' : 'Upload Photo';
 
   return (
     <div className="glass-overlay active" onClick={handleClose} style={{ zIndex: 100000 }}>
@@ -174,7 +218,7 @@ export default function ProfilePhotoModal() {
               <circle cx="8.5" cy="8.5" r="1.5" />
               <polyline points="21 15 16 10 5 21" />
             </svg>
-            Adjust Profile Picture
+            {titleText}
           </h2>
           <button
             type="button"
@@ -192,7 +236,7 @@ export default function ProfilePhotoModal() {
 
         <div className="modal-scroll-body">
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', marginTop: '6px' }}>
-            Drag to position and scale to perfectly fit the 1:1 ratio.
+            {subtitleText}
           </p>
 
           <div
@@ -234,7 +278,7 @@ export default function ProfilePhotoModal() {
             disabled={uploading}
             style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px' }}
           >
-            {uploading ? <IOSSpinner size={18} color="#05080F" /> : 'Upload Photo'}
+            {uploading ? <IOSSpinner size={18} color="#05080F" /> : uploadBtnLabel}
           </OpticalButton>
         </div>
       </div>
