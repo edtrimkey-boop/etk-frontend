@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { OpticalLink } from '@/components/ui/OpticalGlass';
 import AccessDenied from '@/components/shared/AccessDenied';
@@ -64,54 +64,112 @@ export default function StudentsPage() {
 
   const [students, setStudents] = useState<any[]>(initialStudents);
   const [loading, setLoading] = useState(initialStudents.length === 0);
+  const [syncing, setSyncing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('all');
   const [displayLimit, setDisplayLimit] = useState<number>(30);
 
+  const payloadRef = useRef(payload);
+  payloadRef.current = payload;
+  const hasLoadedOnceRef = useRef(initialStudents.length > 0);
+  const lastStudentsSigRef = useRef<string>(
+    initialStudents.length > 0 ? JSON.stringify(initialStudents) : ''
+  );
+  const lastSilentSyncAtRef = useRef<number>(0);
+
   // Fetch students exclusively via authenticated backend API gateway
-  const loadStudents = useCallback(async (force = false) => {
-    const existing = getCachedServerCall('getStudentsList', targetInstId ? { instId: targetInstId } : {});
-    if (force && memoryStudentsCache.length === 0 && !existing?.students) {
-      setLoading(true);
-    } else if (memoryStudentsCache.length === 0 && !existing?.students) {
+  const loadStudents = useCallback(async (mode: 'initial' | 'manual' | 'silent' = 'initial') => {
+    if (mode === 'manual') {
+      setSyncing(true);
+    } else if (mode === 'initial' && !hasLoadedOnceRef.current) {
       setLoading(true);
     }
-    setErrorMsg(null);
+    if (mode !== 'silent') setErrorMsg(null);
 
     try {
       const res = await serverCallCached(
         'getStudentsList',
         targetInstId ? { instId: targetInstId } : {},
-        { ttlMs: 12_000, force }
+        { ttlMs: 12_000, force: mode !== 'initial' }
       );
       if (res?.success && Array.isArray(res.students)) {
+        hasLoadedOnceRef.current = true;
         memoryStudentsCache = res.students;
-        setStudents(res.students);
+        const sig = JSON.stringify(res.students);
+        if (sig !== lastStudentsSigRef.current) {
+          lastStudentsSigRef.current = sig;
+          setStudents(res.students);
+        }
         setLoading(false);
         return;
       }
 
-      if (payload?.data?.instStudents && Array.isArray(payload.data.instStudents)) {
-        setStudents(payload.data.instStudents);
-      } else if (payload?.instStudents && Array.isArray(payload.instStudents)) {
-        setStudents(payload.instStudents);
-      } else {
+      const curPayload = payloadRef.current;
+      const fallbackList = Array.isArray(curPayload?.data?.instStudents)
+        ? curPayload.data.instStudents
+        : Array.isArray(curPayload?.instStudents)
+          ? curPayload.instStudents
+          : null;
+      if (fallbackList) {
+        hasLoadedOnceRef.current = true;
+        const sig = JSON.stringify(fallbackList);
+        if (sig !== lastStudentsSigRef.current) {
+          lastStudentsSigRef.current = sig;
+          setStudents(fallbackList);
+        }
+      } else if (mode !== 'silent') {
         setErrorMsg(res?.message || 'Failed to load students.');
       }
     } catch (err: any) {
       console.error('[Students] Fetch failed:', err);
-      setErrorMsg(err.message || 'Database connection error.');
-      if (payload?.data?.instStudents && Array.isArray(payload.data.instStudents)) {
-        setStudents(payload.data.instStudents);
+      if (mode !== 'silent') {
+        setErrorMsg(err.message || 'Database connection error.');
+      }
+      const curPayload = payloadRef.current;
+      const fallbackList = Array.isArray(curPayload?.data?.instStudents) ? curPayload.data.instStudents : null;
+      if (fallbackList) {
+        hasLoadedOnceRef.current = true;
+        const sig = JSON.stringify(fallbackList);
+        if (sig !== lastStudentsSigRef.current) {
+          lastStudentsSigRef.current = sig;
+          setStudents(fallbackList);
+        }
       }
     } finally {
       setLoading(false);
+      setSyncing(false);
     }
   }, [targetInstId, role]);
 
   useEffect(() => {
-    loadStudents();
+    loadStudents(hasLoadedOnceRef.current ? 'silent' : 'initial');
+  }, [loadStudents]);
+
+  // Silent Realtime Sync for Students Roster (updates silently without table spinner)
+  useEffect(() => {
+    const triggerSilent = (minMs = 2500) => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      const now = Date.now();
+      if (now - lastSilentSyncAtRef.current < minMs) return;
+      lastSilentSyncAtRef.current = now;
+      loadStudents('silent');
+    };
+
+    const intervalId = setInterval(() => triggerSilent(9000), 12_000);
+    const onFocusOrVisible = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        triggerSilent(2500);
+      }
+    };
+
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
   }, [loadStudents]);
 
   // Extract unique sorted classes
@@ -194,8 +252,8 @@ export default function StudentsPage() {
             <button
               type="button"
               className="liquid-glass btn-secondary"
-              onClick={() => { void loadStudents(true); }}
-              disabled={loading}
+              onClick={() => { void loadStudents('manual'); }}
+              disabled={loading || syncing}
               title="Refresh database records"
               style={{
                 padding: '8px 14px',
@@ -212,7 +270,7 @@ export default function StudentsPage() {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
-                className={loading ? 'spinning' : ''}
+                className={loading || syncing ? 'spinning' : ''}
               >
                 <path d="M21 2v6h-6" />
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />

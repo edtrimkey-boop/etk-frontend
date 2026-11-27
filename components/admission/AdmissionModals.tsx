@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import IOSSpinner from '@/components/ui/IOSSpinner';
+import ModalPortal from '@/components/ui/ModalPortal';
 import {
   ADMISSION_CLASSES,
   ADMISSION_DOCUMENTS,
@@ -295,7 +296,8 @@ export function AdmissionFormModal({
   };
 
   return (
-    <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
+    <ModalPortal>
+      <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
       <div
         className="glass-box"
         onClick={(e) => e.stopPropagation()}
@@ -1014,6 +1016,7 @@ export function AdmissionFormModal({
         }}
       />
     </div>
+    </ModalPortal>
   );
 }
 
@@ -1114,7 +1117,8 @@ export function QuickEnquiryModal({ open, onClose, onSave }: QuickEnquiryModalPr
   };
 
   return (
-    <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
+    <ModalPortal>
+      <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
       <div className="glass-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px', width: '92%' }}>
         <div className="premium-sticky-header">
           <h2 style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
@@ -1200,6 +1204,7 @@ export function QuickEnquiryModal({ open, onClose, onSave }: QuickEnquiryModalPr
         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 
@@ -1293,7 +1298,8 @@ export function AdmissionSlipModal({
   };
 
   return (
-    <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 100000 }}>
+    <ModalPortal>
+      <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 100000 }}>
       <div className="glass-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px', width: '95%' }}>
         <div className="premium-sticky-header">
           <h2 style={{ color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
@@ -1518,6 +1524,7 @@ export function AdmissionSlipModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 
@@ -1551,7 +1558,8 @@ export function BulkPromoteModal({ open, onClose, onPromoteClass }: BulkPromoteM
   };
 
   return (
-    <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
+    <ModalPortal>
+      <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
       <div className="glass-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px', width: '92%' }}>
         <div className="premium-sticky-header">
           <h2 style={{ color: 'var(--accent)', margin: 0 }}>Bulk Promote Class</h2>
@@ -1594,6 +1602,7 @@ export function BulkPromoteModal({ open, onClose, onPromoteClass }: BulkPromoteM
         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 
@@ -1617,7 +1626,8 @@ export function ClassCapacityModal({ open, capacities, onClose, onSave }: ClassC
   if (!open) return null;
 
   return (
-    <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
+    <ModalPortal>
+      <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
       <div className="glass-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px', width: '94%' }}>
         <div className="premium-sticky-header">
           <h2 style={{ color: 'var(--brand)', margin: 0 }}>Configure Class Seat Capacities</h2>
@@ -1655,5 +1665,6 @@ export function ClassCapacityModal({ open, capacities, onClose, onSave }: ClassC
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

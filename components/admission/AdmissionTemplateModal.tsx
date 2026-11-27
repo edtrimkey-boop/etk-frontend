@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import IOSSpinner from '@/components/ui/IOSSpinner';
+import ModalPortal from '@/components/ui/ModalPortal';
 import {
   AdmissionFormTemplate,
   AdmissionRecord,
@@ -262,7 +263,8 @@ export function AdmissionTemplateModal({
   };
 
   return (
-    <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
+    <ModalPortal>
+      <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 99999 }}>
       <div
         className="glass-box"
         onClick={(e) => e.stopPropagation()}
@@ -697,5 +699,6 @@ export function AdmissionTemplateModal({
         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 }

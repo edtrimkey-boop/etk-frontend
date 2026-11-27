@@ -5,6 +5,7 @@ import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
+import ModalPortal from '@/components/ui/ModalPortal';
 import { seedCachedAsset, uploadStudentPhotoBlobToStorage } from '@/lib/admissions';
 
 interface PassportPhotoCropModalProps {
@@ -103,7 +104,8 @@ export function PassportPhotoCropModal({
   };
 
   return (
-    <div className="glass-overlay active" onClick={handleClose} style={{ zIndex: 100020 }}>
+    <ModalPortal>
+      <div className="glass-overlay active" onClick={handleClose} style={{ zIndex: 100020 }}>
       <div
         className="glass-box"
         onClick={(e) => e.stopPropagation()}
@@ -208,5 +210,6 @@ export function PassportPhotoCropModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

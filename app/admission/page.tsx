@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import AccessDenied from '@/components/shared/AccessDenied';
@@ -89,7 +89,14 @@ export default function AdmissionPortalPage() {
     [user, payload, instCode]
   );
 
-  const cachedBoot = getCachedAdmissionBootstrap(user, payload, instInfo.name, instCode, instInfo.address);
+  const instKey = user?.institute_id || user?.instId || payload?.profile?.institute_id || user?.code || '';
+
+  const cachedBoot = useMemo(
+    () => getCachedAdmissionBootstrap(user, payload, instInfo.name, instCode, instInfo.address),
+    // Only re-evaluate cache snapshot when institute key changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [instKey]
+  );
   const [instId, setInstId] = useState<string>(() => cachedBoot?.instituteId || '');
   const [records, setRecords] = useState<AdmissionRecord[]>(() => cachedBoot?.records || []);
   const [template, setTemplate] = useState<AdmissionFormTemplate>(() =>
@@ -143,29 +150,63 @@ export default function AdmissionPortalPage() {
     }
   }, [canManage]);
 
-  const instKey = user?.institute_id || user?.instId || payload?.profile?.institute_id || user?.code || '';
+  const userRef = useRef(user);
+  const payloadRef = useRef(payload);
+  const instInfoRef = useRef(instInfo);
+  userRef.current = user;
+  payloadRef.current = payload;
+  instInfoRef.current = instInfo;
+
+  const hasLoadedOnceRef = useRef<boolean>(Boolean(cachedBoot));
+  const lastBootSigRef = useRef<string>(
+    cachedBoot
+      ? JSON.stringify({
+          id: cachedBoot.instituteId,
+          r: cachedBoot.records,
+          c: cachedBoot.counters,
+          t: cachedBoot.template,
+          ready: cachedBoot.tablesReady,
+        })
+      : ''
+  );
+  const lastSilentSyncAtRef = useRef<number>(0);
 
   const loadAll = useCallback(
-    async (forceSpinner = false) => {
+    async (mode: 'initial' | 'manual' | 'silent' = 'initial') => {
       if (role === 'operator') return;
-      const hasCachedData = records.length > 0 || Boolean(instId);
-      if (forceSpinner) setSyncing(true);
-      else if (!hasCachedData) setLoading(true);
+      if (mode === 'manual') {
+        setSyncing(true);
+      } else if (mode === 'initial' && !hasLoadedOnceRef.current) {
+        setLoading(true);
+      }
 
       try {
+        const curInst = instInfoRef.current;
         const boot = await fetchAdmissionBootstrap(
-          user,
-          payload,
-          instInfo.name,
+          userRef.current,
+          payloadRef.current,
+          curInst.name,
           instCode,
-          instInfo.address,
-          forceSpinner
+          curInst.address,
+          mode !== 'initial'
         );
-        setInstId(boot.instituteId);
-        setRecords(boot.records);
-        setTemplate(boot.template);
-        setCounters(boot.counters);
-        setTablesReady(boot.tablesReady);
+        hasLoadedOnceRef.current = true;
+
+        const nextSig = JSON.stringify({
+          id: boot.instituteId,
+          r: boot.records,
+          c: boot.counters,
+          t: boot.template,
+          ready: boot.tablesReady,
+        });
+        if (nextSig !== lastBootSigRef.current) {
+          lastBootSigRef.current = nextSig;
+          setInstId(boot.instituteId);
+          setRecords(boot.records);
+          setTemplate(boot.template);
+          setCounters(boot.counters);
+          setTablesReady(boot.tablesReady);
+        }
       } finally {
         setLoading(false);
         setSyncing(false);
@@ -176,9 +217,42 @@ export default function AdmissionPortalPage() {
 
   useEffect(() => {
     if (instKey) {
-      loadAll(false);
+      loadAll(hasLoadedOnceRef.current ? 'silent' : 'initial');
     }
   }, [instKey, loadAll]);
+
+  // Silent Realtime Roster & Pipeline Sync (zero loading flash, updates only when data changes)
+  useEffect(() => {
+    if (!instKey || role === 'operator') return;
+
+    const triggerSilentSync = (minIntervalMs = 2500) => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      const now = Date.now();
+      if (now - lastSilentSyncAtRef.current < minIntervalMs) return;
+      lastSilentSyncAtRef.current = now;
+      loadAll('silent');
+    };
+
+    const intervalId = setInterval(() => {
+      if (formOpen || enquiryOpen || templateOpen || bulkOpen || capacityOpen) return;
+      triggerSilentSync(8000);
+    }, 10_000);
+
+    const onFocusOrVisible = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        triggerSilentSync(2500);
+      }
+    };
+
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
+  }, [instKey, role, loadAll, formOpen, enquiryOpen, templateOpen, bulkOpen, capacityOpen]);
 
   useEffect(() => {
     setDisplayLimit(30);
@@ -424,7 +498,7 @@ export default function AdmissionPortalPage() {
 
     setFormOpen(false);
     setEditingRecord(null);
-    await loadAll(true);
+    await loadAll('silent');
 
     // Automatically upload PDFs to respective Drive folders after fresh table reload so links stay synced in UI
     if (savedRec.status === 'Admitted') {
@@ -467,7 +541,7 @@ export default function AdmissionPortalPage() {
       setFormOpen(false);
       setSlipRecord(null);
       showToast(`Removed ${rec.studentName}.`, 'warning');
-      await loadAll(true);
+      await loadAll('silent');
     });
   };
 
@@ -486,7 +560,7 @@ export default function AdmissionPortalPage() {
       }
       setSlipRecord(null);
       showToast(`${rec.studentName} promoted to ${nextCls}.`, 'success');
-      await loadAll(true);
+      await loadAll('silent');
     });
   };
 
@@ -505,7 +579,7 @@ export default function AdmissionPortalPage() {
       }
       setSlipRecord(null);
       showToast(`${rec.studentName} moved to ${prevCls}.`, 'info');
-      await loadAll(true);
+      await loadAll('silent');
     });
   };
 
@@ -518,7 +592,7 @@ export default function AdmissionPortalPage() {
     }
     setBulkOpen(false);
     showToast(`Promoted ${res.count || 0} active students from ${fromClass} to ${toClass}.`, 'success');
-    await loadAll(true);
+    await loadAll('silent');
   };
 
   const handleToggleActiveStatus = async (rec: AdmissionRecord) => {
@@ -530,7 +604,7 @@ export default function AdmissionPortalPage() {
       return;
     }
     showToast(`${rec.studentName} marked ${nextStatus}.`, 'success');
-    await loadAll(true);
+    await loadAll('silent');
   };
 
   const handleSaveTemplate = async (nextTpl: AdmissionFormTemplate) => {
@@ -641,7 +715,7 @@ export default function AdmissionPortalPage() {
           <button
             type="button"
             className="liquid-glass btn-secondary btn-xs"
-            onClick={() => loadAll(true)}
+            onClick={() => loadAll('manual')}
             disabled={loading || syncing}
             style={{
               display: 'inline-flex',

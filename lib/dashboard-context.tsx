@@ -299,6 +299,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setModalData(null);
   }, []);
 
+  const lastUserJsonRef = useRef<string>('');
+  const lastPayloadJsonRef = useRef<string>('');
+  const lastNotifsJsonRef = useRef<string>('');
+
   const refreshData = useCallback(async (silent = false) => {
     const cachedUser = MemoryStore.getUser();
     if (!cachedUser?.email) return;
@@ -327,9 +331,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       if (res && res.profile) {
         const mergedUser = { ...cachedUser, ...res.profile };
-
-        setUser(mergedUser);
-        MemoryStore.setUser(mergedUser);
+        const userJson = JSON.stringify(mergedUser);
+        if (userJson !== lastUserJsonRef.current) {
+          lastUserJsonRef.current = userJson;
+          setUser(mergedUser);
+          MemoryStore.setUser(mergedUser);
+        }
         if (mergedUser.logo) {
           try {
             localStorage.setItem('tk_saved_inst_logo', mergedUser.logo);
@@ -337,11 +344,20 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setPayload(res);
-      MemoryStore.setPayload(res);
+      const payloadJson = JSON.stringify(res);
+      if (payloadJson !== lastPayloadJsonRef.current) {
+        lastPayloadJsonRef.current = payloadJson;
+        setPayload(res);
+        MemoryStore.setPayload(res);
+      }
 
       if (Array.isArray(res?.notifications)) {
-        setNotifications(hydrateNotificationsFromPayload(res));
+        const nextNotifs = hydrateNotificationsFromPayload(res);
+        const notifsJson = JSON.stringify(nextNotifs);
+        if (notifsJson !== lastNotifsJsonRef.current) {
+          lastNotifsJsonRef.current = notifsJson;
+          setNotifications(nextNotifs);
+        }
       }
     } catch (err: any) {
       console.warn('Dashboard sync note:', err.message);
