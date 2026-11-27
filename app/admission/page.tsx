@@ -615,22 +615,161 @@ export default function AdmissionPortalPage() {
         </div>
       </div>
 
-      {/* Modern Quick Actions Command Bar */}
-      <div className="panel" style={{ marginBottom: '20px', padding: '18px 22px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+      {/* Admission Quick Actions — Exact Dashboard Overview 4-Tile / 2x2 Layout */}
+      <section className="action-tiles-section" id="admission-action-buttons-row">
+        <div className="action-tiles-header">
+          <div className="action-tiles-label">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            Admission Quick Actions
+          </div>
+          <button
+            type="button"
+            className="liquid-glass btn-secondary btn-xs"
+            onClick={() => loadAll(true)}
+            disabled={loading || syncing}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: loading || syncing ? 'not-allowed' : 'pointer',
+            }}
+            title="Synchronize admissions with cloud"
+          >
+            {syncing ? (
+              <IOSSpinner size={12} color="currentColor" />
+            ) : (
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                className={loading ? 'spinning' : ''}
+              >
+                <path d="M21 2v6h-6" />
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 22v-6h6" />
+              </svg>
+            )}
+            <span>{syncing ? 'Syncing...' : 'Refresh Data'}</span>
+          </button>
+        </div>
+
+        <div className="action-tiles-grid">
+          {canManage ? (
+            <>
+              <button
+                type="button"
+                className="action-tile tile-cyan"
+                onClick={() => {
+                  setEditingRecord(null);
+                  setFormOpen(true);
+                }}
+              >
+                <span className="action-tile-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="19" x2="19" y1="8" y2="14" />
+                    <line x1="22" x2="16" y1="11" y2="11" />
+                  </svg>
+                </span>
+                <span className="action-tile-title">New Admission</span>
+              </button>
+
+              <button
+                type="button"
+                className="action-tile tile-amber"
+                onClick={() => setEnquiryOpen(true)}
+              >
+                <span className="action-tile-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                </span>
+                <span className="action-tile-title">Quick Enquiry</span>
+              </button>
+
+              <button
+                type="button"
+                className="action-tile tile-purple"
+                onClick={() => setTemplateOpen(true)}
+              >
+                <span className="action-tile-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </span>
+                <span className="action-tile-title">Customize Form</span>
+              </button>
+
+              <button
+                type="button"
+                className="action-tile tile-purple"
+                onClick={() => setBulkOpen(true)}
+              >
+                <span className="action-tile-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="m18 15-6-6-6 6" />
+                  </svg>
+                </span>
+                <span className="action-tile-title">Bulk Promote</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="action-tile tile-cyan" onClick={handlePrintBlankForm}>
+                <span className="action-tile-title">Blank Paper Form</span>
+              </button>
+              <button type="button" className="action-tile tile-amber" onClick={handleExportBulkFormsPdf}>
+                <span className="action-tile-title">Bulk Forms PDF</span>
+              </button>
+              <button type="button" className="action-tile tile-purple" onClick={handleExportRosterPdf}>
+                <span className="action-tile-title">Roster PDF</span>
+              </button>
+              <button
+                type="button"
+                className="action-tile tile-purple"
+                onClick={() => {
+                  exportAdmissionsToCsv(filteredRecords, instCode);
+                  showToast('CSV exported.', 'success');
+                }}
+              >
+                <span className="action-tile-title">Export CSV</span>
+              </button>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Main Directory & Pipeline Panel */}
+      <div className="panel">
+        <div
+          className="panel-header"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}
+        >
           <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900, letterSpacing: '-0.3px', color: 'var(--text)' }}>
-              Admission Command Center
-            </h2>
+            <h3 style={{ margin: 0 }}>Admission Command Center</h3>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
-              Auto-syncs finalized forms to <span style={{ color: 'var(--brand)' }}>Documents / Admission Forms</span> on Drive with atomic monotonic numbering.
+              Finalized admissions auto-sync to <span style={{ color: 'var(--brand)' }}>Documents / Admission Forms</span> on Drive with atomic numbering.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <OpticalButton type="button" variant="outline" onClick={handleExportBulkFormsPdf} style={{ padding: '8px 14px', fontSize: '12px' }}>
+            <OpticalButton type="button" variant="outline" onClick={handlePrintBlankForm} style={{ padding: '7px 12px', fontSize: '11.5px' }}>
+              Blank Form PDF
+            </OpticalButton>
+            <OpticalButton type="button" variant="outline" onClick={handleExportBulkFormsPdf} style={{ padding: '7px 12px', fontSize: '11.5px' }}>
               Bulk Forms PDF
             </OpticalButton>
-            <OpticalButton type="button" variant="outline" onClick={handleExportRosterPdf} style={{ padding: '8px 14px', fontSize: '12px' }}>
+            <OpticalButton type="button" variant="outline" onClick={handleExportRosterPdf} style={{ padding: '7px 12px', fontSize: '11.5px' }}>
               Roster PDF
             </OpticalButton>
             <OpticalButton
@@ -640,141 +779,15 @@ export default function AdmissionPortalPage() {
                 exportAdmissionsToCsv(filteredRecords, instCode);
                 showToast('CSV exported.', 'success');
               }}
-              style={{ padding: '8px 14px', fontSize: '12px' }}
+              style={{ padding: '7px 12px', fontSize: '11.5px' }}
             >
-              Export CSV
-            </OpticalButton>
-            <OpticalButton type="button" variant="secondary" onClick={() => loadAll(true)} disabled={syncing} style={{ padding: '8px 14px', fontSize: '12px' }}>
-              {syncing ? <IOSSpinner size={14} color="currentColor" /> : null}
-              {syncing ? 'Syncing...' : 'Refresh'}
+              CSV
             </OpticalButton>
           </div>
         </div>
 
-        {canManage && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))',
-              gap: '12px',
-            }}
-          >
-            <OpticalButton
-              type="button"
-              variant="primary"
-              onClick={() => {
-                setEditingRecord(null);
-                setFormOpen(true);
-              }}
-              style={{
-                minHeight: '56px',
-                justifyContent: 'flex-start',
-                padding: '12px 16px',
-                borderRadius: '14px',
-                fontSize: '13.5px',
-                fontWeight: 800,
-                gap: '12px',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <line x1="19" x2="19" y1="8" y2="14" />
-                <line x1="22" x2="16" y1="11" y2="11" />
-              </svg>
-              <span>New Admission</span>
-            </OpticalButton>
-
-            <OpticalButton
-              type="button"
-              variant="warning"
-              onClick={() => setEnquiryOpen(true)}
-              style={{
-                minHeight: '56px',
-                justifyContent: 'flex-start',
-                padding: '12px 16px',
-                borderRadius: '14px',
-                fontSize: '13.5px',
-                fontWeight: 800,
-                gap: '12px',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span>Quick Enquiry</span>
-            </OpticalButton>
-
-            <OpticalButton
-              type="button"
-              variant="outline"
-              onClick={() => setTemplateOpen(true)}
-              style={{
-                minHeight: '56px',
-                justifyContent: 'flex-start',
-                padding: '12px 16px',
-                borderRadius: '14px',
-                fontSize: '13.5px',
-                fontWeight: 800,
-                gap: '12px',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-              </svg>
-              <span>Customize Form</span>
-            </OpticalButton>
-
-            <OpticalButton
-              type="button"
-              variant="purple"
-              onClick={() => setBulkOpen(true)}
-              style={{
-                minHeight: '56px',
-                justifyContent: 'flex-start',
-                padding: '12px 16px',
-                borderRadius: '14px',
-                fontSize: '13.5px',
-                fontWeight: 800,
-                gap: '12px',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-                <path d="m18 15-6-6-6 6" />
-              </svg>
-              <span>Bulk Promote</span>
-            </OpticalButton>
-
-            <OpticalButton
-              type="button"
-              variant="secondary"
-              onClick={handlePrintBlankForm}
-              style={{
-                minHeight: '56px',
-                justifyContent: 'flex-start',
-                padding: '12px 16px',
-                borderRadius: '14px',
-                fontSize: '13.5px',
-                fontWeight: 800,
-                gap: '12px',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-                <polyline points="6 9 6 2 18 2 18 9" />
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                <rect width="12" height="8" x="6" y="14" />
-              </svg>
-              <span>Blank Paper Form</span>
-            </OpticalButton>
-          </div>
-        )}
-      </div>
-
-      {/* Main Directory & Pipeline Panel */}
-      <div className="panel">
         {/* Apple Segmented Sub-Tabs */}
-        <div className="etk-segmented-nav-wrap" style={{ marginTop: 0 }}>
+        <div className="etk-segmented-nav-wrap">
           <div className="etk-segmented-nav">
             <button
               type="button"

@@ -499,9 +499,10 @@ export function AdmissionTemplateModal({
                       style={{ marginBottom: 0 }}
                     >
                       <option value="calling_grid">Calling Date / Expected Date (12 rows)</option>
+                      <option value="office_checklist">Documents Verification Checklist</option>
+                      <option value="admission_test_score">Entrance Test / Scholarship Evaluation</option>
                       <option value="fee_summary">Standard Fee Schedule Box</option>
-                      <option value="office_checklist">Office Document Checklist</option>
-                      <option value="office_remarks">Office Remarks / Verification Box</option>
+                      <option value="office_remarks">Office Remarks / Approval Stamp</option>
                       <option value="none">None (Hide Right Block)</option>
                     </select>
                   </div>
@@ -513,6 +514,8 @@ export function AdmissionTemplateModal({
                       style={{ marginBottom: 0 }}
                     >
                       <option value="month_grid_3x12">12-Month Grid (JAN–DEC × 3 rows)</option>
+                      <option value="transport_hostel_strip">School Transport, Hostel, Emergency &amp; Medical</option>
+                      <option value="coaching_batch_strip">Coaching Batch, Exam Stream, Modules &amp; ID Card</option>
                       <option value="installment_strip">Quarterly Fee Installment Strip</option>
                       <option value="docs_strip">Documents Submitted Strip</option>
                       <option value="none">None (Hide Bottom Strip)</option>

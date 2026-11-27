@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
-import { supabase } from '@/lib/supabase';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
@@ -25,26 +24,15 @@ export default function OperatorEarningsPage() {
   useEffect(() => {
     if (role !== 'operator' || !user?.id) return;
 
-    supabase
-      .from('operator_profiles')
-      .select('rate_per_paper, rate_paper, upi_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setBaseRate(Number(data.rate_per_paper ?? data.rate_paper) || 50);
-          if (data.upi_id) setUpiId(data.upi_id);
+    serverCall('getOperatorEarnings')
+      .then((res) => {
+        if (res?.success) {
+          if (res.baseRate) setBaseRate(Number(res.baseRate) || 50);
+          if (res.upiId) setUpiId(String(res.upiId));
+          if (Array.isArray(res.ledger)) setLedgerRows(res.ledger);
         }
-      });
-
-    supabase
-      .from('billing_ledger')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (Array.isArray(data)) setLedgerRows(data);
-      });
+      })
+      .catch((e) => console.warn('[OperatorEarnings] Gateway fetch note:', e));
   }, [role, user?.id]);
 
   const metrics = useMemo(() => {

@@ -5,7 +5,7 @@ import { useDashboard } from '@/lib/dashboard-context';
 import { OpticalLink } from '@/components/ui/OpticalGlass';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/pricing';
+import { serverCall } from '@/lib/api-client';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -55,102 +55,34 @@ export default function StudentsPage() {
   const [classFilter, setClassFilter] = useState('all');
   const [displayLimit, setDisplayLimit] = useState<number>(30);
 
-  // Resolve institute UUID and fetch students directly from Supabase
+  // Fetch students exclusively via authenticated backend API gateway
   const loadStudents = useCallback(async (force = false) => {
     if (force || memoryStudentsCache.length === 0) {
       setLoading(true);
     }
     setErrorMsg(null);
 
-    const headers = {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    };
-
     try {
-      // 1. Resolve Institute UUID
-      let targetInstId: string | null = null;
+      const targetInstId =
+        (user?.institute_id && UUID_REGEX.test(user.institute_id) && user.institute_id) ||
+        (user?.instId && UUID_REGEX.test(user.instId) && user.instId) ||
+        (payload?.profile?.institute_id && UUID_REGEX.test(payload.profile.institute_id) && payload.profile.institute_id) ||
+        undefined;
 
-      // Check direct UUID on user / payload
-      if (user?.institute_id && UUID_REGEX.test(user.institute_id)) {
-        targetInstId = user.institute_id;
-      } else if (user?.instId && UUID_REGEX.test(user.instId)) {
-        targetInstId = user.instId;
-      } else if (payload?.profile?.institute_id && UUID_REGEX.test(payload.profile.institute_id)) {
-        targetInstId = payload.profile.institute_id;
+      const res = await serverCall('getStudentsList', targetInstId ? { instId: targetInstId } : {});
+      if (res?.success && Array.isArray(res.students)) {
+        memoryStudentsCache = res.students;
+        setStudents(res.students);
+        setLoading(false);
+        return;
       }
 
-      // If no direct UUID, resolve via Supabase institutes table
-      if (!targetInstId) {
-        const instCode = user?.code || user?.instId || payload?.profile?.code || payload?.code;
-        const instEmail = user?.email || payload?.profile?.email;
-
-        if (instCode && instCode !== 'all') {
-          try {
-            const instRes = await fetch(
-              `${SUPABASE_URL}/rest/v1/institutes?institute_code=eq.${encodeURIComponent(instCode)}&select=id&limit=1`,
-              { headers }
-            );
-            if (instRes.ok) {
-              const rows = await instRes.json();
-              if (rows && rows.length > 0 && rows[0]?.id) {
-                targetInstId = rows[0].id;
-              }
-            }
-          } catch (lookupErr) {
-            console.warn('[Students] Institute code lookup failed:', lookupErr);
-          }
-        }
-
-        if (!targetInstId && instEmail) {
-          try {
-            const instRes = await fetch(
-              `${SUPABASE_URL}/rest/v1/institutes?admin_email=eq.${encodeURIComponent(instEmail)}&select=id&limit=1`,
-              { headers }
-            );
-            if (instRes.ok) {
-              const rows = await instRes.json();
-              if (rows && rows.length > 0 && rows[0]?.id) {
-                targetInstId = rows[0].id;
-              }
-            }
-          } catch (lookupErr) {
-            console.warn('[Students] Admin email lookup failed:', lookupErr);
-          }
-        }
-      }
-
-      // 2. Query Supabase table 'students'
-      let queryUrl = '';
-      if (targetInstId) {
-        queryUrl = `${SUPABASE_URL}/rest/v1/students?institute_id=eq.${targetInstId}&order=class_name.asc,roll_no.asc`;
-      } else if (role === 'super_admin') {
-        // Super admin view
-        queryUrl = `${SUPABASE_URL}/rest/v1/students?order=class_name.asc,roll_no.asc&limit=500`;
-      }
-
-      if (queryUrl) {
-        const res = await fetch(queryUrl, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            memoryStudentsCache = data;
-            setStudents(data);
-            setLoading(false);
-            return;
-          }
-        } else {
-          const errText = await res.text();
-          console.error('[Students] Supabase error response:', errText);
-          setErrorMsg('Failed to query Supabase students.');
-        }
-      }
-
-      // 3. Graceful Fallback if Supabase was unreachable
       if (payload?.data?.instStudents && Array.isArray(payload.data.instStudents)) {
         setStudents(payload.data.instStudents);
       } else if (payload?.instStudents && Array.isArray(payload.instStudents)) {
         setStudents(payload.instStudents);
+      } else {
+        setErrorMsg(res?.message || 'Failed to load students.');
       }
     } catch (err: any) {
       console.error('[Students] Fetch failed:', err);

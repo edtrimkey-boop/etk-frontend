@@ -1,6 +1,6 @@
 /**
  * Centralized Real-time Pricing Engine for Ed-Trim Key
- * Directly synced with Supabase `pricing_master` table.
+ * Served exclusively via authenticated backend API gateway.
  */
 
 import { serverCall } from './api-client';
@@ -17,9 +17,6 @@ export interface PricingTier {
   min_quantity: number;
   max_quantity: number;
 }
-
-export const SUPABASE_URL = 'https://ypmnsgpohaaavbjdqjye.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_A-eYAoVILzcgjGWBbgTjuQ_gGPRHU-n';
 
 /**
  * Exact verified fallback snapshot from production Supabase `pricing_master` table.
@@ -283,31 +280,9 @@ export const DB_SERVICE_MAP: Record<string, string> = {
 };
 
 /**
- * Fetches real-time active pricing tiers directly from Supabase REST endpoint.
- * Fallbacks cleanly to gateway serverCall or verified database snapshot.
+ * Fetches real-time active pricing tiers via authenticated backend gateway.
  */
-export async function fetchLivePricingMaster(): Promise<{ data: PricingTier[]; source: 'supabase_live' | 'gateway' | 'fallback' }> {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_master?select=*&active=eq.true`, {
-      method: 'GET',
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store',
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return { data, source: 'supabase_live' };
-      }
-    }
-  } catch (err) {
-    console.warn('[Pricing] Supabase direct fetch failed, trying backend gateway:', err);
-  }
-
+export async function fetchLivePricingMaster(): Promise<{ data: PricingTier[]; source: 'gateway' | 'fallback' }> {
   try {
     const gatewayRes = await serverCall<PricingTier[]>('getPricingMaster');
     if (gatewayRes && gatewayRes.success && Array.isArray(gatewayRes.data) && gatewayRes.data.length > 0) {
@@ -437,31 +412,16 @@ export interface InstituteQuotaRecord {
 }
 
 /**
- * Fetch live quota allocations directly from Supabase `institutes` table.
+ * Fetch live quota allocations via authenticated backend gateway (`getBillingSnapshot`).
  */
-export async function fetchInstituteQuotas(instCode: string = 'KPS'): Promise<InstituteQuotaRecord | null> {
+export async function fetchInstituteQuotas(_instCode: string = ''): Promise<InstituteQuotaRecord | null> {
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/institutes?institute_code=eq.${encodeURIComponent(instCode)}&limit=1`,
-      {
-        method: 'GET',
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        cache: 'no-store',
-      }
-    );
-
-    if (res.ok) {
-      const rows = await res.json();
-      if (Array.isArray(rows) && rows.length > 0) {
-        return rows[0] as InstituteQuotaRecord;
-      }
+    const res = await serverCall('getBillingSnapshot');
+    if (res?.success && res.institute) {
+      return res.institute as InstituteQuotaRecord;
     }
   } catch (err) {
-    console.warn('[Quota] Supabase fetch error:', err);
+    console.warn('[Quota] Gateway fetch error:', err);
   }
   return null;
 }

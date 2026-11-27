@@ -6,7 +6,6 @@ import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
-import { supabase } from '@/lib/supabase';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import { playSound } from '@/lib/sound';
@@ -101,53 +100,28 @@ export default function ProfilePhotoModal() {
           (isLogo ? modalData?.instCode || modalData?.instId : user?.code || user?.id) || 'TK'
         ).replace(/[^a-zA-Z0-9_-]/g, '');
 
-        const fileName = isLogo
-          ? `logo_${safeCode}_${Date.now()}.png`
-          : `profile_${safeCode}_${Date.now()}.jpg`;
-        const bucket = isLogo ? 'logo' : 'profile_pics';
-
         try {
+          const dataUrl = canvas.toDataURL(mimeType, quality);
+          const fileBase64 = dataUrl.split(',')[1];
           let finalUrl = '';
-
-          // Primary path: upload cropped 500x500 Blob directly to Supabase Storage bucket
-          const { error: uploadError } = await supabase.storage
-            .from(bucket)
-            .upload(fileName, blob, { contentType: mimeType, upsert: true });
-
-          if (!uploadError) {
-            const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(fileName);
-            finalUrl = pubData?.publicUrl || '';
-          }
-
           let res: any;
+
           if (isLogo) {
             const targetInstId = modalData?.instId || user?.institute_id || user?.instId;
-            if (finalUrl) {
-              res = await serverCall('updateInstituteLogo', { instId: targetInstId, url: finalUrl });
-            } else {
-              const dataUrl = canvas.toDataURL(mimeType, quality);
-              const fileBase64 = dataUrl.split(',')[1];
-              res = await serverCall('updateInstituteLogo', {
-                instId: targetInstId,
-                instCode: safeCode,
-                fileBase64,
-                mimeType,
-              });
-              finalUrl = res?.url || '';
-            }
+            res = await serverCall('updateInstituteLogo', {
+              instId: targetInstId,
+              instCode: safeCode,
+              fileBase64,
+              mimeType,
+            });
+            finalUrl = res?.url || '';
           } else {
-            if (finalUrl) {
-              res = await serverCall('updateProfilePic', { email: user?.email, url: finalUrl });
-            } else {
-              const dataUrl = canvas.toDataURL(mimeType, quality);
-              const fileBase64 = dataUrl.split(',')[1];
-              res = await serverCall('updateProfilePic', {
-                email: user?.email,
-                fileBase64,
-                mimeType,
-              });
-              finalUrl = res?.url || '';
-            }
+            res = await serverCall('updateProfilePic', {
+              email: user?.email,
+              fileBase64,
+              mimeType,
+            });
+            finalUrl = res?.url || '';
           }
 
           hideLoader();

@@ -6,7 +6,6 @@ import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import IOSSpinner from '@/components/ui/IOSSpinner';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/pricing';
 import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
 
 interface QuickTemplate {
@@ -576,26 +575,12 @@ export default function BroadcastPage() {
     });
   };
 
-  // 2. Fetch Live Supabase Notifications
+  // 2. Fetch Broadcast History via Authenticated Backend Gateway
   const loadSupabaseNotifications = useCallback(async () => {
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/notifications?select=*&order=created_at.desc&limit=60`,
-        {
-          method: 'GET',
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          cache: 'no-store',
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setLiveDbNotifs(data);
-        }
+      const res = await serverCall('getBroadcastHistory', { limit: 60 });
+      if (res?.success && Array.isArray(res.notifications)) {
+        setLiveDbNotifs(res.notifications);
       }
     } catch (e) {
       console.warn('[Broadcast] Live notifications fetch note:', e);

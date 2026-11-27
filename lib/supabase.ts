@@ -1,48 +1,24 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+'use client';
 
-export const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ypmnsgpohaaavbjdqjye.supabase.co';
-export const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_A-eYAoVILzcgjGWBbgTjuQ_gGPRHU-n';
+import { serverCall } from '@/lib/api-client';
 
-let supabaseClient: SupabaseClient | null = null;
-
-export function getSupabase(): SupabaseClient {
-  if (!supabaseClient) {
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    });
-  }
-  return supabaseClient;
-}
-
-export const supabase = getSupabase();
-
-// Type Definitions
 export interface DBInstituteSettings {
+  id?: string;
   institute_id: string;
-  paper_header: string;
-  paper_footer: string;
-  allow_teacher_contacts: boolean;
-  allow_teacher_edit: boolean;
-  alert_paper_threshold: number;
-  alert_doc_threshold: number;
+  paper_header?: string | null;
+  paper_footer?: string | null;
+  alert_paper_threshold?: number | null;
+  alert_doc_threshold?: number | null;
+  allow_teacher_contacts?: boolean | null;
+  allow_teacher_edit?: boolean | null;
   updated_at?: string;
 }
 
 export interface DBCommunicationTemplate {
   id?: string;
   institute_id: string;
-  event_type: 'ATTENDANCE_ABSENT' | 'FEE_REMINDER';
-  channel: 'SMS' | 'WHATSAPP' | 'PUSH' | 'EMAIL';
+  event_type: 'ATTENDANCE_ABSENT' | 'FEE_REMINDER' | string;
+  channel: 'SMS' | 'WHATSAPP' | 'PUSH' | 'EMAIL' | string;
   is_active: boolean;
   template_body: string;
   updated_at?: string;
@@ -53,187 +29,177 @@ export interface DBJobCommunication {
   job_code: string;
   actor_name: string;
   actor_role: string;
-  message_type: 'note' | 'revision' | 'system';
+  message_type?: string;
   message: string;
+  timestamp?: string;
   created_at?: string;
 }
 
-// 1. Fetch Core Institute Settings from Database
-export async function fetchInstituteSettings(
-  instituteId: string
-): Promise<DBInstituteSettings | null> {
-  if (!instituteId) return null;
-  try {
-    const { data, error } = await supabase
-      .from('institute_settings')
-      .select('*')
-      .eq('institute_id', instituteId)
-      .maybeSingle();
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.readAsDataURL(file);
+  });
+}
 
-    if (error) {
-      console.warn('[Supabase] Failed to fetch institute settings:', error);
-      return null;
-    }
-    return data as DBInstituteSettings;
-  } catch (err) {
-    console.error('[Supabase] Error querying institute_settings:', err);
+export async function fetchInstituteSettings(instId: string): Promise<DBInstituteSettings | null> {
+  if (!instId) return null;
+  try {
+    const res = await serverCall('getInstituteSettings', { instId });
+    return (res?.settings as DBInstituteSettings) || null;
+  } catch (e) {
+    console.warn('[Settings Proxy] fetchInstituteSettings exception:', e);
     return null;
   }
 }
 
-// 2. Upsert Core Institute Settings to Database
 export async function saveInstituteSettings(
   settings: DBInstituteSettings
 ): Promise<{ success: boolean; error?: string }> {
-  if (!settings.institute_id) return { success: false, error: 'Institute ID is required.' };
   try {
-    const payload = {
-      ...settings,
-      updated_at: new Date().toISOString(),
-    };
-    const { error } = await supabase
-      .from('institute_settings')
-      .upsert(payload, { onConflict: 'institute_id' });
-
-    if (error) {
-      console.error('[Supabase] Upsert error on institute_settings:', error);
-      return { success: false, error: error.message };
+    const res = await serverCall('updateInstituteSettings', {
+      instId: settings.institute_id,
+      paper_header: settings.paper_header ?? '',
+      paper_footer: settings.paper_footer ?? '',
+      alert_paper_threshold: settings.alert_paper_threshold ?? 10,
+      alert_doc_threshold: settings.alert_doc_threshold ?? 50,
+      allow_teacher_contacts: settings.allow_teacher_contacts ?? true,
+      allow_teacher_edit: settings.allow_teacher_edit ?? false,
+    });
+    if (!res?.success) {
+      return { success: false, error: res?.message || 'Failed to save institute settings.' };
     }
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Unknown network error' };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Save failed' };
   }
 }
 
-// 3. Fetch Multi-Channel Templates from Database
-export async function fetchCommunicationTemplates(
-  instituteId: string
-): Promise<DBCommunicationTemplate[]> {
-  if (!instituteId) return [];
+export async function fetchCommunicationTemplates(instId: string): Promise<DBCommunicationTemplate[]> {
+  if (!instId) return [];
   try {
-    const { data, error } = await supabase
-      .from('communication_templates')
-      .select('*')
-      .eq('institute_id', instituteId);
-
-    if (error) {
-      console.warn('[Supabase] Failed to fetch communication templates:', error);
-      return [];
-    }
-    return (data || []) as DBCommunicationTemplate[];
-  } catch (err) {
-    console.error('[Supabase] Error querying communication_templates:', err);
+    const res = await serverCall('getInstituteSettings', { instId });
+    return Array.isArray(res?.templates) ? (res.templates as DBCommunicationTemplate[]) : [];
+  } catch (e) {
+    console.warn('[Settings Proxy] fetchCommunicationTemplates exception:', e);
     return [];
   }
 }
 
-// 4. Upsert Multi-Channel Templates to Database
 export async function saveCommunicationTemplates(
   templates: DBCommunicationTemplate[]
 ): Promise<{ success: boolean; error?: string }> {
-  if (!templates || templates.length === 0) return { success: true };
+  if (!Array.isArray(templates) || templates.length === 0) return { success: true };
   try {
-    const payload = templates.map((t) => ({
-      ...t,
-      updated_at: new Date().toISOString(),
-    }));
+    const instId = templates[0].institute_id;
+    const channels = { sms: false, wa: false, push: false, email: false };
+    const feeChannels = { sms: false, wa: false, push: false, email: false };
+    let attTemplate = '';
+    let feeTemplate = '';
 
-    const { error } = await supabase
-      .from('communication_templates')
-      .upsert(payload, { onConflict: 'institute_id, event_type, channel' });
+    for (const tpl of templates) {
+      const ch = String(tpl.channel || '').toUpperCase();
+      const target = tpl.event_type === 'FEE_REMINDER' ? feeChannels : channels;
+      if (ch === 'SMS') target.sms = Boolean(tpl.is_active);
+      else if (ch === 'WHATSAPP') target.wa = Boolean(tpl.is_active);
+      else if (ch === 'PUSH') target.push = Boolean(tpl.is_active);
+      else if (ch === 'EMAIL') target.email = Boolean(tpl.is_active);
 
-    if (error) {
-      console.error('[Supabase] Upsert error on communication_templates:', error);
-      return { success: false, error: error.message };
+      if (tpl.event_type === 'FEE_REMINDER' && tpl.template_body) {
+        feeTemplate = tpl.template_body;
+      } else if (tpl.event_type !== 'FEE_REMINDER' && tpl.template_body) {
+        attTemplate = tpl.template_body;
+      }
+    }
+
+    const existing = await fetchInstituteSettings(instId);
+    const res = await serverCall('updateInstituteSettings', {
+      instId,
+      paper_header: existing?.paper_header ?? '',
+      paper_footer: existing?.paper_footer ?? '',
+      alert_paper_threshold: existing?.alert_paper_threshold ?? 10,
+      alert_doc_threshold: existing?.alert_doc_threshold ?? 50,
+      allow_teacher_contacts: existing?.allow_teacher_contacts ?? true,
+      allow_teacher_edit: existing?.allow_teacher_edit ?? false,
+      channels,
+      feeChannels,
+      attTemplate,
+      feeTemplate,
+    });
+    if (!res?.success) {
+      return { success: false, error: res?.message || 'Failed to save templates.' };
     }
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Unknown network error' };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Template save failed' };
   }
 }
 
-// 5. Upload Brand Logo to Storage and Sync to Institutes Table
 export async function uploadLogoToStorage(
-  instituteId: string,
-  userCode: string,
+  instId: string,
+  instCode: string,
   file: File
 ): Promise<{ success: boolean; url?: string; error?: string }> {
-  if (!file || !instituteId) return { success: false, error: 'Missing file or institute ID' };
   try {
-    const fileExt = file.name.split('.').pop() || 'jpg';
-    const fileName = `logo_${userCode || instituteId}_${Date.now()}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('logo')
-      .upload(fileName, file, { contentType: file.type || 'image/jpeg', upsert: true });
-
-    if (uploadError) {
-      console.error('[Supabase Storage] Logo upload failed:', uploadError);
-      return { success: false, error: uploadError.message };
+    const fileBase64 = await fileToBase64(file);
+    const res = await serverCall('updateInstituteLogo', {
+      instId,
+      instCode,
+      fileBase64,
+      mimeType: file.type || 'image/png',
+    });
+    if (!res?.success || !res?.url) {
+      return { success: false, error: res?.message || 'Logo upload failed.' };
     }
-
-    const { data: pubData } = supabase.storage.from('logo').getPublicUrl(fileName);
-    const publicUrl = pubData?.publicUrl;
-
-    if (publicUrl) {
-      await supabase.from('institutes').update({ logo_url: publicUrl }).eq('id', instituteId);
-      return { success: true, url: publicUrl };
-    }
-    return { success: false, error: 'Could not obtain public URL.' };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Upload failed' };
+    return { success: true, url: String(res.url) };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Logo upload failed.' };
   }
 }
 
-// 6. Fetch Job Timeline Communications
-export async function fetchJobCommunications(
-  jobCode: string
-): Promise<DBJobCommunication[]> {
-  if (!jobCode) return [];
+export async function fetchJobCommunications(jobId: string): Promise<DBJobCommunication[]> {
+  if (!jobId) return [];
   try {
-    const { data, error } = await supabase
-      .from('job_communications')
-      .select('*')
-      .eq('job_code', jobCode)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.warn('[Supabase] Failed to fetch job communications:', error);
-      return [];
-    }
-    return (data || []) as DBJobCommunication[];
-  } catch (err) {
-    console.error('[Supabase] Error loading job_communications:', err);
+    const res = await serverCall('getJobTimeline', { jobId });
+    const list = Array.isArray(res?.history) ? res.history : Array.isArray(res?.timeline) ? res.timeline : [];
+    return list.map((item: any) => ({
+      id: item.id,
+      job_code: jobId,
+      actor_name: item.actorName || item.actor_name || 'User',
+      actor_role: item.actorRole || item.actor_role || 'Staff',
+      message_type: item.type || item.message_type || 'note',
+      message: item.message || '',
+      timestamp: item.timestamp,
+      created_at: item.created_at,
+    }));
+  } catch (e) {
+    console.warn('[JobChat Proxy] fetchJobCommunications failed:', e);
     return [];
   }
 }
 
-// 7. Insert New Message to Job Communications (Instant Chat)
-export async function sendJobCommunication(
-  msg: DBJobCommunication
-): Promise<{ success: boolean; data?: DBJobCommunication; error?: string }> {
-  if (!msg.job_code || !msg.message) return { success: false, error: 'Message cannot be empty.' };
+export async function sendJobCommunication(payload: {
+  job_id: string;
+  sender_name?: string;
+  sender_role?: string;
+  message_type?: string;
+  message: string;
+}): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const { data, error } = await supabase
-      .from('job_communications')
-      .insert([
-        {
-          job_code: msg.job_code,
-          actor_name: msg.actor_name || 'User',
-          actor_role: msg.actor_role || 'Staff',
-          message_type: msg.message_type || 'note',
-          message: msg.message,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[Supabase] Insert error on job_communications:', error);
-      return { success: false, error: error.message };
+    const res = await serverCall('addJobTimelineEvent', {
+      jobId: payload.job_id,
+      message: payload.message,
+      actorName: payload.sender_name,
+      actorRole: payload.sender_role,
+      mode: payload.message_type === 'revision' ? 'revision' : 'note',
+    });
+    if (!res?.success) {
+      return { success: false, error: res?.message || 'Failed to send message.' };
     }
-    return { success: true, data: data as DBJobCommunication };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Network error' };
+    return { success: true, data: res.event || res.data || null };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Failed to send message.' };
   }
 }

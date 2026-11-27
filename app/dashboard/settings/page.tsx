@@ -618,89 +618,8 @@ export default function SettingsPage() {
         }
       }
 
-      // 2. Direct Database Upsert to `institute_settings` Table
-      const settingsPayload = {
-        institute_id: instId,
-        paper_header: headerTagline,
-        paper_footer: footerAddress,
-        alert_paper_threshold: Number(alertPaper) || 10,
-        alert_doc_threshold: Number(alertDoc) || 50,
-        allow_teacher_contacts: secContacts,
-        allow_teacher_edit: secEdit,
-      };
-
-      const settingsResult = await saveInstituteSettings(settingsPayload);
-      if (!settingsResult.success) {
-        throw new Error(settingsResult.error || 'Failed to update institute_settings');
-      }
-
-      // 3. Direct Database Upsert to `communication_templates` Table
-      const commsPayload: DBCommunicationTemplate[] = [
-        {
-          institute_id: instId,
-          event_type: 'ATTENDANCE_ABSENT',
-          channel: 'SMS',
-          is_active: chanSms,
-          template_body: attTemplate,
-        },
-        {
-          institute_id: instId,
-          event_type: 'ATTENDANCE_ABSENT',
-          channel: 'WHATSAPP',
-          is_active: chanWa,
-          template_body: attTemplate,
-        },
-        {
-          institute_id: instId,
-          event_type: 'ATTENDANCE_ABSENT',
-          channel: 'PUSH',
-          is_active: chanPush,
-          template_body: attTemplate,
-        },
-        {
-          institute_id: instId,
-          event_type: 'ATTENDANCE_ABSENT',
-          channel: 'EMAIL',
-          is_active: chanEmail,
-          template_body: attTemplate,
-        },
-        {
-          institute_id: instId,
-          event_type: 'FEE_REMINDER',
-          channel: 'SMS',
-          is_active: feeChanSms,
-          template_body: feeTemplate,
-        },
-        {
-          institute_id: instId,
-          event_type: 'FEE_REMINDER',
-          channel: 'WHATSAPP',
-          is_active: feeChanWa,
-          template_body: feeTemplate,
-        },
-        {
-          institute_id: instId,
-          event_type: 'FEE_REMINDER',
-          channel: 'PUSH',
-          is_active: feeChanPush,
-          template_body: feeTemplate,
-        },
-        {
-          institute_id: instId,
-          event_type: 'FEE_REMINDER',
-          channel: 'EMAIL',
-          is_active: feeChanEmail,
-          template_body: feeTemplate,
-        },
-      ];
-
-      const commsResult = await saveCommunicationTemplates(commsPayload);
-      if (!commsResult.success) {
-        throw new Error(commsResult.error || 'Failed to update communication_templates');
-      }
-
-      // 4. Secondary sync to Vercel Gateway (Non-blocking background notification)
-      serverCall('updateInstituteSettings', {
+      // 2. Save Institute Settings & Communication Routing in one authenticated Gateway call
+      const res = await serverCall('updateInstituteSettings', {
         instId,
         headerTagline,
         footerAddress,
@@ -713,7 +632,11 @@ export default function SettingsPage() {
         attTemplate,
         feeChannels: { sms: feeChanSms, wa: feeChanWa, push: feeChanPush, email: feeChanEmail },
         feeTemplate,
-      }).catch((e) => console.warn('[Gateway Sync]:', e));
+      });
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to save institute settings.');
+      }
 
       // 5. Update baseline state so isDirty clears
       setInitialAdminState({

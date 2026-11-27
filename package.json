@@ -1,6 +1,6 @@
 {
   "name": "etk-frontend",
-  "version": "2.9.59",
+  "version": "2.9.60",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +10,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.119.2",
     "clsx": "^2.1.1",
     "cropperjs": "^1.5.13",
     "firebase": "^13.4.0",

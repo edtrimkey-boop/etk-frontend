@@ -4,8 +4,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useRouter } from 'next/navigation';
 import { MemoryStore, serverCall } from '@/lib/api-client';
 import { playSound } from '@/lib/sound';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/pricing';
-import { supabase } from '@/lib/supabase';
 import { syncDeviceSession, requestAndRegisterPush, subscribeForegroundPush } from '@/lib/firebase';
 
 export interface NotificationItem {
@@ -301,45 +299,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       if (res && res.profile) {
         const mergedUser = { ...cachedUser, ...res.profile };
-        
-        // Auto-resolve Supabase Institute UUID if missing or short code
-        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!mergedUser.institute_id || !UUID_REGEX.test(mergedUser.institute_id)) {
-          const instCode = mergedUser.code || mergedUser.instId;
-          const instEmail = mergedUser.email;
-          const headers = {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          };
-          try {
-            let resolvedId: string | null = null;
-            if (instCode && instCode !== 'all') {
-              const checkRes = await fetch(
-                `${SUPABASE_URL}/rest/v1/institutes?institute_code=eq.${encodeURIComponent(instCode)}&select=id&limit=1`,
-                { headers }
-              );
-              if (checkRes.ok) {
-                const data = await checkRes.json();
-                if (data?.[0]?.id) resolvedId = data[0].id;
-              }
-            }
-            if (!resolvedId && instEmail) {
-              const checkRes = await fetch(
-                `${SUPABASE_URL}/rest/v1/institutes?admin_email=eq.${encodeURIComponent(instEmail)}&select=id&limit=1`,
-                { headers }
-              );
-              if (checkRes.ok) {
-                const data = await checkRes.json();
-                if (data?.[0]?.id) resolvedId = data[0].id;
-              }
-            }
-            if (resolvedId) {
-              mergedUser.institute_id = resolvedId;
-            }
-          } catch (resErr) {
-            console.warn('[Dashboard] Institute UUID resolution warning:', resErr);
-          }
-        }
 
         setUser(mergedUser);
         MemoryStore.setUser(mergedUser);
@@ -504,106 +463,38 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user?.email, fireDedupedNotificationToast]);
 
-  // 2. Master Supabase Realtime Engine (In-App Toasts, Bell Alerts, Live Job Queue)
+  // 2. Adaptive Background Sync Engine (Backend Gateway Polling + Focus Sync)
   useEffect(() => {
     if (!user?.id) return;
 
-    const sessionToken = MemoryStore.getToken();
-    if (sessionToken) {
-      try {
-        supabase.realtime.setAuth(sessionToken);
-      } catch {}
-    }
+    const triggerDebouncedSync = () => {
+      if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+      realtimeDebounceRef.current = setTimeout(() => {
+        refreshData(true);
+      }, 400);
+    };
 
-    const channelName = `system-events-${user.id}`;
-    const channel = supabase
-      .channel(channelName)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (pgPayload) => {
-        const notif: any = pgPayload.new;
-        const curUser = userRef.current;
-        if (!curUser || !notif) return;
+    const syncInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      refreshData(true);
+    }, 12000);
 
-        // Parse array or Postgres string arrays cleanly
-        const parseArr = (val: any): string[] => {
-          if (Array.isArray(val)) return val.map((x) => String(x).trim().toLowerCase());
-          if (typeof val === 'string') {
-            return val
-              .replace(/[{}]/g, '')
-              .split(',')
-              .map((x) => x.trim().toLowerCase())
-              .filter(Boolean);
-          }
-          return [];
-        };
+    const onVisibilityOrFocus = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        triggerDebouncedSync();
+      }
+    };
 
-        const tUsers = parseArr(notif.target_users);
-        const tRoles = parseArr(notif.target_roles);
-        const myId = String(curUser.id || '').toLowerCase();
-        const myRole = String(curUser.role || '').trim().toLowerCase();
-        const myRoleAlt = myRole.replace(/\s+/g, '_');
-        const myInstId = String(curUser.institute_id || curUser.instId || '').toLowerCase();
-
-        const isTargetedUser = myId !== '' && tUsers.includes(myId);
-        const isTargetedRole =
-          myRole !== '' &&
-          (tRoles.includes(myRole) || tRoles.includes(myRoleAlt) || tRoles.includes('all'));
-        const isGlobalWorker = ['operator', 'system admin', 'super admin', 'super_admin'].includes(myRole);
-        const isMyInstitute =
-          !notif.institute_id || isGlobalWorker || String(notif.institute_id).toLowerCase() === myInstId;
-
-        if ((isTargetedUser || isTargetedRole) && isMyInstitute) {
-          const refId = notif.reference_id;
-          const isViewingThisChat =
-            activeModalRef.current === 'jobChat' &&
-            Boolean(refId) &&
-            String(modalDataRef.current?.jobId || '').toUpperCase() === String(refId).toUpperCase();
-
-          if (isViewingThisChat) {
-            try {
-              const hash = (String(notif.title || '') + String(notif.message || '')).substring(0, 50);
-              const localHashes: string[] = JSON.parse(localStorage.getItem('read_notif_hashes') || '[]');
-              if (!localHashes.includes(hash)) {
-                localHashes.push(hash);
-                localStorage.setItem('read_notif_hashes', JSON.stringify(localHashes));
-              }
-            } catch {}
-          } else {
-            fireDedupedNotificationToast(notif.title || 'System Alert', notif.message || '');
-          }
-
-          const newNotif: NotificationItem = {
-            id: notif.id,
-            title: notif.title || 'System Alert',
-            msg: notif.message || '',
-            time: new Date(notif.created_at || Date.now()).toLocaleTimeString('en-IN', {
-              timeZone: 'Asia/Kolkata',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true,
-            }),
-            isRead: isViewingThisChat,
-            refId,
-          };
-
-          setNotifications((prev) => {
-            if (newNotif.id && prev.some((p) => p.id === newNotif.id)) return prev;
-            return [newNotif, ...prev];
-          });
-        }
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs_queue' }, () => {
-        if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
-        realtimeDebounceRef.current = setTimeout(() => {
-          refreshData(true);
-        }, 800);
-      })
-      .subscribe();
+    window.addEventListener('focus', onVisibilityOrFocus);
+    document.addEventListener('visibilitychange', onVisibilityOrFocus);
 
     return () => {
+      clearInterval(syncInterval);
       if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
-      supabase.removeChannel(channel);
+      window.removeEventListener('focus', onVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', onVisibilityOrFocus);
     };
-  }, [user?.id, refreshData, fireDedupedNotificationToast]);
+  }, [user?.id, refreshData]);
 
   return (
     <DashboardContext.Provider

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
-import { supabase, fetchJobCommunications, DBJobCommunication } from '@/lib/supabase';
+import { fetchJobCommunications, DBJobCommunication } from '@/lib/supabase';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { playSound } from '@/lib/sound';
 
@@ -71,126 +71,61 @@ export default function JobChatModal() {
     if (!silent) setLoading(true);
 
     try {
-      // 1. Direct Supabase load (Zero Latency)
+      // Load timeline exclusively through authenticated backend gateway
       const dbRows = await fetchJobCommunications(jobId);
-      if (dbRows && dbRows.length > 0) {
-        const mapped = dbRows.map(formatDBMessage);
-        latestMessageIdsRef.current = new Set(dbRows.map((r) => r.id || `${r.created_at}-${r.message}`));
-        setMessages((prev) => {
-          // Keep genuinely in-flight optimistic messages that have not yet landed in DB
-          const stillPending = prev.filter(
-            (m) =>
-              m.isOptimistic &&
-              !mapped.slice(-5).some(
-                (dbm) =>
-                  dbm.message === m.message &&
-                  dbm.actorName.toLowerCase() === m.actorName.toLowerCase()
-              )
-          );
-          return [...mapped, ...stillPending];
-        });
-      } else {
-        // Fallback to server gateway
-        const res = await serverCall('getJobTimeline', { jobId });
-        if (res && res.success && Array.isArray(res.history)) {
-          const formatted: ChatMessage[] = res.history.map((h: any) => ({
-            id: h.id || Math.random().toString(),
-            type: h.type,
-            actorName: h.actorName,
-            actorRole: h.actorRole,
-            message: h.message,
-            timestamp: h.timestamp || '',
-            status: 'delivered' as const,
-          }));
-          setMessages(formatted);
-        } else {
-          setMessages([]);
-        }
+      const formatted = dbRows.map(formatDBMessage);
+      const incomingNonMe = formatted.filter(
+        (m) =>
+          m.id &&
+          !latestMessageIdsRef.current.has(m.id) &&
+          !(
+            m.actorName.toLowerCase() === myFirstName.toLowerCase() &&
+            m.actorRole.toLowerCase() === myRole.toLowerCase()
+          )
+      );
+      if (latestMessageIdsRef.current.size > 0 && incomingNonMe.length > 0 && silent) {
+        playSound('notification');
       }
+      latestMessageIdsRef.current = new Set(dbRows.map((r, i) => r.id || `${r.created_at || i}-${r.message}`));
+
+      setMessages((prev) => {
+        const stillPending = prev.filter(
+          (m) =>
+            m.isOptimistic &&
+            !formatted.slice(-5).some(
+              (dbm) =>
+                dbm.message === m.message &&
+                dbm.actorName.toLowerCase() === m.actorName.toLowerCase()
+            )
+        );
+        return [...formatted, ...stillPending];
+      });
+      setIsLiveConnected(true);
     } catch (err: any) {
+      setIsLiveConnected(false);
       console.warn('[JobChatModal] Failed to load messages:', err);
     } finally {
       if (!silent) setLoading(false);
       setTimeout(() => scrollToBottom(false), 80);
     }
-  }, [jobId, formatDBMessage]);
+  }, [jobId, myFirstName, myRole, formatDBMessage]);
 
-  // Real-Time Supabase Subscription (WhatsApp Instant Delivery)
+  // Adaptive Live Polling Sync via Authenticated Backend Gateway
   useEffect(() => {
     if (!isOpen || !jobId) return;
 
     fetchTimeline(false);
 
-    // Subscribe to live Postgres changes for this exact job code
-    const channelName = `chat-${jobId}-${Date.now()}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'job_communications',
-          filter: `job_code=eq.${jobId}`,
-        },
-        (payload) => {
-          const newRow = payload.new as DBJobCommunication;
-          const msgKey = newRow.id || `${newRow.created_at}-${newRow.message}`;
-
-          if (latestMessageIdsRef.current.has(msgKey)) return;
-          latestMessageIdsRef.current.add(msgKey);
-
-          const isFromMe =
-            newRow.actor_name?.toLowerCase() === myFirstName.toLowerCase() &&
-            newRow.actor_role?.toLowerCase() === myRole.toLowerCase();
-
-          // WhatsApp Chime for incoming message from other party
-          if (!isFromMe) {
-            playSound('notification');
-          }
-
-          const formatted = formatDBMessage(newRow);
-
-          setMessages((prev) => {
-            if (formatted.id && prev.some((m) => m.id === formatted.id)) {
-              return prev;
-            }
-
-            // Replace optimistic pending message if it matches text and actor
-            const foundIndex = prev.findIndex(
-              (m) =>
-                m.isOptimistic &&
-                m.message === newRow.message &&
-                m.actorName.toLowerCase() === newRow.actor_name.toLowerCase()
-            );
-
-            if (foundIndex !== -1) {
-              const next = [...prev];
-              next[foundIndex] = formatted;
-              return next;
-            }
-
-            return [...prev, formatted];
-          });
-
-          setTimeout(() => scrollToBottom(true), 60);
-        }
-      )
-      .subscribe((status) => {
-        setIsLiveConnected(status === 'SUBSCRIBED');
-      });
-
-    // 3-second heartbeat polling fallback in case browser throttles socket
     const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       fetchTimeline(true);
-    }, 3000);
+    }, 2500);
 
     return () => {
       clearInterval(pollInterval);
-      supabase.removeChannel(channel);
       setIsLiveConnected(false);
     };
-  }, [isOpen, jobId, myFirstName, myRole, fetchTimeline, formatDBMessage]);
+  }, [isOpen, jobId, fetchTimeline]);
 
   if (!isOpen) return null;
 

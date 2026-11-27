@@ -21,9 +21,11 @@ import {
   getPrevClassName,
   getTodayIsoDate,
   preloadImageAsDataUrl,
+  uploadStudentPhotoBlobToStorage,
   uploadStudentPhotoToStorage,
 } from '@/lib/admissions';
 import { AdmissionFormLivePreview } from '@/components/admission/AdmissionFormLivePreview';
+import { PassportPhotoCropModal } from '@/components/admission/PassportPhotoCropModal';
 
 function CloseIconBtn({ onClick }: { onClick: () => void }) {
   return (
@@ -79,6 +81,9 @@ export function AdmissionFormModal({
   const [autoAdmNo, setAutoAdmNo] = useState<boolean>(true);
   const [autoRollNo, setAutoRollNo] = useState<boolean>(true);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string>('');
   const [mobilePane, setMobilePane] = useState<'form' | 'preview'>('form');
   const [isMobile, setIsMobile] = useState(false);
@@ -96,6 +101,9 @@ export function AdmissionFormModal({
   useEffect(() => {
     if (!open) return;
     setPhotoFile(null);
+    setCroppedBlob(null);
+    setCropModalOpen(false);
+    setCropImageSrc('');
     setMobilePane('form');
     if (initialRecord) {
       const alreadyEnrolled =
@@ -205,12 +213,16 @@ export function AdmissionFormModal({
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return;
+    if (file.size > 8 * 1024 * 1024) return;
     setPhotoFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
-      if (typeof ev.target?.result === 'string') setPhotoPreview(ev.target.result);
+      if (typeof ev.target?.result === 'string') {
+        setCropImageSrc(ev.target.result);
+        setCropModalOpen(true);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -230,7 +242,13 @@ export function AdmissionFormModal({
     try {
       const targetAdmNo = autoAdmNo ? liveAdmNoPreview : form.admissionNo.trim().toUpperCase();
       let finalPhotoUrl = form.photoUrl;
-      if (photoFile && instId) {
+      if (croppedBlob && instId && (!finalPhotoUrl || finalPhotoUrl.startsWith('data:'))) {
+        const up = await uploadStudentPhotoBlobToStorage(instId, targetAdmNo, croppedBlob);
+        if (up.success && up.url) {
+          finalPhotoUrl = up.url;
+          preloadImageAsDataUrl(up.url).catch(() => {});
+        }
+      } else if (!croppedBlob && photoFile && instId && (!finalPhotoUrl || finalPhotoUrl.startsWith('data:'))) {
         const up = await uploadStudentPhotoToStorage(instId, targetAdmNo, photoFile);
         if (up.success && up.url) {
           finalPhotoUrl = up.url;
@@ -593,7 +611,22 @@ export function AdmissionFormModal({
                   </div>
                 )}
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="label-text">Passport Photo (Optional)</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label className="label-text" style={{ marginBottom: 0 }}>Passport Photo (35×45 Crop)</label>
+                    {photoPreview && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCropImageSrc(photoPreview);
+                          setCropModalOpen(true);
+                        }}
+                        className="btn-outline btn-xs"
+                        style={{ padding: '2px 8px', fontSize: '10px', cursor: 'pointer' }}
+                      >
+                        Crop Again
+                      </button>
+                    )}
+                  </div>
                   <label
                     className="upload-box"
                     style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: 0 }}
@@ -602,13 +635,13 @@ export function AdmissionFormModal({
                       <img
                         src={photoPreview}
                         alt="Student"
-                        style={{ width: '34px', height: '34px', borderRadius: '8px', objectFit: 'cover' }}
+                        style={{ width: '32px', height: '40px', borderRadius: '6px', objectFit: 'cover' }}
                       />
                     ) : null}
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                      {photoFile ? photoFile.name : photoPreview ? 'Change Student Photo' : 'Click to upload photo (JPG/PNG)'}
+                      {photoFile ? `Cropped: ${photoFile.name}` : photoPreview ? 'Upload New / Change Photo' : 'Select & Crop Passport Photo'}
                     </span>
-                    <input type="file" accept="image/png, image/jpeg, image/jpg" style={{ display: 'none' }} onChange={handlePhotoChange} />
+                    <input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" style={{ display: 'none' }} onChange={handlePhotoChange} />
                   </label>
                 </div>
               </div>
@@ -965,6 +998,21 @@ export function AdmissionFormModal({
           </div>
         </form>
       </div>
+
+      <PassportPhotoCropModal
+        open={cropModalOpen}
+        imageSrc={cropImageSrc}
+        instId={instId}
+        admissionNo={liveAdmNoPreview}
+        onClose={() => setCropModalOpen(false)}
+        onCropped={({ dataUrl, publicUrl, blob }) => {
+          setPhotoPreview(dataUrl);
+          setCroppedBlob(blob);
+          if (publicUrl) {
+            setForm((prev) => ({ ...prev, photoUrl: publicUrl }));
+          }
+        }}
+      />
     </div>
   );
 }

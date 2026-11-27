@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
-import { supabase } from '@/lib/supabase';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
 import IOSSpinner from '@/components/ui/IOSSpinner';
@@ -30,8 +29,8 @@ export default function OperatorWorkspacePage() {
       .sort((a: any, b: any) => new Date(a.deadline || 0).getTime() - new Date(b.deadline || 0).getTime());
   }, [payload]);
 
-  const loadTimeline = async (jobId: string) => {
-    setLoadingChat(true);
+  const loadTimeline = async (jobId: string, silent = false) => {
+    if (!silent) setLoadingChat(true);
     try {
       const res = await serverCall('getJobTimeline', { jobId });
       if (res?.success && Array.isArray(res.history)) {
@@ -39,7 +38,7 @@ export default function OperatorWorkspacePage() {
       }
     } catch {}
     finally {
-      setLoadingChat(false);
+      if (!silent) setLoadingChat(false);
     }
   };
 
@@ -47,35 +46,13 @@ export default function OperatorWorkspacePage() {
     if (!activeJob?.id) return;
     loadTimeline(activeJob.id);
 
-    const ch = supabase
-      .channel(`op-ws-chat-${activeJob.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'job_communications', filter: `job_code=eq.${activeJob.id}` },
-        (pgPayload: any) => {
-          const row = pgPayload.new;
-          if (!row) return;
-          setMessages((prev) => [
-            ...prev,
-            {
-              type: row.message_type || 'note',
-              actorName: row.actor_name || 'User',
-              actorRole: row.actor_role || 'Staff',
-              message: row.message,
-              timestamp: new Date(row.created_at || Date.now()).toLocaleTimeString('en-IN', {
-                timeZone: 'Asia/Kolkata',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true,
-              }),
-            },
-          ]);
-        }
-      )
-      .subscribe();
+    const poll = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      loadTimeline(activeJob.id, true);
+    }, 3000);
 
     return () => {
-      supabase.removeChannel(ch);
+      clearInterval(poll);
     };
   }, [activeJob?.id]);
 

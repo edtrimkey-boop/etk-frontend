@@ -128,13 +128,15 @@ export function AdmissionFormLivePreview({
                 zIndex: 1,
               }}
             >
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              {/* Header (Symmetrically centered on A4 frame axis) */}
+              <div style={{ position: 'relative', minHeight: '86px' }}>
                 <div
                   style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '2px',
                     width: '62px',
                     height: '62px',
-                    flexShrink: 0,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -144,10 +146,16 @@ export function AdmissionFormLivePreview({
                   <img
                     src={logoSrc}
                     alt="Institute Logo"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                   />
                 </div>
-                <div style={{ flex: 1, textAlign: 'center', paddingRight: '10px' }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    paddingLeft: (template.branding.headerTitle || '').length > 26 ? '66px' : '64px',
+                    paddingRight: (template.branding.headerTitle || '').length > 26 ? '8px' : '64px',
+                  }}
+                >
                   <div
                     style={{
                       fontSize: (template.branding.headerTitle || '').length > 28 ? '19px' : '23px',
@@ -375,6 +383,27 @@ export function AdmissionFormLivePreview({
                     </div>
                   )}
 
+                  {rightWidget === 'admission_test_score' && (
+                    <div style={{ width: '100%', border: '1px solid #0f172a', fontSize: '8.5px' }}>
+                      <div style={{ background: '#f1f5f9', borderBottom: '1px solid #0f172a', padding: '4px 6px', fontWeight: 800, textAlign: 'center' }}>
+                        ENTRANCE / SCHOLARSHIP EVAL
+                      </div>
+                      <div style={{ padding: '7px 8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {[
+                          'Test / Scholarship Roll:',
+                          'Marks / Percentile:',
+                          'Batch / Stream Allotted:',
+                          'Medium / Board:',
+                          'Counselor Approval:',
+                        ].map((lbl) => (
+                          <div key={lbl} style={{ borderBottom: '1px solid #cbd5e1', paddingBottom: '2px', fontSize: '8px', fontWeight: 700, color: '#475569' }}>
+                            {lbl}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {rightWidget === 'office_remarks' && (
                     <div style={{ width: '100%', border: '1px solid #0f172a', fontSize: '8.5px' }}>
                       <div style={{ background: '#f1f5f9', borderBottom: '1px solid #0f172a', padding: '4px 6px', fontWeight: 800, textAlign: 'center' }}>
@@ -409,6 +438,49 @@ export function AdmissionFormLivePreview({
                         ))}
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              )}
+
+              {bottomWidget === 'transport_hostel_strip' && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '7.5px', marginTop: '10px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      {['TRANSPORT / BUS ROUTE', 'HOSTEL / DAY SCHOLAR', 'EMERGENCY CONTACT', 'MEDICAL / ALLERGIES'].map((h) => (
+                        <th key={h} style={{ border: '1px solid #0f172a', padding: '3px 4px', textAlign: 'center', width: '25%' }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {[1, 2, 3, 4].map((c) => (
+                        <td key={c} style={{ border: '1px solid #0f172a', height: '24px' }} />
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+
+              {bottomWidget === 'coaching_batch_strip' && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '7.5px', marginTop: '10px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      {['TARGET EXAM / STREAM', 'BATCH TIMING & MEDIUM', 'STUDY MODULE / BOOKS', 'ID CARD & BIOMETRIC'].map((h) => (
+                        <th key={h} style={{ border: '1px solid #0f172a', padding: '3px 4px', textAlign: 'center', width: '25%' }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ border: '1px solid #0f172a', height: '24px' }} />
+                      <td style={{ border: '1px solid #0f172a', height: '24px' }} />
+                      <td style={{ border: '1px solid #0f172a', textAlign: 'center', color: '#64748b' }}>[ ] Issued  [ ] Pending</td>
+                      <td style={{ border: '1px solid #0f172a', textAlign: 'center', color: '#64748b' }}>[ ] Done    [ ] Pending</td>
+                    </tr>
                   </tbody>
                 </table>
               )}

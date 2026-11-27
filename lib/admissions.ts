@@ -1,9 +1,7 @@
 'use client';
 
 import { jsPDF } from 'jspdf';
-import { supabase } from './supabase';
 import { serverCall } from './api-client';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './pricing';
 import { ETK_LOGO_BASE64 } from './logo-base64';
 
 export const ADMISSION_CLASSES = [
@@ -36,8 +34,20 @@ export const ADMISSION_DOCUMENTS = [
 
 export type AdmissionStatus = 'Enquiry' | 'Applied' | 'Verified' | 'Admitted' | 'Cancelled';
 export type FormLayoutVariant = 'keystone' | 'modern' | 'classic' | 'compact';
-export type RightWidgetChoice = 'calling_grid' | 'fee_summary' | 'office_checklist' | 'office_remarks' | 'none';
-export type BottomWidgetChoice = 'month_grid_3x12' | 'installment_strip' | 'docs_strip' | 'none';
+export type RightWidgetChoice =
+  | 'calling_grid'
+  | 'office_checklist'
+  | 'admission_test_score'
+  | 'fee_summary'
+  | 'office_remarks'
+  | 'none';
+export type BottomWidgetChoice =
+  | 'month_grid_3x12'
+  | 'transport_hostel_strip'
+  | 'coaching_batch_strip'
+  | 'installment_strip'
+  | 'docs_strip'
+  | 'none';
 
 export interface InstituteCounters {
   lastAdmSeq: number;
@@ -244,41 +254,6 @@ export async function resolveInstituteUuid(user: any, payload: any): Promise<str
   if (payload?.profile?.institute_id && UUID_REGEX.test(payload.profile.institute_id)) {
     return payload.profile.institute_id;
   }
-
-  const headers = {
-    apikey: SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-  };
-
-  const instCode = user?.code || user?.instId || payload?.profile?.code || payload?.code;
-  const instEmail = user?.email || payload?.profile?.email;
-
-  if (instCode && instCode !== 'all') {
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/institutes?institute_code=eq.${encodeURIComponent(instCode)}&select=id&limit=1`,
-        { headers }
-      );
-      if (res.ok) {
-        const rows = await res.json();
-        if (rows?.[0]?.id) return rows[0].id;
-      }
-    } catch {}
-  }
-
-  if (instEmail) {
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/institutes?admin_email=eq.${encodeURIComponent(instEmail)}&select=id&limit=1`,
-        { headers }
-      );
-      if (res.ok) {
-        const rows = await res.json();
-        if (rows?.[0]?.id) return rows[0].id;
-      }
-    } catch {}
-  }
-
   return null;
 }
 
@@ -352,6 +327,12 @@ export async function preloadImageAsDataUrl(url?: string): Promise<string | null
     imageAssetCache.set(url, { dataUrl, ...dims });
   }
   return dataUrl;
+}
+
+export function seedCachedAsset(url: string, dataUrl: string, width = 420, height = 540): void {
+  if (!url || !dataUrl) return;
+  imageDataUrlCache.set(url, dataUrl);
+  imageAssetCache.set(url, { dataUrl, width, height });
 }
 
 export function getCachedImageDataUrl(url?: string): string | null {
@@ -641,18 +622,10 @@ export async function fetchAdmissionBootstrap(
       };
     }
   } catch (err) {
-    console.warn('[Admission] Gateway bootstrap fallback to direct Supabase:', err);
+    console.warn('[Admission] Gateway bootstrap unavailable:', err);
   }
 
-  // Fallback directly to Supabase `students` table
-  let dbStudents: any[] = [];
-  if (UUID_REGEX.test(fallbackInstId)) {
-    try {
-      dbStudents = await fetchAdmissionStudents(fallbackInstId);
-    } catch {}
-  }
-
-  const fallbackRecords = mergeStudentsAndAdmissions(fallbackInstId, dbStudents);
+  const fallbackRecords = mergeStudentsAndAdmissions(fallbackInstId, []);
   return {
     instituteId: fallbackInstId,
     records: fallbackRecords,
@@ -758,15 +731,11 @@ function mergeFullSources(
 
 export async function fetchAdmissionStudents(instituteId: string): Promise<any[]> {
   if (!instituteId) return [];
-  const { data, error } = await supabase
-    .from('students')
-    .select('*')
-    .eq('institute_id', instituteId)
-    .order('class_name', { ascending: true })
-    .order('roll_no', { ascending: true });
-
-  if (error) throw new Error(error.message || 'Failed to fetch students from Supabase.');
-  return data || [];
+  const res = await serverCall('getStudentsList', { instId: instituteId });
+  if (!res?.success) {
+    throw new Error(res?.message || 'Failed to fetch students from gateway.');
+  }
+  return Array.isArray(res.students) ? res.students : [];
 }
 
 export async function saveAdmissionRecordRemote(
@@ -814,17 +783,7 @@ export async function saveAdmissionRecordRemote(
     }
     return { success: false, error: res?.message || 'Save failed' };
   } catch (err: any) {
-    // Fallback to direct Supabase students upsert if offline from gateway
-    saveAdmissionMetaRecord(instituteId, record);
-    if (record.status === 'Admitted' && UUID_REGEX.test(instituteId)) {
-      return upsertStudentRecord(instituteId, record);
-    }
-    const pipeline = loadPipelineRecords(instituteId);
-    const idx = pipeline.findIndex((p) => p.id === record.id);
-    if (idx >= 0) pipeline[idx] = record;
-    else pipeline.unshift(record);
-    savePipelineRecords(instituteId, pipeline);
-    return { success: true, allocatedAdmissionNo: record.admissionNo, allocatedRollNo: record.rollNo };
+    return { success: false, error: err?.message || 'Network error while saving admission record.' };
   }
 }
 
@@ -894,69 +853,12 @@ export async function upsertStudentRecord(
   instituteId: string,
   record: AdmissionRecord
 ): Promise<{ success: boolean; student?: any; error?: string }> {
-  if (!instituteId) return { success: false, error: 'Institute ID is missing.' };
-
-  const rowPayload: Record<string, any> = {
-    institute_id: instituteId,
-    admission_no: record.admissionNo.trim().toUpperCase(),
-    class_name: record.className,
-    roll_no:
-      record.rollNo !== null && record.rollNo !== undefined && !Number.isNaN(Number(record.rollNo))
-        ? Number(record.rollNo)
-        : null,
-    student_name: record.studentName.trim(),
-    father_name: record.fatherName.trim(),
-    village: record.village.trim() || '-',
-    contact_no: record.contactNo.trim(),
-    dob: record.dob ? record.dob : null,
-    status: record.studentStatus || 'Active',
-    photo_url: record.photoUrl || null,
-  };
-
-  try {
-    if (record.supabaseStudentId) {
-      const { data, error } = await supabase
-        .from('students')
-        .update(rowPayload)
-        .eq('id', record.supabaseStudentId)
-        .eq('institute_id', instituteId)
-        .select()
-        .single();
-
-      if (error) return { success: false, error: error.message };
-      return { success: true, student: data };
-    }
-
-    const { data: existing } = await supabase
-      .from('students')
-      .select('id')
-      .eq('institute_id', instituteId)
-      .eq('admission_no', rowPayload.admission_no)
-      .maybeSingle();
-
-    if (existing?.id) {
-      const { data, error } = await supabase
-        .from('students')
-        .update(rowPayload)
-        .eq('id', existing.id)
-        .eq('institute_id', instituteId)
-        .select()
-        .single();
-
-      if (error) return { success: false, error: error.message };
-      return { success: true, student: data };
-    }
-
-    const { data, error } = await supabase.from('students').insert([rowPayload]).select().single();
-    if (error) return { success: false, error: error.message };
-    return { success: true, student: data };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Database write failed.' };
-  }
+  const res = await saveAdmissionRecordRemote(instituteId, record);
+  return { success: res.success, student: res.student, error: res.error };
 }
 
 export async function updateStudentClassInDb(
-  instituteId: string,
+  _instituteId: string,
   studentId: string,
   nextClass: string,
   admissionNo?: string
@@ -964,78 +866,51 @@ export async function updateStudentClassInDb(
   try {
     const res = await serverCall('promoteAdmissionStudent', { studentId, admissionNo, nextClass });
     if (res?.success) return { success: true };
-    return { success: false, error: res?.message };
-  } catch {
-    const { error } = await supabase
-      .from('students')
-      .update({ class_name: nextClass })
-      .eq('id', studentId)
-      .eq('institute_id', instituteId);
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+    return { success: false, error: res?.message || 'Class update failed.' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Network error updating class.' };
   }
 }
 
 export async function bulkPromoteClassInDb(
-  instituteId: string,
+  _instituteId: string,
   fromClass: string,
   toClass: string
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
     const res = await serverCall('bulkPromoteStudents', { fromClass, toClass });
     if (res?.success) return { success: true, count: res.count };
-    return { success: false, error: res?.message };
-  } catch {
-    const { data, error } = await supabase
-      .from('students')
-      .update({ class_name: toClass })
-      .eq('institute_id', instituteId)
-      .eq('class_name', fromClass)
-      .eq('status', 'Active')
-      .select('id');
-    if (error) return { success: false, error: error.message };
-    return { success: true, count: (data || []).length };
+    return { success: false, error: res?.message || 'Bulk promotion failed.' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Network error during bulk promotion.' };
   }
 }
 
 export async function toggleStudentStatusInDb(
-  instituteId: string,
+  _instituteId: string,
   studentId: string,
   nextStatus: 'Active' | 'Inactive'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await serverCall('toggleAdmissionStudentStatus', { studentId, nextStatus });
     if (res?.success) return { success: true };
-    return { success: false, error: res?.message };
-  } catch {
-    const { error } = await supabase
-      .from('students')
-      .update({ status: nextStatus })
-      .eq('id', studentId)
-      .eq('institute_id', instituteId);
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+    return { success: false, error: res?.message || 'Status toggle failed.' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Network error updating status.' };
   }
 }
 
 export async function deleteStudentInDb(
-  instituteId: string,
+  _instituteId: string,
   studentId?: string,
   admissionNo?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await serverCall('deleteAdmissionRecord', { studentId, admissionNo });
     if (res?.success) return { success: true };
-    return { success: false, error: res?.message };
-  } catch {
-    if (!studentId) return { success: true };
-    const { error } = await supabase
-      .from('students')
-      .delete()
-      .eq('id', studentId)
-      .eq('institute_id', instituteId);
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+    return { success: false, error: res?.message || 'Delete failed.' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Network error deleting record.' };
   }
 }
 
@@ -1092,6 +967,38 @@ async function compressStudentPhoto(file: File): Promise<Blob> {
   });
 }
 
+export async function uploadStudentPhotoBlobToStorage(
+  instituteId: string,
+  admNo: string,
+  blob: Blob
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const fileBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = String(reader.result || '');
+        resolve(raw.includes(',') ? raw.split(',')[1] : raw);
+      };
+      reader.onerror = () => reject(new Error('Failed to encode photo.'));
+      reader.readAsDataURL(blob);
+    });
+
+    const res = await serverCall('uploadStudentPhoto', {
+      instId: instituteId,
+      admNo,
+      fileBase64,
+      mimeType: blob.type || 'image/jpeg',
+    });
+
+    if (!res?.success || !res?.url) {
+      return { success: false, error: res?.message || 'Photo upload failed' };
+    }
+    return { success: true, url: String(res.url) };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Photo upload failed' };
+  }
+}
+
 export async function uploadStudentPhotoToStorage(
   instituteId: string,
   admNo: string,
@@ -1099,27 +1006,7 @@ export async function uploadStudentPhotoToStorage(
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const blob = await compressStudentPhoto(file);
-    const cleanAdm = (admNo || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const fileName = `student_${instituteId}_${cleanAdm}_${Date.now()}.jpg`;
-
-    const buckets = ['photo', 'profile_pics'];
-    let lastError = 'Upload failed';
-
-    for (const bucket of buckets) {
-      const { error } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
-      if (!error) {
-        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(fileName);
-        if (pub?.publicUrl) {
-          return { success: true, url: pub.publicUrl };
-        }
-      } else {
-        lastError = error.message;
-      }
-    }
-
-    return { success: false, error: lastError };
+    return await uploadStudentPhotoBlobToStorage(instituteId, admNo, blob);
   } catch (err: any) {
     return { success: false, error: err?.message || 'Photo upload failed' };
   }
@@ -1321,38 +1208,42 @@ function drawKeystoneFormPage(
 
   // Header Logo (Top Left — natural aspect ratio preserved, never squeezed)
   const logoAsset: CachedImageAsset | string = cachedLogoAsset || ETK_LOGO_BASE64;
-  addImageFit(doc, logoAsset, 44, 52, 64, 62, 'center');
+  addImageFit(doc, logoAsset, 44, 50, 62, 62, 'center');
 
-  const headerCenterX = 330;
+  // True center of the 527pt bordered frame (34..561 -> 297.5)
+  const frameCenterX = 298;
 
-  // Bold School Name
+  // Bold School Name (centered on frame, nudged right only if too wide to clear logo on x=112)
   const instTitle = (template.branding.headerTitle || instituteInfo.name || 'ED-TRIM KEY INSTITUTE').toUpperCase();
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(instTitle.length > 30 ? 18 : 22);
+  const titleFontSize = instTitle.length > 32 ? 17 : instTitle.length > 26 ? 19 : 21;
+  doc.setFontSize(titleFontSize);
+  const titleW = doc.getTextWidth(instTitle);
+  const headerCenterX = frameCenterX - titleW / 2 < 114 ? 328 : frameCenterX;
   doc.setTextColor(ar, ag, ab);
-  doc.text(instTitle, headerCenterX, 72, { align: 'center', maxWidth: 420 });
+  doc.text(instTitle, headerCenterX, 71, { align: 'center', maxWidth: 424 });
 
-  // Dark Pill Address Banner (Tightly fitted to exact text width)
+  // Dark Pill Address Banner (Aligned cleanly on same headerCenterX axis, tightly hugging text)
   const addrBanner = (template.branding.addressBanner || instituteInfo.address || `INSTITUTE CODE: ${instituteInfo.code || 'ETK'}`).toUpperCase();
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   const measuredAddrW = doc.getTextWidth(addrBanner);
   const pillW = Math.min(416, Math.max(120, measuredAddrW + 24));
   doc.setFillColor(15, 18, 22);
-  doc.roundedRect(headerCenterX - pillW / 2, 80, pillW, 16, 4, 4, 'F');
+  doc.roundedRect(headerCenterX - pillW / 2, 79, pillW, 16, 4, 4, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.text(addrBanner, headerCenterX, 91, { align: 'center', maxWidth: 400 });
+  doc.text(addrBanner, headerCenterX, 89.8, { align: 'center', maxWidth: 400 });
 
-  // Contact Line
+  // Contact Line (Aligned on exact same headerCenterX axis)
   const contactText = template.branding.contactLine || (instituteInfo.email ? `CONTACT : ${instituteInfo.email}` : '');
   if (contactText) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(contactText.toUpperCase(), headerCenterX, 113, { align: 'center', maxWidth: 420 });
+    doc.text(contactText.toUpperCase(), headerCenterX, 110, { align: 'center', maxWidth: 420 });
   }
 
-  // Centered Outlined ADMISSION FORM Pill (Fitted to badge text)
+  // Centered Outlined ADMISSION FORM Pill (Aligned on exact same headerCenterX axis)
   const badgeText = (template.branding.subHeader || 'ADMISSION FORM').toUpperCase();
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10.5);
@@ -1360,9 +1251,9 @@ function drawKeystoneFormPage(
   doc.setDrawColor(ar, ag, ab);
   doc.setLineWidth(1.2);
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(298 - badgeW / 2, 121, badgeW, 21, 5, 5, 'FD');
+  doc.roundedRect(headerCenterX - badgeW / 2, 119, badgeW, 21, 5, 5, 'FD');
   doc.setTextColor(15, 23, 42);
-  doc.text(badgeText, 298, 135, { align: 'center' });
+  doc.text(badgeText, headerCenterX, 133, { align: 'center' });
 
   // Meta Row: Admission No (left) & Admission Date (right)
   doc.setFont('times', 'normal');
@@ -1482,6 +1373,31 @@ function drawKeystoneFormPage(
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
     doc.text('Concession/Balance issued on Receipt PDF', rwX + rwW / 2, rwY + 111, { align: 'center' });
+  } else if (rightWidget === 'admission_test_score') {
+    doc.setDrawColor(15, 23, 42);
+    doc.setLineWidth(0.8);
+    doc.rect(rwX, rwY, rwW, 152);
+    doc.setFillColor(241, 245, 249);
+    doc.rect(rwX, rwY, rwW, 20, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('ENTRANCE / SCHOLARSHIP EVAL', rwX + rwW / 2, rwY + 13, { align: 'center' });
+    const evalRows = [
+      'Test / Scholarship Roll:',
+      'Marks / Percentile:',
+      'Batch / Stream Allotted:',
+      'Medium / Board:',
+      'Counselor Approval:',
+    ];
+    evalRows.forEach((lbl, idx) => {
+      const ey = rwY + 36 + idx * 23;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(lbl, rwX + 8, ey);
+      doc.setDrawColor(203, 213, 225);
+      doc.line(rwX + 8, ey + 6, rwX + rwW - 8, ey + 6);
+    });
   } else if (rightWidget === 'office_checklist') {
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.8);
@@ -1525,15 +1441,15 @@ function drawKeystoneFormPage(
     }
   }
 
-  // Bottom Full-Width Widget Strip
+  // Bottom Full-Width Widget Strip (Balanced vertical position between content and declaration)
   const bottomWidget = template.branding.bottomWidget || 'month_grid_3x12';
   const bwX = 43;
-  const bwY = 582;
+  const bwY = 594;
   const bwW = 509;
 
   if (bottomWidget === 'month_grid_3x12') {
     const colW = bwW / 12;
-    const rowH = 14;
+    const rowH = 15;
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.8);
     doc.rect(bwX, bwY, bwW, rowH * 3);
@@ -1548,59 +1464,95 @@ function drawKeystoneFormPage(
     doc.setTextColor(15, 23, 42);
     for (let r = 0; r < 3; r++) {
       SHORT_MONTHS.forEach((m, c) => {
-        doc.text(m, bwX + c * colW + colW / 2, bwY + r * rowH + 10, { align: 'center' });
+        doc.text(m, bwX + c * colW + colW / 2, bwY + r * rowH + 10.5, { align: 'center' });
       });
     }
+  } else if (bottomWidget === 'transport_hostel_strip') {
+    const cols = ['TRANSPORT / BUS ROUTE', 'HOSTEL / DAY SCHOLAR', 'EMERGENCY CONTACT', 'MEDICAL / ALLERGIES'];
+    const cW = bwW / 4;
+    doc.setDrawColor(15, 23, 42);
+    doc.setLineWidth(0.8);
+    doc.rect(bwX, bwY, bwW, 44);
+    doc.setFillColor(248, 250, 252);
+    doc.rect(bwX, bwY, bwW, 16, 'FD');
+    cols.forEach((title, idx) => {
+      if (idx > 0) doc.line(bwX + idx * cW, bwY, bwX + idx * cW, bwY + 44);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(15, 23, 42);
+      doc.text(title, bwX + idx * cW + cW / 2, bwY + 11, { align: 'center' });
+    });
+  } else if (bottomWidget === 'coaching_batch_strip') {
+    const cols = ['TARGET EXAM / STREAM', 'BATCH TIMING & MEDIUM', 'STUDY MODULE / BOOKS', 'ID CARD & BIOMETRIC'];
+    const cW = bwW / 4;
+    doc.setDrawColor(15, 23, 42);
+    doc.setLineWidth(0.8);
+    doc.rect(bwX, bwY, bwW, 44);
+    doc.setFillColor(248, 250, 252);
+    doc.rect(bwX, bwY, bwW, 16, 'FD');
+    cols.forEach((title, idx) => {
+      if (idx > 0) doc.line(bwX + idx * cW, bwY, bwX + idx * cW, bwY + 44);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(15, 23, 42);
+      doc.text(title, bwX + idx * cW + cW / 2, bwY + 11, { align: 'center' });
+      if (idx >= 2) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(100, 116, 139);
+        doc.text('[ ] Issued    [ ] Pending', bwX + idx * cW + cW / 2, bwY + 33, { align: 'center' });
+      }
+    });
   } else if (bottomWidget === 'installment_strip') {
     const quarters = ['QUARTER 1 (APR-JUN)', 'QUARTER 2 (JUL-SEP)', 'QUARTER 3 (OCT-DEC)', 'QUARTER 4 (JAN-MAR)'];
     const qW = bwW / 4;
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.8);
-    doc.rect(bwX, bwY, bwW, 38);
+    doc.rect(bwX, bwY, bwW, 42);
     doc.line(bwX, bwY + 16, bwX + bwW, bwY + 16);
     quarters.forEach((q, idx) => {
-      if (idx > 0) doc.line(bwX + idx * qW, bwY, bwX + idx * qW, bwY + 38);
+      if (idx > 0) doc.line(bwX + idx * qW, bwY, bwX + idx * qW, bwY + 42);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.text(q, bwX + idx * qW + qW / 2, bwY + 11, { align: 'center' });
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       doc.setTextColor(100, 116, 139);
-      doc.text('Paid / Receipt No:', bwX + idx * qW + 6, bwY + 30);
+      doc.text('Paid / Receipt No:', bwX + idx * qW + 6, bwY + 32);
       doc.setTextColor(15, 23, 42);
     });
   } else if (bottomWidget === 'docs_strip') {
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.8);
-    doc.rect(bwX, bwY, bwW, 36);
+    doc.rect(bwX, bwY, bwW, 40);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('DOCUMENTS SUBMITTED:', bwX + 10, bwY + 13);
+    doc.text('DOCUMENTS SUBMITTED:', bwX + 10, bwY + 14);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text(rec.documents.length > 0 ? rec.documents.join('  •  ') : 'None marked', bwX + 10, bwY + 27);
+    doc.text(rec.documents.length > 0 ? rec.documents.join('  •  ') : 'None marked', bwX + 10, bwY + 29);
   }
 
-  // Footer Declaration
+  // Footer Declaration (Balanced spacing below bottom strip & above signature row)
   if (template.branding.declarationText) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
-    const declLines = doc.splitTextToSize(template.branding.declarationText, 380);
-    doc.text(declLines, 298, 682, { align: 'center' });
+    const declLines = doc.splitTextToSize(template.branding.declarationText, 410);
+    doc.text(declLines, 298, 676, { align: 'center' });
   }
 
-  // Director Signature Image (if uploaded/cached — natural aspect ratio preserved)
+  // Director Signature Image & Bottom Signature Lineup (Proportionally balanced inside bottom frame y=798)
+  const dirCenterX = 480;
   if (cachedSigAsset) {
-    addImageFit(doc, cachedSigAsset, 425, 714, 108, 34, 'center');
+    addImageFit(doc, cachedSigAsset, dirCenterX - 54, 718, 108, 32, 'center');
   }
 
-  // Bottom Signatures
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(15, 23, 42);
-  doc.text("Parent's Signature", 55, 760);
-  doc.text(template.branding.signatureLabel || 'Signature of Director', 432, 760);
+  doc.text("Parent's Signature", 56, 766);
+  doc.text(template.branding.signatureLabel || 'Signature of Director', dirCenterX, 766, { align: 'center' });
 }
 
 function drawAdmissionFormPage(
@@ -1865,10 +1817,12 @@ export function generateAdmissionPaymentReceiptPdf(
   // Proportional School Crest
   addImageFit(doc, cachedLogo || ETK_LOGO_BASE64, 48, 54, 58, 56, 'center');
 
-  const centerX = 328;
+  const frameCenterX = 298;
   const instTitle = (template.branding.headerTitle || instituteInfo.name || 'ED-TRIM KEY INSTITUTE').toUpperCase();
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(instTitle.length > 30 ? 16 : 19);
+  const titleW = doc.getTextWidth(instTitle);
+  const centerX = frameCenterX - titleW / 2 < 114 ? 326 : frameCenterX;
   doc.setTextColor(ar, ag, ab);
   doc.text(instTitle, centerX, 72, { align: 'center', maxWidth: 400 });
 
@@ -1890,16 +1844,16 @@ export function generateAdmissionPaymentReceiptPdf(
     doc.text(contactText.toUpperCase(), centerX, 108, { align: 'center', maxWidth: 400 });
   }
 
-  // Title Badge
+  // Title Badge (Aligned on same axis)
   const badgeText = 'ADMISSION FEE PAYMENT RECEIPT';
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   const bw = doc.getTextWidth(badgeText) + 34;
   doc.setDrawColor(ar, ag, ab);
   doc.setFillColor(240, 249, 255);
-  doc.roundedRect(298 - bw / 2, 118, bw, 20, 5, 5, 'FD');
+  doc.roundedRect(centerX - bw / 2, 118, bw, 20, 5, 5, 'FD');
   doc.setTextColor(15, 23, 42);
-  doc.text(badgeText, 298, 131.5, { align: 'center' });
+  doc.text(badgeText, centerX, 131.5, { align: 'center' });
 
   // Meta Strip
   doc.setDrawColor(203, 213, 225);

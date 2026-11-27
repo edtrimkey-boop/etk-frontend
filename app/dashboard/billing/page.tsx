@@ -13,8 +13,6 @@ import {
   fetchLivePricingMaster,
   calculateServicePrice,
   CalculationResult,
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
   fetchInstituteQuotas,
 } from '@/lib/pricing';
 import AccessDenied from '@/components/shared/AccessDenied';
@@ -99,7 +97,7 @@ export default function BillingPage() {
 
   // ── 2. Pricing Master & Live Calculator State ───────────────────────────
   const [pricingMaster, setPricingMaster] = useState<PricingTier[]>(FALLBACK_PRICING_MASTER);
-  const [pricingSource, setPricingSource] = useState<'supabase_live' | 'gateway' | 'fallback'>('supabase_live');
+  const [pricingSource, setPricingSource] = useState<'gateway' | 'fallback'>('gateway');
   const [isSyncingPricing, setIsSyncingPricing] = useState<boolean>(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<string>('Live');
 
@@ -109,7 +107,7 @@ export default function BillingPage() {
   const [singleAppSelect, setSingleAppSelect] = useState<string>('Admission System');
   const [rechargeQuantity, setRechargeQuantity] = useState<number>(25);
 
-  // Real-time synchronization directly with Supabase pricing_master
+  // Real-time synchronization via Backend Gateway
   const refreshLivePricing = useCallback(async (showToast = false) => {
     setIsSyncingPricing(true);
     try {
@@ -125,7 +123,7 @@ export default function BillingPage() {
         setLastSyncedTime(timeStr);
         if (showToast) {
           showAlert(
-            `Pricing rules updated live from ${res.source === 'supabase_live' ? 'Supabase Database' : res.source} at ${timeStr}.`,
+            `Pricing rules updated live from ${res.source === 'gateway' ? 'Ed-Trim Key Server' : res.source} at ${timeStr}.`,
             'Live Pricing Synced'
           );
         }
@@ -267,33 +265,17 @@ export default function BillingPage() {
   const [filterType, setFilterType] = useState<'All' | 'Recharge' | 'Usage'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Fetch real-time billing records directly from Supabase billing_ledger (scoped to institute)
+  // Fetch real-time billing records via authenticated backend gateway
   const loadLiveLedger = useCallback(async () => {
     try {
-      const instId = user?.institute_id || user?.instId;
-      const instFilter = instId ? `&institute_id=eq.${encodeURIComponent(instId)}` : '';
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/billing_ledger?select=*${instFilter}&order=created_at.desc&limit=60`,
-        {
-          method: 'GET',
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          cache: 'no-store',
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setDbLedger(data);
-        }
+      const res = await serverCall('getBillingSnapshot');
+      if (res?.success && Array.isArray(res.ledger)) {
+        setDbLedger(res.ledger);
       }
     } catch (e) {
       console.warn('[Ledger] Live ledger fetch notice:', e);
     }
-  }, [user?.institute_id, user?.instId]);
+  }, []);
 
   useEffect(() => {
     loadLiveLedger();
@@ -852,9 +834,9 @@ export default function BillingPage() {
                 gap: '6px',
                 padding: '4px 10px',
                 borderRadius: '8px',
-                background: pricingSource === 'supabase_live' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(38, 195, 234, 0.12)',
-                border: pricingSource === 'supabase_live' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(38, 195, 234, 0.35)',
-                color: pricingSource === 'supabase_live' ? '#10B981' : '#26C3EA',
+                background: pricingSource === 'gateway' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(38, 195, 234, 0.12)',
+                border: pricingSource === 'gateway' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(38, 195, 234, 0.35)',
+                color: pricingSource === 'gateway' ? '#10B981' : '#26C3EA',
                 fontSize: '11px',
                 fontWeight: 700,
                 cursor: isSyncingPricing ? 'wait' : 'pointer',
