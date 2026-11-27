@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
-import { serverCall } from '@/lib/api-client';
+import { serverCall, serverCallCached, getCachedServerCall } from '@/lib/api-client';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
@@ -12,10 +12,13 @@ export default function OperatorEarningsPage() {
   const { user, payload, showToast, showAlert, refreshData } = useDashboard();
   const role = normalizeRole(user?.role);
 
-  const [upiId, setUpiId] = useState('');
+  const cachedEarnings = getCachedServerCall('getOperatorEarnings', {});
+  const [upiId, setUpiId] = useState(() => String(cachedEarnings?.upiId || ''));
   const [savingUpi, setSavingUpi] = useState(false);
-  const [baseRate, setBaseRate] = useState(50);
-  const [ledgerRows, setLedgerRows] = useState<any[]>([]);
+  const [baseRate, setBaseRate] = useState(() => Number(cachedEarnings?.baseRate || 50));
+  const [ledgerRows, setLedgerRows] = useState<any[]>(() =>
+    Array.isArray(cachedEarnings?.ledger) ? cachedEarnings.ledger : []
+  );
 
   useEffect(() => {
     if (user?.upi) setUpiId(user.upi);
@@ -24,7 +27,7 @@ export default function OperatorEarningsPage() {
   useEffect(() => {
     if (role !== 'operator' || !user?.id) return;
 
-    serverCall('getOperatorEarnings')
+    serverCallCached('getOperatorEarnings', {}, { ttlMs: 12_000 })
       .then((res) => {
         if (res?.success) {
           if (res.baseRate) setBaseRate(Number(res.baseRate) || 50);

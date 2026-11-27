@@ -3850,7 +3850,6 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   transform: translate3d(0, 0, 0);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  will-change: transform;
 }
 
 .apple-glass-inner {
@@ -3858,7 +3857,6 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   transform: translate3d(0, 0, 0);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  will-change: transform, -webkit-backdrop-filter, backdrop-filter;
 }
 
 /* Desktop Title Pill inner spacing */

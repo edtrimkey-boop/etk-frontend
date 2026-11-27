@@ -1,7 +1,7 @@
 'use client';
 
 import { jsPDF } from 'jspdf';
-import { serverCall } from './api-client';
+import { serverCall, serverCallCached, getCachedServerCall } from './api-client';
 import { ETK_LOGO_BASE64 } from './logo-base64';
 
 export const ADMISSION_CLASSES = [
@@ -551,12 +551,100 @@ export function synthesizeCountersFromRecords(records: AdmissionRecord[]): Insti
   return { lastAdmSeq: maxAdm, lastEnqSeq: maxEnq, rollByClass };
 }
 
-export async function fetchAdmissionBootstrap(
+function parseAdmissionBootstrapResponse(
+  res: any,
+  fallbackInstId: string,
+  instName: string,
+  instCode = 'ETK',
+  instAddress = ''
+): {
+  instituteId: string;
+  records: AdmissionRecord[];
+  template: AdmissionFormTemplate;
+  counters: InstituteCounters;
+  tablesReady: boolean;
+} {
+  const activeId = res.instituteId || fallbackInstId;
+  const resolvedCode = res.institute?.institute_code || instCode;
+  const defTpl = getDefaultTemplate(res.institute?.institute_name || instName, resolvedCode, instAddress);
+  const dbTpl = res.template;
+  const template: AdmissionFormTemplate = dbTpl
+    ? {
+        layoutVariant: dbTpl.layout_variant || defTpl.layoutVariant,
+        branding: { ...defTpl.branding, ...(dbTpl.branding || {}) },
+        fieldsConfig:
+          Array.isArray(dbTpl.fields_config) && dbTpl.fields_config.length > 0
+            ? dbTpl.fields_config
+            : defTpl.fieldsConfig,
+        classCapacities: {
+          ...defTpl.classCapacities,
+          ...(dbTpl.class_capacities || {}),
+        },
+      }
+    : loadCachedTemplate(activeId, instName, resolvedCode, instAddress);
+
+  saveCachedTemplate(activeId, template);
+
+  const dbAdmissions: AdmissionRecord[] = Array.isArray(res.admissions)
+    ? res.admissions.map(mapDbAdmissionRow)
+    : [];
+  const dbStudents: any[] = Array.isArray(res.students) ? res.students : [];
+  const merged = mergeFullSources(activeId, dbStudents, dbAdmissions);
+  const synth = synthesizeCountersFromRecords(merged);
+
+  const serverCounters = res.counters || {};
+  const rollByClass: Record<string, number> = { ...synth.rollByClass };
+  if (serverCounters.rollByClass && typeof serverCounters.rollByClass === 'object') {
+    Object.entries(serverCounters.rollByClass).forEach(([k, v]) => {
+      const upper = k.trim().toUpperCase();
+      rollByClass[upper] = Math.max(rollByClass[upper] || 0, Number(v || 0));
+    });
+  }
+
+  const counters: InstituteCounters = {
+    lastAdmSeq: Math.max(synth.lastAdmSeq, Number(serverCounters.lastAdmSeq || 0)),
+    lastEnqSeq: Math.max(synth.lastEnqSeq, Number(serverCounters.lastEnqSeq || 0)),
+    rollByClass,
+    countersReady: Boolean(serverCounters.countersReady),
+  };
+
+  return {
+    instituteId: activeId,
+    records: merged,
+    template,
+    counters,
+    tablesReady: Boolean(res.tablesReady),
+  };
+}
+
+export function getCachedAdmissionBootstrap(
   user: any,
   payload: any,
   instName: string,
   instCode = 'ETK',
   instAddress = ''
+) {
+  const fallbackInstId =
+    (user?.institute_id && UUID_REGEX.test(user.institute_id) && user.institute_id) ||
+    (user?.instId && UUID_REGEX.test(user.instId) && user.instId) ||
+    (payload?.profile?.institute_id && UUID_REGEX.test(payload.profile.institute_id) && payload.profile.institute_id) ||
+    user?.code ||
+    'default';
+
+  const cached = getCachedServerCall('getAdmissionBootstrap', { instId: fallbackInstId });
+  if (cached?.success) {
+    return parseAdmissionBootstrapResponse(cached, fallbackInstId, instName, instCode, instAddress);
+  }
+  return null;
+}
+
+export async function fetchAdmissionBootstrap(
+  user: any,
+  payload: any,
+  instName: string,
+  instCode = 'ETK',
+  instAddress = '',
+  force = false
 ): Promise<{
   instituteId: string;
   records: AdmissionRecord[];
@@ -567,59 +655,13 @@ export async function fetchAdmissionBootstrap(
   const fallbackInstId = (await resolveInstituteUuid(user, payload)) || user?.code || 'default';
 
   try {
-    const res = await serverCall('getAdmissionBootstrap', { instId: fallbackInstId });
+    const res = await serverCallCached(
+      'getAdmissionBootstrap',
+      { instId: fallbackInstId },
+      { ttlMs: 12_000, force }
+    );
     if (res?.success) {
-      const activeId = res.instituteId || fallbackInstId;
-      const resolvedCode = res.institute?.institute_code || instCode;
-      const defTpl = getDefaultTemplate(res.institute?.institute_name || instName, resolvedCode, instAddress);
-      const dbTpl = res.template;
-      const template: AdmissionFormTemplate = dbTpl
-        ? {
-            layoutVariant: dbTpl.layout_variant || defTpl.layoutVariant,
-            branding: { ...defTpl.branding, ...(dbTpl.branding || {}) },
-            fieldsConfig:
-              Array.isArray(dbTpl.fields_config) && dbTpl.fields_config.length > 0
-                ? dbTpl.fields_config
-                : defTpl.fieldsConfig,
-            classCapacities: {
-              ...defTpl.classCapacities,
-              ...(dbTpl.class_capacities || {}),
-            },
-          }
-        : loadCachedTemplate(activeId, instName, resolvedCode, instAddress);
-
-      saveCachedTemplate(activeId, template);
-
-      const dbAdmissions: AdmissionRecord[] = Array.isArray(res.admissions)
-        ? res.admissions.map(mapDbAdmissionRow)
-        : [];
-      const dbStudents: any[] = Array.isArray(res.students) ? res.students : [];
-      const merged = mergeFullSources(activeId, dbStudents, dbAdmissions);
-      const synth = synthesizeCountersFromRecords(merged);
-
-      const serverCounters = res.counters || {};
-      const rollByClass: Record<string, number> = { ...synth.rollByClass };
-      if (serverCounters.rollByClass && typeof serverCounters.rollByClass === 'object') {
-        Object.entries(serverCounters.rollByClass).forEach(([k, v]) => {
-          const upper = k.trim().toUpperCase();
-          rollByClass[upper] = Math.max(rollByClass[upper] || 0, Number(v || 0));
-        });
-      }
-
-      const counters: InstituteCounters = {
-        lastAdmSeq: Math.max(synth.lastAdmSeq, Number(serverCounters.lastAdmSeq || 0)),
-        lastEnqSeq: Math.max(synth.lastEnqSeq, Number(serverCounters.lastEnqSeq || 0)),
-        rollByClass,
-        countersReady: Boolean(serverCounters.countersReady),
-      };
-
-      return {
-        instituteId: activeId,
-        records: merged,
-        template,
-        counters,
-        tablesReady: Boolean(res.tablesReady),
-      };
+      return parseAdmissionBootstrapResponse(res, fallbackInstId, instName, instCode, instAddress);
     }
   } catch (err) {
     console.warn('[Admission] Gateway bootstrap unavailable:', err);

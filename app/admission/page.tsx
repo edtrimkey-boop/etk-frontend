@@ -20,6 +20,7 @@ import {
   deleteStudentInDb,
   exportAdmissionsToCsv,
   fetchAdmissionBootstrap,
+  getCachedAdmissionBootstrap,
   generateAdmissionPaymentReceiptPdf,
   generateBulkAdmissionFormsPdf,
   generateDynamicAdmissionFormPdf,
@@ -88,18 +89,21 @@ export default function AdmissionPortalPage() {
     [user, payload, instCode]
   );
 
-  const [instId, setInstId] = useState<string>('');
-  const [records, setRecords] = useState<AdmissionRecord[]>([]);
+  const cachedBoot = getCachedAdmissionBootstrap(user, payload, instInfo.name, instCode, instInfo.address);
+  const [instId, setInstId] = useState<string>(() => cachedBoot?.instituteId || '');
+  const [records, setRecords] = useState<AdmissionRecord[]>(() => cachedBoot?.records || []);
   const [template, setTemplate] = useState<AdmissionFormTemplate>(() =>
-    getDefaultTemplate(instInfo.name, instInfo.code, instInfo.address)
+    cachedBoot?.template || getDefaultTemplate(instInfo.name, instInfo.code, instInfo.address)
   );
-  const [counters, setCounters] = useState<InstituteCounters>({
-    lastAdmSeq: 0,
-    lastEnqSeq: 0,
-    rollByClass: {},
-  });
-  const [tablesReady, setTablesReady] = useState<boolean>(true);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [counters, setCounters] = useState<InstituteCounters>(() =>
+    cachedBoot?.counters || {
+      lastAdmSeq: 0,
+      lastEnqSeq: 0,
+      rollByClass: {},
+    }
+  );
+  const [tablesReady, setTablesReady] = useState<boolean>(() => cachedBoot?.tablesReady ?? true);
+  const [loading, setLoading] = useState<boolean>(() => !cachedBoot);
   const [syncing, setSyncing] = useState<boolean>(false);
 
   const [subTab, setSubTab] = useState<SubTab>('pipeline');
@@ -139,14 +143,24 @@ export default function AdmissionPortalPage() {
     }
   }, [canManage]);
 
+  const instKey = user?.institute_id || user?.instId || payload?.profile?.institute_id || user?.code || '';
+
   const loadAll = useCallback(
     async (forceSpinner = false) => {
       if (role === 'operator') return;
+      const hasCachedData = records.length > 0 || Boolean(instId);
       if (forceSpinner) setSyncing(true);
-      else setLoading(true);
+      else if (!hasCachedData) setLoading(true);
 
       try {
-        const boot = await fetchAdmissionBootstrap(user, payload, instInfo.name, instCode, instInfo.address);
+        const boot = await fetchAdmissionBootstrap(
+          user,
+          payload,
+          instInfo.name,
+          instCode,
+          instInfo.address,
+          forceSpinner
+        );
         setInstId(boot.instituteId);
         setRecords(boot.records);
         setTemplate(boot.template);
@@ -157,14 +171,14 @@ export default function AdmissionPortalPage() {
         setSyncing(false);
       }
     },
-    [user, payload, role, instInfo.name, instCode, instInfo.address]
+    [instKey, role, instCode]
   );
 
   useEffect(() => {
-    if (user || payload) {
+    if (instKey) {
       loadAll(false);
     }
-  }, [user, payload, loadAll]);
+  }, [instKey, loadAll]);
 
   useEffect(() => {
     setDisplayLimit(30);

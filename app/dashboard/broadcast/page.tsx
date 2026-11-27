@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '@/lib/dashboard-context';
-import { serverCall } from '@/lib/api-client';
+import { serverCall, serverCallCached, getCachedServerCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { normalizeRole, getRoleBadge, UserRole } from '@/lib/rbac';
@@ -516,8 +516,11 @@ export default function BroadcastPage() {
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [displayLimit, setDisplayLimit] = useState<number>(30);
 
-  // Live Database Notifications State
-  const [liveDbNotifs, setLiveDbNotifs] = useState<any[]>([]);
+  // Live Database Notifications State (0ms cached initial hydration)
+  const [liveDbNotifs, setLiveDbNotifs] = useState<any[]>(() => {
+    const cached = getCachedServerCall('getBroadcastHistory', { limit: 60 });
+    return Array.isArray(cached?.notifications) ? cached.notifications : [];
+  });
 
   // Update target when role stabilizes
   useEffect(() => {
@@ -578,7 +581,7 @@ export default function BroadcastPage() {
   // 2. Fetch Broadcast History via Authenticated Backend Gateway
   const loadSupabaseNotifications = useCallback(async () => {
     try {
-      const res = await serverCall('getBroadcastHistory', { limit: 60 });
+      const res = await serverCallCached('getBroadcastHistory', { limit: 60 }, { ttlMs: 10_000 });
       if (res?.success && Array.isArray(res.notifications)) {
         setLiveDbNotifs(res.notifications);
       }

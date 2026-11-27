@@ -6,6 +6,26 @@ import { MemoryStore, serverCall } from '@/lib/api-client';
 import { playSound } from '@/lib/sound';
 import { syncDeviceSession, requestAndRegisterPush, subscribeForegroundPush } from '@/lib/firebase';
 
+let lastDashboardSyncAt = 0;
+
+function hydrateNotificationsFromPayload(res: any): NotificationItem[] {
+  if (!Array.isArray(res?.notifications)) return [];
+  let localHashes: string[] = [];
+  try {
+    localHashes = JSON.parse(localStorage.getItem('read_notif_hashes') || '[]');
+  } catch {}
+  return res.notifications.map((n: any) => {
+    const hash = (String(n.title || '') + String(n.msg || '')).substring(0, 50);
+    return {
+      title: n.title,
+      msg: n.msg,
+      time: n.time || 'Recent',
+      isRead: Boolean(n.isRead) || localHashes.includes(hash),
+      refId: n.refId,
+    };
+  });
+}
+
 export interface NotificationItem {
   id?: string;
   title: string;
@@ -73,10 +93,12 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [payload, setPayload] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [user, setUser] = useState<any>(() => MemoryStore.getUser());
+  const [payload, setPayload] = useState<any>(() => MemoryStore.getPayload());
+  const [loading, setLoading] = useState<boolean>(() => !MemoryStore.getPayload());
+  const [notifications, setNotifications] = useState<NotificationItem[]>(() =>
+    hydrateNotificationsFromPayload(MemoryStore.getPayload())
+  );
 
   // Toasts state (Apple / Linear style non-blocking notifications)
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -281,7 +303,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const cachedUser = MemoryStore.getUser();
     if (!cachedUser?.email) return;
 
-    if (!silent) {
+    const now = Date.now();
+    if (silent && MemoryStore.getPayload() && now - lastDashboardSyncAt < 3500) {
+      return;
+    }
+
+    if (!silent && !MemoryStore.getPayload()) {
       setLoading(true);
     }
 
@@ -290,6 +317,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         email: cachedUser.email,
         token: MemoryStore.getToken(),
       });
+      lastDashboardSyncAt = Date.now();
 
       if (res && res.authFailed) {
         MemoryStore.clear();
@@ -310,23 +338,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       setPayload(res);
+      MemoryStore.setPayload(res);
 
       if (Array.isArray(res?.notifications)) {
-        let localHashes: string[] = [];
-        try {
-          localHashes = JSON.parse(localStorage.getItem('read_notif_hashes') || '[]');
-        } catch {}
-        const hydrated: NotificationItem[] = res.notifications.map((n: any) => {
-          const hash = (String(n.title || '') + String(n.msg || '')).substring(0, 50);
-          return {
-            title: n.title,
-            msg: n.msg,
-            time: n.time || 'Recent',
-            isRead: Boolean(n.isRead) || localHashes.includes(hash),
-            refId: n.refId,
-          };
-        });
-        setNotifications(hydrated);
+        setNotifications(hydrateNotificationsFromPayload(res));
       }
     } catch (err: any) {
       console.warn('Dashboard sync note:', err.message);
@@ -403,7 +418,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setUser(cachedUser);
     }
 
-    refreshData(false);
+    const cachedPayload = MemoryStore.getPayload();
+    if (cachedPayload) {
+      setPayload(cachedPayload);
+      setNotifications(hydrateNotificationsFromPayload(cachedPayload));
+      setLoading(false);
+    }
+
+    refreshData(Boolean(cachedPayload));
   }, [router, refreshData]);
 
   // 1. Device Session Sync, Silent FCM Token Refresh & Foreground Push Listener
@@ -413,30 +435,40 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     deviceSyncedForEmailRef.current = user.email;
 
     let unsubscribeForeground: (() => void) | null = null;
+    const syncKey = `etk_dev_synced_${user.email}`;
+    const alreadySyncedThisTab =
+      typeof window !== 'undefined' && sessionStorage.getItem(syncKey) === '1';
 
-    syncDeviceSession(user.email).then((synced) => {
-      if (synced?.preferences) {
-        try {
-          localStorage.setItem(
-            'tk_notif_prefs',
-            JSON.stringify({
-              push: Boolean(synced.preferences.push),
-              wa: Boolean(synced.preferences.whatsapp),
-              sms: Boolean(synced.preferences.sms),
-              email: Boolean(synced.preferences.email),
-            })
-          );
-        } catch {}
-      }
+    if (!alreadySyncedThisTab) {
+      syncDeviceSession(user.email).then((synced) => {
+        if (synced?.success && typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(syncKey, '1');
+          } catch {}
+        }
+        if (synced?.preferences) {
+          try {
+            localStorage.setItem(
+              'tk_notif_prefs',
+              JSON.stringify({
+                push: Boolean(synced.preferences.push),
+                wa: Boolean(synced.preferences.whatsapp),
+                sms: Boolean(synced.preferences.sms),
+                email: Boolean(synced.preferences.email),
+              })
+            );
+          } catch {}
+        }
 
-      const browserGranted = typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
-      if (synced?.preferences?.push || browserGranted) {
-        requestAndRegisterPush(user.email, {
-          isSilent: true,
-          forceEnablePref: browserGranted && !synced?.preferences?.push,
-        });
-      }
-    });
+        const browserGranted = typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+        if (synced?.preferences?.push || browserGranted) {
+          requestAndRegisterPush(user.email, {
+            isSilent: true,
+            forceEnablePref: browserGranted && !synced?.preferences?.push,
+          });
+        }
+      });
+    }
 
     subscribeForegroundPush(({ title, body }) => {
       fireDedupedNotificationToast(title, body);

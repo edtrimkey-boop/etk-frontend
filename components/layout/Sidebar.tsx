@@ -146,6 +146,7 @@ export default function Sidebar({
         <div id="sidebar-dynamic-apps">
           <Link
             href="/fees"
+            prefetch={true}
             className={`nav-item ${pathname.startsWith('/fees') ? 'active' : ''}`}
             style={{ textDecoration: 'none' }}
           >
@@ -157,6 +158,7 @@ export default function Sidebar({
           </Link>
           <Link
             href="/admission"
+            prefetch={true}
             className={`nav-item ${pathname.startsWith('/admission') ? 'active' : ''}`}
             style={{ textDecoration: 'none' }}
           >
@@ -170,6 +172,7 @@ export default function Sidebar({
           </Link>
           <Link
             href="/attendance"
+            prefetch={true}
             className={`nav-item ${pathname.startsWith('/attendance') ? 'active' : ''}`}
             style={{ textDecoration: 'none' }}
           >

@@ -5,7 +5,7 @@ import { useDashboard } from '@/lib/dashboard-context';
 import { OpticalLink } from '@/components/ui/OpticalGlass';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
-import { serverCall } from '@/lib/api-client';
+import { serverCallCached, getCachedServerCall } from '@/lib/api-client';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,8 +48,22 @@ export default function StudentsPage() {
     return <AccessDenied requiredRole="Institute Staff or Faculty" moduleName="Students Database" />;
   }
 
-  const [students, setStudents] = useState<any[]>(memoryStudentsCache);
-  const [loading, setLoading] = useState(memoryStudentsCache.length === 0);
+  const targetInstId =
+    (user?.institute_id && UUID_REGEX.test(user.institute_id) && user.institute_id) ||
+    (user?.instId && UUID_REGEX.test(user.instId) && user.instId) ||
+    (payload?.profile?.institute_id && UUID_REGEX.test(payload.profile.institute_id) && payload.profile.institute_id) ||
+    undefined;
+
+  const cachedStudentsRes = getCachedServerCall('getStudentsList', targetInstId ? { instId: targetInstId } : {});
+  const initialStudents =
+    memoryStudentsCache.length > 0
+      ? memoryStudentsCache
+      : Array.isArray(cachedStudentsRes?.students)
+        ? cachedStudentsRes.students
+        : [];
+
+  const [students, setStudents] = useState<any[]>(initialStudents);
+  const [loading, setLoading] = useState(initialStudents.length === 0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('all');
@@ -57,19 +71,20 @@ export default function StudentsPage() {
 
   // Fetch students exclusively via authenticated backend API gateway
   const loadStudents = useCallback(async (force = false) => {
-    if (force || memoryStudentsCache.length === 0) {
+    const existing = getCachedServerCall('getStudentsList', targetInstId ? { instId: targetInstId } : {});
+    if (force && memoryStudentsCache.length === 0 && !existing?.students) {
+      setLoading(true);
+    } else if (memoryStudentsCache.length === 0 && !existing?.students) {
       setLoading(true);
     }
     setErrorMsg(null);
 
     try {
-      const targetInstId =
-        (user?.institute_id && UUID_REGEX.test(user.institute_id) && user.institute_id) ||
-        (user?.instId && UUID_REGEX.test(user.instId) && user.instId) ||
-        (payload?.profile?.institute_id && UUID_REGEX.test(payload.profile.institute_id) && payload.profile.institute_id) ||
-        undefined;
-
-      const res = await serverCall('getStudentsList', targetInstId ? { instId: targetInstId } : {});
+      const res = await serverCallCached(
+        'getStudentsList',
+        targetInstId ? { instId: targetInstId } : {},
+        { ttlMs: 12_000, force }
+      );
       if (res?.success && Array.isArray(res.students)) {
         memoryStudentsCache = res.students;
         setStudents(res.students);
@@ -93,7 +108,7 @@ export default function StudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, payload, role]);
+  }, [targetInstId, role]);
 
   useEffect(() => {
     loadStudents();

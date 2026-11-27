@@ -3,7 +3,7 @@
  * Served exclusively via authenticated backend API gateway.
  */
 
-import { serverCall } from './api-client';
+import { serverCallCached, getCachedServerCall } from './api-client';
 
 export interface PricingTier {
   id?: string;
@@ -279,12 +279,20 @@ export const DB_SERVICE_MAP: Record<string, string> = {
   'SMS Top-up': 'SMS',
 };
 
+export function getCachedPricingMaster(): PricingTier[] {
+  const cached = getCachedServerCall<PricingTier[]>('getPricingMaster', {}, 60_000);
+  if (cached?.success && Array.isArray(cached.data) && cached.data.length > 0) {
+    return cached.data;
+  }
+  return FALLBACK_PRICING_MASTER;
+}
+
 /**
  * Fetches real-time active pricing tiers via authenticated backend gateway.
  */
-export async function fetchLivePricingMaster(): Promise<{ data: PricingTier[]; source: 'gateway' | 'fallback' }> {
+export async function fetchLivePricingMaster(force = false): Promise<{ data: PricingTier[]; source: 'gateway' | 'fallback' }> {
   try {
-    const gatewayRes = await serverCall<PricingTier[]>('getPricingMaster');
+    const gatewayRes = await serverCallCached<PricingTier[]>('getPricingMaster', {}, { ttlMs: 30_000, force });
     if (gatewayRes && gatewayRes.success && Array.isArray(gatewayRes.data) && gatewayRes.data.length > 0) {
       return { data: gatewayRes.data, source: 'gateway' };
     }
@@ -414,9 +422,9 @@ export interface InstituteQuotaRecord {
 /**
  * Fetch live quota allocations via authenticated backend gateway (`getBillingSnapshot`).
  */
-export async function fetchInstituteQuotas(_instCode: string = ''): Promise<InstituteQuotaRecord | null> {
+export async function fetchInstituteQuotas(_instCode: string = '', force = false): Promise<InstituteQuotaRecord | null> {
   try {
-    const res = await serverCall('getBillingSnapshot');
+    const res = await serverCallCached('getBillingSnapshot', {}, { ttlMs: 10_000, force });
     if (res?.success && res.institute) {
       return res.institute as InstituteQuotaRecord;
     }

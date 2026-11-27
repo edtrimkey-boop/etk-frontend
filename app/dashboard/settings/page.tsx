@@ -6,11 +6,9 @@ import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall, MemoryStore } from '@/lib/api-client';
 import {
   fetchInstituteSettings,
-  saveInstituteSettings,
   fetchCommunicationTemplates,
-  saveCommunicationTemplates,
+  getCachedInstituteSettingsBundle,
   uploadLogoToStorage,
-  DBCommunicationTemplate,
 } from '@/lib/supabase';
 import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
@@ -220,13 +218,10 @@ export default function SettingsPage() {
 
     setInitialAdminState(baselineSnapshot);
 
-    // 🔥 Direct Database Hydration from Supabase
+    // Hydrate synchronously from local session cache first (0ms), then refresh in background
     const instId = user?.institute_id || user?.instId;
     if (instId && isInstAdmin) {
-      Promise.all([
-        fetchInstituteSettings(instId),
-        fetchCommunicationTemplates(instId),
-      ]).then(([settings, templates]) => {
+      const applyBundle = (settings: any, templates: any[]) => {
         let curTagline = initialTagline;
         let curAddress = initialAddress;
         let curAlertPaper = '10';
@@ -340,9 +335,21 @@ export default function SettingsPage() {
           feeChanEmail: curFeeChanEmail,
           feeTemplate: curFeeTemplate,
         });
+      };
+
+      const cachedBundle = getCachedInstituteSettingsBundle(instId);
+      if (cachedBundle) {
+        applyBundle(cachedBundle.settings, cachedBundle.templates);
+      }
+
+      Promise.all([
+        fetchInstituteSettings(instId),
+        fetchCommunicationTemplates(instId),
+      ]).then(([settings, templates]) => {
+        applyBundle(settings, templates);
       });
     }
-  }, [user, isInstAdmin]);
+  }, [user?.institute_id, user?.instId, isInstAdmin]);
 
   // Compute dirty state (Admin settings modified vs baseline)
   const isDirty = useMemo(() => {

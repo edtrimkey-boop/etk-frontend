@@ -41,7 +41,7 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
 
   const activeTab = getActiveTab();
 
-  // Aggressively prefetch all tab routes in background for instant lightning-fast tab switching
+  // Defer idle background prefetch so initial page mount APIs get 100% bandwidth priority
   React.useEffect(() => {
     const routes = [
       '/dashboard',
@@ -59,11 +59,15 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
       '/operator/earnings',
       '/admission',
     ];
-    routes.forEach((r) => {
-      try {
-        router.prefetch(r);
-      } catch {}
-    });
+    const runPrefetch = () => {
+      routes.forEach((r) => {
+        try {
+          router.prefetch(r);
+        } catch {}
+      });
+    };
+    const timer = setTimeout(runPrefetch, 900);
+    return () => clearTimeout(timer);
   }, [router]);
 
   const toggleSidebar = () => {

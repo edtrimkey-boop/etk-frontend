@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
-import { serverCall } from '@/lib/api-client';
+import { serverCall, serverCallCached, getCachedServerCall } from '@/lib/api-client';
 import { OpticalButton, OpticalSurface } from '@/components/ui/OpticalGlass';
 import { GlassSwitch } from '@/components/liquid-glass-demo/GlassSwitch';
 import { generateReceiptPdf, printReceipt, preloadReceiptLogo } from '@/components/modals/BillingReceiptModal';
@@ -11,6 +11,7 @@ import {
   PricingTier,
   FALLBACK_PRICING_MASTER,
   fetchLivePricingMaster,
+  getCachedPricingMaster,
   calculateServicePrice,
   CalculationResult,
   fetchInstituteQuotas,
@@ -96,7 +97,7 @@ export default function BillingPage() {
   }, [syncSupabaseQuotas]);
 
   // ── 2. Pricing Master & Live Calculator State ───────────────────────────
-  const [pricingMaster, setPricingMaster] = useState<PricingTier[]>(FALLBACK_PRICING_MASTER);
+  const [pricingMaster, setPricingMaster] = useState<PricingTier[]>(() => getCachedPricingMaster());
   const [pricingSource, setPricingSource] = useState<'gateway' | 'fallback'>('gateway');
   const [isSyncingPricing, setIsSyncingPricing] = useState<boolean>(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<string>('Live');
@@ -260,7 +261,10 @@ export default function BillingPage() {
 
   // ── 5. Activity Ledger & Receipts Table ─────────────────────────────────
   const rawBilling = payload?.data?.myBilling || payload?.myBilling || [];
-  const [dbLedger, setDbLedger] = useState<any[]>([]);
+  const [dbLedger, setDbLedger] = useState<any[]>(() => {
+    const cached = getCachedServerCall('getBillingSnapshot', {});
+    return Array.isArray(cached?.ledger) ? cached.ledger : [];
+  });
   const [isReconciling, setIsReconciling] = useState<boolean>(false);
   const [filterType, setFilterType] = useState<'All' | 'Recharge' | 'Usage'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -268,7 +272,7 @@ export default function BillingPage() {
   // Fetch real-time billing records via authenticated backend gateway
   const loadLiveLedger = useCallback(async () => {
     try {
-      const res = await serverCall('getBillingSnapshot');
+      const res = await serverCallCached('getBillingSnapshot', {}, { ttlMs: 10_000 });
       if (res?.success && Array.isArray(res.ledger)) {
         setDbLedger(res.ledger);
       }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
-import { serverCall } from '@/lib/api-client';
+import { serverCall, serverCallCached, getCachedServerCall } from '@/lib/api-client';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
 
@@ -12,13 +12,16 @@ export default function AdminOperatorsPage() {
 
   const [search, setSearch] = useState('');
   const [displayLimit, setDisplayLimit] = useState<number>(30);
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>(() => {
+    const cached = getCachedServerCall('getPendingProfileRequests', {});
+    return Array.isArray(cached?.requests) ? cached.requests : [];
+  });
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const loadPendingRequests = useCallback(async () => {
+  const loadPendingRequests = useCallback(async (force = false) => {
     if (role !== 'super_admin') return;
     try {
-      const res = await serverCall('getPendingProfileRequests', {});
+      const res = await serverCallCached('getPendingProfileRequests', {}, { ttlMs: 10_000, force });
       if (res?.success && Array.isArray(res.requests)) {
         setPendingRequests(res.requests);
       }
@@ -27,7 +30,7 @@ export default function AdminOperatorsPage() {
 
   useEffect(() => {
     loadPendingRequests();
-  }, [loadPendingRequests, payload]);
+  }, [loadPendingRequests]);
 
   useEffect(() => {
     setDisplayLimit(30);

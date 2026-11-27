@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '@/lib/dashboard-context';
-import { serverCall } from '@/lib/api-client';
+import { serverCall, getCachedServerCall } from '@/lib/api-client';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import AccessDenied from '@/components/shared/AccessDenied';
 import { normalizeRole } from '@/lib/rbac';
@@ -13,11 +13,21 @@ export default function TeachersPage() {
   const { user, payload, openModal, showAlert, showConfirm, showToast, refreshData } = useDashboard();
   const role = normalizeRole(user?.role);
 
-  const [teachers, setTeachers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const instKey = user?.institute_id || user?.instId || user?.code;
+  const cachedTeachersRes = instKey ? getCachedServerCall('getTeachersList', { instId: instKey }) : null;
+  const cachedPendingRes = getCachedServerCall('getPendingProfileRequests', {});
+
+  const [teachers, setTeachers] = useState<any[]>(() =>
+    Array.isArray(cachedTeachersRes?.teachers) ? cachedTeachersRes.teachers : payload?.data?.instTeachers || []
+  );
+  const [loading, setLoading] = useState<boolean>(() =>
+    !(Array.isArray(cachedTeachersRes?.teachers) || Array.isArray(payload?.data?.instTeachers))
+  );
   const [search, setSearch] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>(() =>
+    Array.isArray(cachedPendingRes?.requests) ? cachedPendingRes.requests : []
+  );
   const [reqBusyId, setReqBusyId] = useState<string | null>(null);
   const [displayLimit, setDisplayLimit] = useState<number>(30);
 
@@ -42,7 +52,13 @@ export default function TeachersPage() {
       return;
     }
 
-    setLoading(true);
+    const existing = getCachedServerCall('getTeachersList', { instId });
+    if (Array.isArray(existing?.teachers)) {
+      setTeachers(existing.teachers);
+      setLoading(false);
+    } else if (teachers.length === 0) {
+      setLoading(true);
+    }
     try {
       const res = await serverCall('getTeachersList', { instId });
       if (res.success && res.teachers) {
@@ -63,7 +79,7 @@ export default function TeachersPage() {
   useEffect(() => {
     loadTeachers();
     loadPendingRequests();
-  }, [user, payload, role]);
+  }, [instKey, role]);
 
   useEffect(() => {
     setDisplayLimit(30);

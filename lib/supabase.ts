@@ -1,6 +1,6 @@
 'use client';
 
-import { serverCall } from '@/lib/api-client';
+import { serverCall, serverCallCached, getCachedServerCall } from '@/lib/api-client';
 
 export interface DBInstituteSettings {
   id?: string;
@@ -44,10 +44,23 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+export function getCachedInstituteSettingsBundle(instId: string): {
+  settings: DBInstituteSettings | null;
+  templates: DBCommunicationTemplate[];
+} | null {
+  if (!instId) return null;
+  const cached = getCachedServerCall('getInstituteSettings', { instId });
+  if (!cached) return null;
+  return {
+    settings: (cached.settings as DBInstituteSettings) || null,
+    templates: Array.isArray(cached.templates) ? (cached.templates as DBCommunicationTemplate[]) : [],
+  };
+}
+
 export async function fetchInstituteSettings(instId: string): Promise<DBInstituteSettings | null> {
   if (!instId) return null;
   try {
-    const res = await serverCall('getInstituteSettings', { instId });
+    const res = await serverCallCached('getInstituteSettings', { instId }, { ttlMs: 10_000 });
     return (res?.settings as DBInstituteSettings) || null;
   } catch (e) {
     console.warn('[Settings Proxy] fetchInstituteSettings exception:', e);
@@ -80,7 +93,7 @@ export async function saveInstituteSettings(
 export async function fetchCommunicationTemplates(instId: string): Promise<DBCommunicationTemplate[]> {
   if (!instId) return [];
   try {
-    const res = await serverCall('getInstituteSettings', { instId });
+    const res = await serverCallCached('getInstituteSettings', { instId }, { ttlMs: 10_000 });
     return Array.isArray(res?.templates) ? (res.templates as DBCommunicationTemplate[]) : [];
   } catch (e) {
     console.warn('[Settings Proxy] fetchCommunicationTemplates exception:', e);
