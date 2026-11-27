@@ -327,17 +327,17 @@ export function AdmissionFormLivePreview({
                   {rightWidget === 'fee_summary' && (
                     <div style={{ width: '100%', border: '1px solid #0f172a', fontSize: '9px' }}>
                       <div style={{ background: '#f1f5f9', borderBottom: '1px solid #0f172a', padding: '4px 6px', fontWeight: 800, textAlign: 'center' }}>
-                        FEE &amp; PAYMENT RECEIPT
+                        FEE STRUCTURE SCHEDULE
                       </div>
                       <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Gross Total</span><span>Rs. {gross}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Concession</span><span>Rs. {concession}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>Net Payable</span><span>Rs. {net}</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#15803d' }}>
-                          <span>Paid ({record.payMode || 'Cash'})</span><span>Rs. {paid}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Admission Fee</span><span>Rs. {Number(record.admFee || 0)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Monthly Fee</span><span>Rs. {Number(record.monthFee || 0)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Uniform / Kit</span><span>Rs. {Number(record.uniformFee || 0)}</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '1px dashed #cbd5e1', paddingTop: '3px' }}>
+                          <span>Standard Total</span><span>Rs. {gross}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: balance > 0 ? '#dc2626' : '#15803d', borderTop: '1px dashed #cbd5e1', paddingTop: '3px' }}>
-                          <span>Balance Due</span><span>Rs. {balance}</span>
+                        <div style={{ fontSize: '7.5px', fontStyle: 'italic', color: '#64748b', textAlign: 'center', paddingTop: '2px' }}>
+                          Concession/Balance issued on Receipt PDF
                         </div>
                       </div>
                     </div>

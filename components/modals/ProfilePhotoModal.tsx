@@ -2,117 +2,153 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Cropper from 'cropperjs';
+import 'cropperjs/dist/cropper.css';
 import { useDashboard } from '@/lib/dashboard-context';
 import { serverCall } from '@/lib/api-client';
+import { supabase } from '@/lib/supabase';
 import IOSSpinner from '@/components/ui/IOSSpinner';
 import { OpticalButton } from '@/components/ui/OpticalGlass';
 import { playSound } from '@/lib/sound';
 
 export default function ProfilePhotoModal() {
-  const { activeModal, modalData, closeModal, user, updateUserAvatar, showAlert } =
+  const { activeModal, modalData, closeModal, user, updateUserAvatar, showAlert, showLoader, hideLoader, refreshData } =
     useDashboard();
   const isOpen = activeModal === 'adjustProfilePic';
 
   const [imageSrc, setImageSrc] = useState<string>('');
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [uploading, setUploading] = useState(false);
 
   const imgRef = useRef<HTMLImageElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const cropperRef = useRef<Cropper | null>(null);
 
   useEffect(() => {
     if (isOpen && modalData?.imageSrc) {
       setImageSrc(modalData.imageSrc);
-      setZoom(1);
-      setPan({ x: 0, y: 0 });
+    } else {
+      setImageSrc('');
     }
   }, [isOpen, modalData]);
 
+  // Initialize Cropper.js cleanly (mirrored from index.html cropperOverlay logic)
+  useEffect(() => {
+    if (!isOpen || !imageSrc || !imgRef.current) return;
+
+    if (cropperRef.current) {
+      cropperRef.current.destroy();
+      cropperRef.current = null;
+    }
+
+    const instance = new Cropper(imgRef.current, {
+      aspectRatio: 1,
+      viewMode: 1,
+      background: false,
+      autoCropArea: 0.8,
+      responsive: true,
+      dragMode: 'move',
+      cropBoxMovable: true,
+      cropBoxResizable: true,
+    });
+    cropperRef.current = instance;
+
+    return () => {
+      instance.destroy();
+      if (cropperRef.current === instance) {
+        cropperRef.current = null;
+      }
+    };
+  }, [isOpen, imageSrc]);
+
   if (!isOpen || !imageSrc) return null;
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
-  };
-
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleSaveAndUpload = async () => {
-    if (!imgRef.current) return;
-    setUploading(true);
-
-    try {
-      // Render to 500x500 canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = 500;
-      canvas.height = 500;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) throw new Error('Canvas not supported');
-
-      ctx.fillStyle = '#0b111e';
-      ctx.fillRect(0, 0, 500, 500);
-
-      // Save canvas state
-      ctx.save();
-      // Translate to center
-      ctx.translate(250, 250);
-      ctx.scale(zoom, zoom);
-      ctx.translate(pan.x * 2, pan.y * 2);
-
-      const img = imgRef.current;
-      const aspect = img.naturalWidth / img.naturalHeight;
-      let drawW = 500;
-      let drawH = 500;
-      if (aspect > 1) {
-        drawW = 500 * aspect;
-      } else {
-        drawH = 500 / aspect;
-      }
-
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-      ctx.restore();
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      const base64 = dataUrl.split(',')[1];
-
-      const res = await serverCall('updateProfilePic', {
-        email: user?.email,
-        fileBase64: base64,
-        mimeType: 'image/jpeg',
-      });
-
-      if (res && res.success) {
-        playSound('success');
-        const finalUrl = res.url || dataUrl;
-        updateUserAvatar(finalUrl);
-        closeModal();
-        showAlert('Profile Picture Updated Successfully!', 'Success');
-      } else {
-        playSound('error');
-        showAlert(res?.message || 'Database update failed.', 'Error');
-      }
-    } catch (err: any) {
-      playSound('error');
-      showAlert('Failed to process image: ' + err.message, 'Upload Error');
-    } finally {
-      setUploading(false);
+  const handleClose = () => {
+    if (cropperRef.current) {
+      cropperRef.current.destroy();
+      cropperRef.current = null;
     }
+    closeModal();
+  };
+
+  const handleCropAndUpload = () => {
+    if (!cropperRef.current || uploading) return;
+
+    const canvas = cropperRef.current.getCroppedCanvas({ width: 500, height: 500 });
+    if (!canvas) {
+      playSound('error');
+      showAlert('Could not generate cropped image. Please try selecting another photo.', 'Crop Error');
+      return;
+    }
+
+    setUploading(true);
+    showLoader('UPLOADING PROFILE PICTURE...');
+
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          hideLoader();
+          setUploading(false);
+          playSound('error');
+          showAlert('Failed to encode image.', 'Upload Error');
+          return;
+        }
+
+        const safeCode = String(user?.code || user?.id || 'TK').replace(/[^a-zA-Z0-9_-]/g, '');
+        const fileName = `profile_${safeCode}_${Date.now()}.jpg`;
+
+        try {
+          let finalUrl = '';
+
+          // Primary path (mirrored from index.html): upload Blob directly to Supabase Storage `profile_pics`
+          const { error: uploadError } = await supabase.storage
+            .from('profile_pics')
+            .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+
+          if (!uploadError) {
+            const { data: pubData } = supabase.storage.from('profile_pics').getPublicUrl(fileName);
+            finalUrl = pubData?.publicUrl || '';
+          }
+
+          let res: any;
+          if (finalUrl) {
+            res = await serverCall('updateProfilePic', { email: user?.email, url: finalUrl });
+          } else {
+            // Fallback path via backend admin storage if bucket policy blocks direct anon upload
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const fileBase64 = dataUrl.split(',')[1];
+            res = await serverCall('updateProfilePic', {
+              email: user?.email,
+              fileBase64,
+              mimeType: 'image/jpeg',
+            });
+            finalUrl = res?.url || '';
+          }
+
+          hideLoader();
+          if (res && res.success) {
+            playSound('success');
+            if (finalUrl) updateUserAvatar(finalUrl);
+            handleClose();
+            refreshData(true);
+            showAlert('Profile Picture Updated Successfully!', 'Success');
+          } else {
+            playSound('error');
+            showAlert('Database Update Failed: ' + (res?.message || 'Unknown error'), 'Error');
+          }
+        } catch (err: any) {
+          hideLoader();
+          playSound('error');
+          showAlert('Upload Error: ' + (err?.message || 'Network failure'), 'Error');
+        } finally {
+          setUploading(false);
+        }
+      },
+      'image/jpeg',
+      0.9
+    );
   };
 
   return (
-    <div className="glass-overlay active" onClick={closeModal} style={{ zIndex: 100000 }}>
+    <div className="glass-overlay active" onClick={handleClose} style={{ zIndex: 100000 }}>
       <div
         className="glass-box"
         onClick={(e) => e.stopPropagation()}
@@ -143,7 +179,7 @@ export default function ProfilePhotoModal() {
           <button
             type="button"
             className="close-minimal"
-            onClick={closeModal}
+            onClick={handleClose}
             aria-label="Close"
             title="Close"
           >
@@ -155,80 +191,38 @@ export default function ProfilePhotoModal() {
         </div>
 
         <div className="modal-scroll-body">
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '18px', marginTop: '8px' }}>
-            Drag to position and zoom to fit the 1:1 circular profile ratio.
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', marginTop: '6px' }}>
+            Drag to position and scale to perfectly fit the 1:1 ratio.
           </p>
 
-          {/* Cropper Viewport */}
           <div
-            ref={containerRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
             style={{
-              width: '260px',
-              height: '260px',
-              margin: '0 auto 20px',
-              borderRadius: '50%',
+              width: '100%',
+              height: 'min(360px, 50vh)',
+              background: '#000',
+              borderRadius: '12px',
               overflow: 'hidden',
-              border: '3px solid var(--brand)',
-              boxShadow: '0 0 30px rgba(0,251,166,0.25), inset 0 0 20px rgba(0,0,0,0.8)',
-              position: 'relative',
-              cursor: isDragging ? 'grabbing' : 'grab',
-              background: '#070b13',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              userSelect: 'none',
+              marginBottom: '12px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
             }}
           >
             <img
               ref={imgRef}
+              id="cropperImage"
               src={imageSrc}
-              alt="Adjust Crop"
-              draggable={false}
-              style={{
-                maxWidth: 'none',
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                pointerEvents: 'none',
-                objectFit: 'contain',
-                height: '100%',
-              }}
+              alt="Crop Preview"
+              style={{ maxWidth: '100%', display: 'block' }}
             />
-          </div>
-
-          {/* Zoom Slider */}
-          <div style={{ marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>ZOOM:</span>
-            <input
-              type="range"
-              min="1"
-              max="3"
-              step="0.05"
-              value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-              style={{
-                flex: 1,
-                accentColor: 'var(--brand)',
-                height: '4px',
-                borderRadius: '2px',
-                cursor: 'pointer',
-              }}
-            />
-            <span style={{ fontSize: '11px', color: 'var(--brand)', fontWeight: 800, width: '35px' }}>
-              {zoom.toFixed(1)}x
-            </span>
           </div>
         </div>
 
-        {/* Action Buttons (Floating Sticky Dock) */}
         <div className="modal-action-dock">
           <OpticalButton
             type="button"
             variant="outline"
-            onClick={closeModal}
+            onClick={handleClose}
+            disabled={uploading}
             style={{ flex: 1, padding: '12px' }}
           >
             Cancel
@@ -236,7 +230,7 @@ export default function ProfilePhotoModal() {
           <OpticalButton
             type="button"
             variant="primary"
-            onClick={handleSaveAndUpload}
+            onClick={handleCropAndUpload}
             disabled={uploading}
             style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px' }}
           >

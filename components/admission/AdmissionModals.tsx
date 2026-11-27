@@ -14,6 +14,7 @@ import {
   computeFeeTotals,
   computeLiveAdmissionPreviewNo,
   computeLiveRollPreview,
+  generateAdmissionPaymentReceiptPdf,
   generateDynamicAdmissionFormPdf,
   getCurrentAcademicSession,
   getNextClassName,
@@ -168,6 +169,21 @@ export function AdmissionFormModal({
     [form, liveAdmNoPreview, liveRollPreview, photoPreview]
   );
 
+  const duplicateCandidate = useMemo(() => {
+    const cleanPhone = String(form.contactNo || '').replace(/\D/g, '').slice(-10);
+    const cleanName = String(form.studentName || '').trim().toLowerCase();
+    if (!cleanPhone && cleanName.length < 3) return null;
+    return (
+      existingRecords.find((r) => {
+        if (initialRecord && (r.id === initialRecord.id || r.admissionNo === initialRecord.admissionNo)) return false;
+        const rPhone = String(r.contactNo || '').replace(/\D/g, '').slice(-10);
+        const rName = String(r.studentName || '').trim().toLowerCase();
+        if (cleanPhone.length === 10 && rPhone === cleanPhone && (!cleanName || rName === cleanName)) return true;
+        return false;
+      }) || null
+    );
+  }, [form.contactNo, form.studentName, existingRecords, initialRecord]);
+
   if (!open) return null;
 
   const { gross, net, paid, balance } = computeFeeTotals(form);
@@ -312,6 +328,22 @@ export function AdmissionFormModal({
           >
             {/* LEFT PANE: FORM INPUTS */}
             <div style={{ display: isMobile && mobilePane === 'preview' ? 'none' : 'block' }}>
+              {duplicateCandidate && (
+                <div
+                  style={{
+                    marginBottom: '12px',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.45)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: 'var(--accent)',
+                  }}
+                >
+                  Duplicate Check: <b>{duplicateCandidate.studentName}</b> ({duplicateCandidate.admissionNo} • {duplicateCandidate.status}) already uses mobile {duplicateCandidate.contactNo}.
+                </div>
+              )}
               {/* 1. Academic & Enrollment */}
               <div style={sectionCardStyle}>
                 <div style={sectionTitleStyle}>Academic &amp; Enrollment Details</div>
@@ -1135,7 +1167,7 @@ interface AdmissionSlipModalProps {
   onEdit: (rec: AdmissionRecord) => void;
   onPromote: (rec: AdmissionRecord) => void;
   onDemote: (rec: AdmissionRecord) => void;
-  onGenerateAndArchive?: (rec: AdmissionRecord, silentArchive?: boolean) => Promise<number>;
+  onGenerateAndArchive?: (rec: AdmissionRecord, silentArchive?: boolean, docType?: 'admission_form' | 'receipt') => Promise<number>;
 }
 
 export function AdmissionSlipModal({
@@ -1173,16 +1205,25 @@ export function AdmissionSlipModal({
     const { doc, durationMs } = generateDynamicAdmissionFormPdf(record, template, instituteInfo);
     setLastRenderMs(durationMs);
     doc.save(`Admission_Form_${record.admissionNo || 'Student'}.pdf`);
-    if (onGenerateAndArchive) {
-      onGenerateAndArchive(record, true).catch(() => {});
+    if (onGenerateAndArchive && !record.formPdfUrl) {
+      onGenerateAndArchive(record, true, 'admission_form').catch(() => {});
     }
   };
 
-  const handleArchiveToDrive = async () => {
+  const handleDownloadReceiptPdf = async () => {
+    const { doc, durationMs } = generateAdmissionPaymentReceiptPdf(record, template, instituteInfo);
+    setLastRenderMs(durationMs);
+    doc.save(`Payment_Receipt_${record.admissionNo || 'Student'}.pdf`);
+    if (onGenerateAndArchive) {
+      onGenerateAndArchive(record, true, 'receipt').catch(() => {});
+    }
+  };
+
+  const handleRetryDriveSync = async () => {
     if (!onGenerateAndArchive) return;
     setArchiving(true);
     try {
-      const ms = await onGenerateAndArchive(record, false);
+      const ms = await onGenerateAndArchive(record, false, 'admission_form');
       setLastRenderMs(ms);
     } finally {
       setArchiving(false);
@@ -1269,7 +1310,7 @@ export function AdmissionSlipModal({
               <span className={`badge ${record.status === 'Admitted' ? 'bg-success' : record.status === 'Cancelled' ? 'bg-danger' : 'bg-warning'}`}>
                 {record.status}
               </span>
-              {record.formPdfUrl && (
+              {record.formPdfUrl ? (
                 <a
                   href={record.formPdfUrl}
                   target="_blank"
@@ -1277,9 +1318,20 @@ export function AdmissionSlipModal({
                   className="badge bg-info"
                   style={{ textDecoration: 'none' }}
                 >
-                  5TB Drive PDF ↗
+                  Auto-Saved Drive Form ↗
                 </a>
-              )}
+              ) : null}
+              {record.receiptPdfUrl ? (
+                <a
+                  href={record.receiptPdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-purple"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Drive Receipt ↗
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -1399,17 +1451,20 @@ export function AdmissionSlipModal({
                 Edit
               </OpticalButton>
             )}
-            {onGenerateAndArchive && (
-              <OpticalButton type="button" variant="purple" onClick={handleArchiveToDrive} disabled={archiving}>
-                {archiving ? <IOSSpinner size={14} color="#fff" /> : null}
-                {archiving ? 'Uploading...' : record.formPdfUrl ? 'Sync Drive PDF' : 'Save to 5TB Drive'}
+            {onGenerateAndArchive && !record.formPdfUrl && record.status === 'Admitted' && (
+              <OpticalButton type="button" variant="outline" onClick={handleRetryDriveSync} disabled={archiving}>
+                {archiving ? <IOSSpinner size={14} color="currentColor" /> : null}
+                {archiving ? 'Archiving...' : 'Retry Auto-Drive'}
               </OpticalButton>
             )}
+            <OpticalButton type="button" variant="purple" onClick={handleDownloadReceiptPdf}>
+              Payment Receipt PDF
+            </OpticalButton>
             <OpticalButton type="button" variant="secondary" onClick={handlePrint}>
               Print Form
             </OpticalButton>
             <OpticalButton type="button" variant="success" onClick={handleDownloadPdf}>
-              Download PDF
+              Admission Form PDF
             </OpticalButton>
           </div>
         </div>

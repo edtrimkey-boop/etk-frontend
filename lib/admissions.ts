@@ -127,6 +127,8 @@ export interface AdmissionRecord {
   followUpDate?: string;
   formPdfUrl?: string;
   driveFileId?: string;
+  receiptPdfUrl?: string;
+  receiptDriveFileId?: string;
   updatedAt?: string;
 }
 
@@ -281,39 +283,119 @@ export async function resolveInstituteUuid(user: any, payload: any): Promise<str
 }
 
 // =========================================================================
-// Asset Pre-Caching Engine (Guarantees <50ms PDF Generation)
+// Asset Pre-Caching Engine (CORS-Safe + Aspect-Ratio Preserving, <50ms PDF)
 // =========================================================================
+export interface CachedImageAsset {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
 const imageDataUrlCache = new Map<string, string>();
+const imageAssetCache = new Map<string, CachedImageAsset>();
+
+function measureDataUrlDimensions(dataUrl: string): Promise<{ width: number; height: number }> {
+  if (typeof window === 'undefined') return Promise.resolve({ width: 100, height: 100 });
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth || 100, height: img.naturalHeight || 100 });
+    img.onerror = () => resolve({ width: 100, height: 100 });
+    img.src = dataUrl;
+  });
+}
+
+function detectImageFormat(dataUrl: string): 'PNG' | 'JPEG' | 'WEBP' {
+  const lower = dataUrl.slice(0, 40).toLowerCase();
+  if (lower.includes('image/jpeg') || lower.includes('image/jpg')) return 'JPEG';
+  if (lower.includes('image/webp')) return 'WEBP';
+  return 'PNG';
+}
 
 export async function preloadImageAsDataUrl(url?: string): Promise<string | null> {
   if (!url) return null;
-  if (imageDataUrlCache.has(url)) return imageDataUrlCache.get(url)!;
+  if (imageAssetCache.has(url)) return imageAssetCache.get(url)!.dataUrl;
+
   if (url.startsWith('data:image/')) {
     imageDataUrlCache.set(url, url);
+    const dims = await measureDataUrlDimensions(url);
+    imageAssetCache.set(url, { dataUrl: url, ...dims });
     return url;
   }
 
+  let dataUrl: string | null = null;
   try {
     const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const dataUrl = await new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-    if (dataUrl) imageDataUrlCache.set(url, dataUrl);
-    return dataUrl;
-  } catch {
-    return null;
+    if (res.ok) {
+      const blob = await res.blob();
+      dataUrl = await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch {}
+
+  // Fallback to authenticated server proxy when external storage blocks CORS
+  if (!dataUrl && url.startsWith('https://')) {
+    try {
+      const proxyRes = await serverCall('fetchAssetBase64', { url });
+      if (proxyRes?.success && typeof proxyRes.dataUrl === 'string') {
+        dataUrl = proxyRes.dataUrl;
+      }
+    } catch {}
   }
+
+  if (dataUrl) {
+    const dims = await measureDataUrlDimensions(dataUrl);
+    imageDataUrlCache.set(url, dataUrl);
+    imageAssetCache.set(url, { dataUrl, ...dims });
+  }
+  return dataUrl;
 }
 
 export function getCachedImageDataUrl(url?: string): string | null {
   if (!url) return null;
   if (url.startsWith('data:image/')) return url;
-  return imageDataUrlCache.get(url) || null;
+  return imageAssetCache.get(url)?.dataUrl || imageDataUrlCache.get(url) || null;
+}
+
+export function getCachedImageAsset(url?: string): CachedImageAsset | null {
+  if (!url) return null;
+  const cached = imageAssetCache.get(url);
+  if (cached) return cached;
+  const raw = url.startsWith('data:image/') ? url : imageDataUrlCache.get(url);
+  if (raw) return { dataUrl: raw, width: 100, height: 100 };
+  return null;
+}
+
+function addImageFit(
+  doc: jsPDF,
+  assetOrDataUrl: CachedImageAsset | string | null | undefined,
+  boxX: number,
+  boxY: number,
+  boxW: number,
+  boxH: number,
+  align: 'center' | 'left' = 'center'
+) {
+  if (!assetOrDataUrl) return;
+  const asset: CachedImageAsset =
+    typeof assetOrDataUrl === 'string'
+      ? { dataUrl: assetOrDataUrl, width: 100, height: 100 }
+      : assetOrDataUrl;
+  if (!asset.dataUrl) return;
+
+  const iw = Math.max(1, asset.width || 100);
+  const ih = Math.max(1, asset.height || 100);
+  const scale = Math.min(boxW / iw, boxH / ih);
+  const drawW = iw * scale;
+  const drawH = ih * scale;
+  const drawX = align === 'center' ? boxX + (boxW - drawW) / 2 : boxX;
+  const drawY = boxY + (boxH - drawH) / 2;
+
+  try {
+    doc.addImage(asset.dataUrl, detectImageFormat(asset.dataUrl), drawX, drawY, drawW, drawH);
+  } catch {}
 }
 
 // =========================================================================
@@ -457,6 +539,8 @@ function mapDbAdmissionRow(row: any): AdmissionRecord {
     followUpDate: row.follow_up_date ? String(row.follow_up_date).slice(0, 10) : '',
     formPdfUrl: row.form_pdf_url || '',
     driveFileId: row.drive_file_id || '',
+    receiptPdfUrl: fee.receiptPdfUrl || '',
+    receiptDriveFileId: fee.receiptDriveFileId || '',
     updatedAt: row.updated_at || row.created_at,
   };
 }
@@ -645,6 +729,8 @@ function mergeFullSources(
       customFields: linkedAdm?.customFields || meta.customFields || {},
       formPdfUrl: linkedAdm?.formPdfUrl || meta.formPdfUrl || '',
       driveFileId: linkedAdm?.driveFileId || meta.driveFileId || '',
+      receiptPdfUrl: linkedAdm?.receiptPdfUrl || meta.receiptPdfUrl || '',
+      receiptDriveFileId: linkedAdm?.receiptDriveFileId || meta.receiptDriveFileId || '',
       updatedAt: linkedAdm?.updatedAt || meta.updatedAt || s.created_at,
     };
   });
@@ -765,29 +851,36 @@ export async function saveAdmissionTemplateRemote(
 export async function archiveAdmissionPdfToDriveRemote(
   instituteId: string,
   record: AdmissionRecord,
-  pdfDoc: jsPDF
+  pdfDoc: jsPDF,
+  docType: 'admission_form' | 'receipt' = 'admission_form'
 ): Promise<{ success: boolean; formPdfUrl?: string; driveFileId?: string; error?: string }> {
   try {
     const dataUri = pdfDoc.output('datauristring');
     const fileBase64 = dataUri.split(',')[1] || '';
     const safeAdm = String(record.admissionNo || 'ADM').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeName = String(record.studentName || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const defaultName =
+      docType === 'receipt'
+        ? `RCP_${safeAdm}_${safeName}_Receipt.pdf`
+        : `${safeAdm}_${safeName}_Admission_Form.pdf`;
 
     const res = await serverCall('archiveAdmissionPdfToDrive', {
       instId: instituteId,
+      docType,
       admissionNo: record.admissionNo,
       studentName: record.studentName,
       academicSession: record.academicSession || getCurrentAcademicSession(),
-      fileName: `${safeAdm}_${safeName}_Admission_Form.pdf`,
+      fileName: defaultName,
       fileBase64,
-      existingDriveFileId: record.driveFileId || null,
+      existingDriveFileId: docType === 'receipt' ? (record.receiptDriveFileId || null) : (record.driveFileId || null),
     });
 
     if (res?.success && res.formPdfUrl) {
       saveAdmissionMetaRecord(instituteId, {
         ...record,
-        formPdfUrl: res.formPdfUrl,
-        driveFileId: res.driveFileId || record.driveFileId,
+        ...(docType === 'receipt'
+          ? { receiptPdfUrl: res.formPdfUrl, receiptDriveFileId: res.driveFileId || record.receiptDriveFileId }
+          : { formPdfUrl: res.formPdfUrl, driveFileId: res.driveFileId || record.driveFileId }),
       });
       return { success: true, formPdfUrl: res.formPdfUrl, driveFileId: res.driveFileId };
     }
@@ -1207,9 +1300,9 @@ function drawKeystoneFormPage(
   rec: AdmissionRecord,
   template: AdmissionFormTemplate,
   instituteInfo: { name: string; code: string; address?: string; email?: string; logoUrl?: string },
-  cachedLogoDataUrl?: string | null,
-  cachedPhotoDataUrl?: string | null,
-  cachedSigDataUrl?: string | null
+  cachedLogoAsset?: CachedImageAsset | null,
+  cachedPhotoAsset?: CachedImageAsset | null,
+  cachedSigAsset?: CachedImageAsset | null
 ) {
   const [ar, ag, ab] = hexToRgb(template.branding.accentColor || '#008FD5');
 
@@ -1226,27 +1319,29 @@ function drawKeystoneFormPage(
   doc.setLineWidth(2);
   doc.rect(34, 42, 527, 756);
 
-  // Header Logo (Top Left)
-  const logoSource = cachedLogoDataUrl || ETK_LOGO_BASE64;
-  try {
-    doc.addImage(logoSource, 'PNG', 44, 52, 62, 62);
-  } catch {}
+  // Header Logo (Top Left — natural aspect ratio preserved, never squeezed)
+  const logoAsset: CachedImageAsset | string = cachedLogoAsset || ETK_LOGO_BASE64;
+  addImageFit(doc, logoAsset, 44, 52, 64, 62, 'center');
+
+  const headerCenterX = 330;
 
   // Bold School Name
   const instTitle = (template.branding.headerTitle || instituteInfo.name || 'ED-TRIM KEY INSTITUTE').toUpperCase();
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(instTitle.length > 30 ? 18 : 22);
   doc.setTextColor(ar, ag, ab);
-  doc.text(instTitle, 324, 72, { align: 'center', maxWidth: 420 });
+  doc.text(instTitle, headerCenterX, 72, { align: 'center', maxWidth: 420 });
 
-  // Dark Pill Address Banner
+  // Dark Pill Address Banner (Tightly fitted to exact text width)
   const addrBanner = (template.branding.addressBanner || instituteInfo.address || `INSTITUTE CODE: ${instituteInfo.code || 'ETK'}`).toUpperCase();
-  doc.setFillColor(15, 18, 22);
-  doc.roundedRect(120, 80, 412, 16, 4, 4, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
+  const measuredAddrW = doc.getTextWidth(addrBanner);
+  const pillW = Math.min(416, Math.max(120, measuredAddrW + 24));
+  doc.setFillColor(15, 18, 22);
+  doc.roundedRect(headerCenterX - pillW / 2, 80, pillW, 16, 4, 4, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.text(addrBanner, 326, 91, { align: 'center', maxWidth: 400 });
+  doc.text(addrBanner, headerCenterX, 91, { align: 'center', maxWidth: 400 });
 
   // Contact Line
   const contactText = template.branding.contactLine || (instituteInfo.email ? `CONTACT : ${instituteInfo.email}` : '');
@@ -1254,17 +1349,18 @@ function drawKeystoneFormPage(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(contactText.toUpperCase(), 310, 113, { align: 'center', maxWidth: 440 });
+    doc.text(contactText.toUpperCase(), headerCenterX, 113, { align: 'center', maxWidth: 420 });
   }
 
-  // Centered Outlined ADMISSION FORM Pill
+  // Centered Outlined ADMISSION FORM Pill (Fitted to badge text)
   const badgeText = (template.branding.subHeader || 'ADMISSION FORM').toUpperCase();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  const badgeW = Math.min(260, Math.max(132, doc.getTextWidth(badgeText) + 36));
   doc.setDrawColor(ar, ag, ab);
   doc.setLineWidth(1.2);
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(226, 121, 144, 21, 5, 5, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
+  doc.roundedRect(298 - badgeW / 2, 121, badgeW, 21, 5, 5, 'FD');
   doc.setTextColor(15, 23, 42);
   doc.text(badgeText, 298, 135, { align: 'center' });
 
@@ -1330,10 +1426,8 @@ function drawKeystoneFormPage(
   doc.setFillColor(255, 255, 255);
   doc.rect(photoX, photoY, photoW, photoH, 'FD');
 
-  if (cachedPhotoDataUrl) {
-    try {
-      doc.addImage(cachedPhotoDataUrl, 'JPEG', photoX + 2, photoY + 2, photoW - 4, photoH - 4);
-    } catch {}
+  if (cachedPhotoAsset) {
+    addImageFit(doc, cachedPhotoAsset, photoX + 2, photoY + 2, photoW - 4, photoH - 4, 'center');
   } else {
     doc.setFont('times', 'normal');
     doc.setFontSize(11);
@@ -1362,30 +1456,32 @@ function drawKeystoneFormPage(
       doc.line(rwX, rwY + r * rowH, rwX + rwW, rwY + r * rowH);
     }
   } else if (rightWidget === 'fee_summary') {
-    const { concession, net, paid, balance } = computeFeeTotals(rec);
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.8);
-    doc.rect(rwX, rwY, rwW, 130);
+    doc.rect(rwX, rwY, rwW, 118);
     doc.setFillColor(241, 245, 249);
     doc.rect(rwX, rwY, rwW, 20, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.text('FEE & PAYMENT RECEIPT', rwX + rwW / 2, rwY + 13, { align: 'center' });
+    doc.text('FEE STRUCTURE SCHEDULE', rwX + rwW / 2, rwY + 13, { align: 'center' });
     const feeRows = [
-      ['Gross Total', `Rs. ${gross}`],
-      ['Concession', `Rs. ${concession}`],
-      ['Net Payable', `Rs. ${net}`],
-      ['Paid (' + (rec.payMode || 'Cash') + ')', `Rs. ${paid}`],
-      ['Balance Due', `Rs. ${balance}`],
+      ['Admission Fee', `Rs. ${Number(rec.admFee || 0)}`],
+      ['Monthly Fee', `Rs. ${Number(rec.monthFee || 0)}`],
+      ['Uniform / Kit', `Rs. ${Number(rec.uniformFee || 0)}`],
+      ['Standard Total', `Rs. ${gross}`],
     ];
     feeRows.forEach((pair, idx) => {
       const fy = rwY + 38 + idx * 18;
-      doc.setFont('helvetica', idx >= 3 ? 'bold' : 'normal');
+      doc.setFont('helvetica', idx === 3 ? 'bold' : 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(15, 23, 42);
       doc.text(pair[0], rwX + 8, fy);
       doc.text(pair[1], rwX + rwW - 8, fy, { align: 'right' });
     });
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Concession/Balance issued on Receipt PDF', rwX + rwW / 2, rwY + 111, { align: 'center' });
   } else if (rightWidget === 'office_checklist') {
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.8);
@@ -1494,11 +1590,9 @@ function drawKeystoneFormPage(
     doc.text(declLines, 298, 682, { align: 'center' });
   }
 
-  // Director Signature Image (if uploaded/cached)
-  if (cachedSigDataUrl) {
-    try {
-      doc.addImage(cachedSigDataUrl, 'PNG', 432, 718, 92, 30);
-    } catch {}
+  // Director Signature Image (if uploaded/cached — natural aspect ratio preserved)
+  if (cachedSigAsset) {
+    addImageFit(doc, cachedSigAsset, 425, 714, 108, 34, 'center');
   }
 
   // Bottom Signatures
@@ -1514,13 +1608,13 @@ function drawAdmissionFormPage(
   rec: AdmissionRecord,
   template: AdmissionFormTemplate,
   instituteInfo: { name: string; code: string; address?: string; email?: string; logoUrl?: string },
-  cachedLogoDataUrl?: string | null,
-  cachedPhotoDataUrl?: string | null,
-  cachedSigDataUrl?: string | null
+  cachedLogoAsset?: CachedImageAsset | null,
+  cachedPhotoAsset?: CachedImageAsset | null,
+  cachedSigAsset?: CachedImageAsset | null
 ) {
   const variant = template.layoutVariant || 'keystone';
   if (variant === 'keystone') {
-    drawKeystoneFormPage(doc, rec, template, instituteInfo, cachedLogoDataUrl, cachedPhotoDataUrl, cachedSigDataUrl);
+    drawKeystoneFormPage(doc, rec, template, instituteInfo, cachedLogoAsset, cachedPhotoAsset, cachedSigAsset);
     return;
   }
 
@@ -1549,12 +1643,10 @@ function drawAdmissionFormPage(
     doc.rect(0, 0, 595, headerH, 'F');
   }
 
-  const logoSource = cachedLogoDataUrl || ETK_LOGO_BASE64;
-  try {
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(38, isClassic ? 30 : 18, 56, 56, 6, 6, 'F');
-    doc.addImage(logoSource, 'PNG', 41, isClassic ? 33 : 21, 50, 50);
-  } catch {}
+  const logoAsset: CachedImageAsset | string = cachedLogoAsset || ETK_LOGO_BASE64;
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(38, isClassic ? 30 : 18, 56, 56, 6, 6, 'F');
+  addImageFit(doc, logoAsset, 41, isClassic ? 33 : 21, 50, 50, 'center');
 
   const titleX = 108;
   doc.setFont('helvetica', 'bold');
@@ -1582,10 +1674,8 @@ function drawAdmissionFormPage(
   doc.setDrawColor(203, 213, 225);
   doc.setFillColor(255, 255, 255);
   doc.roundedRect(photoX, photoY, 62, 72, 4, 4, 'FD');
-  if (cachedPhotoDataUrl) {
-    try {
-      doc.addImage(cachedPhotoDataUrl, 'JPEG', photoX + 2, photoY + 2, 58, 68);
-    } catch {}
+  if (cachedPhotoAsset) {
+    addImageFit(doc, cachedPhotoAsset, photoX + 2, photoY + 2, 58, 68, 'center');
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
@@ -1696,10 +1786,8 @@ function drawAdmissionFormPage(
   }
 
   const sigY = 755;
-  if (cachedSigDataUrl) {
-    try {
-      doc.addImage(cachedSigDataUrl, 'PNG', 415, sigY - 34, 90, 28);
-    } catch {}
+  if (cachedSigAsset) {
+    addImageFit(doc, cachedSigAsset, 415, sigY - 34, 96, 30, 'center');
   }
   doc.setDrawColor(148, 163, 184);
   doc.line(46, sigY, 195, sigY);
@@ -1727,9 +1815,9 @@ export function generateDynamicAdmissionFormPdf(
 ): { doc: jsPDF; durationMs: number } {
   const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const doc = new jsPDF('p', 'pt', 'a4');
-  const cachedLogo = getCachedImageDataUrl(instituteInfo.logoUrl);
-  const cachedPhoto = getCachedImageDataUrl(rec.photoUrl);
-  const cachedSig = getCachedImageDataUrl(template.branding.signatureUrl);
+  const cachedLogo = getCachedImageAsset(instituteInfo.logoUrl);
+  const cachedPhoto = getCachedImageAsset(rec.photoUrl);
+  const cachedSig = getCachedImageAsset(template.branding.signatureUrl);
 
   drawAdmissionFormPage(doc, rec, template, instituteInfo, cachedLogo, cachedPhoto, cachedSig);
 
@@ -1744,14 +1832,181 @@ export function generateBulkAdmissionFormsPdf(
 ): { doc: jsPDF; durationMs: number } {
   const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const doc = new jsPDF('p', 'pt', 'a4');
-  const cachedLogo = getCachedImageDataUrl(instituteInfo.logoUrl);
-  const cachedSig = getCachedImageDataUrl(template.branding.signatureUrl);
+  const cachedLogo = getCachedImageAsset(instituteInfo.logoUrl);
+  const cachedSig = getCachedImageAsset(template.branding.signatureUrl);
 
   records.forEach((rec, index) => {
     if (index > 0) doc.addPage();
-    const cachedPhoto = getCachedImageDataUrl(rec.photoUrl);
+    const cachedPhoto = getCachedImageAsset(rec.photoUrl);
     drawAdmissionFormPage(doc, rec, template, instituteInfo, cachedLogo, cachedPhoto, cachedSig);
   });
+
+  const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  return { doc, durationMs: Math.max(1, Math.round(t1 - t0)) };
+}
+
+export function generateAdmissionPaymentReceiptPdf(
+  rec: AdmissionRecord,
+  template: AdmissionFormTemplate,
+  instituteInfo: { name: string; code: string; address?: string; email?: string; logoUrl?: string }
+): { doc: jsPDF; durationMs: number } {
+  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const doc = new jsPDF('p', 'pt', 'a4');
+  const [ar, ag, ab] = hexToRgb(template.branding.accentColor || '#008FD5');
+  const cachedLogo = getCachedImageAsset(instituteInfo.logoUrl);
+  const cachedSig = getCachedImageAsset(template.branding.signatureUrl);
+  const { gross, concession, net, paid, balance } = computeFeeTotals(rec);
+
+  // Outer Frame
+  doc.setDrawColor(ar, ag, ab);
+  doc.setLineWidth(1.8);
+  doc.roundedRect(36, 44, 523, 520, 6, 6);
+
+  // Proportional School Crest
+  addImageFit(doc, cachedLogo || ETK_LOGO_BASE64, 48, 54, 58, 56, 'center');
+
+  const centerX = 328;
+  const instTitle = (template.branding.headerTitle || instituteInfo.name || 'ED-TRIM KEY INSTITUTE').toUpperCase();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(instTitle.length > 30 ? 16 : 19);
+  doc.setTextColor(ar, ag, ab);
+  doc.text(instTitle, centerX, 72, { align: 'center', maxWidth: 400 });
+
+  // Tightly Fitted Address Pill
+  const addrText = (template.branding.addressBanner || instituteInfo.address || `INSTITUTE CODE: ${instituteInfo.code || 'ETK'}`).toUpperCase();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  const addrW = Math.min(400, Math.max(120, doc.getTextWidth(addrText) + 24));
+  doc.setFillColor(15, 18, 22);
+  doc.roundedRect(centerX - addrW / 2, 79, addrW, 15, 4, 4, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.text(addrText, centerX, 89.5, { align: 'center', maxWidth: 390 });
+
+  const contactText = template.branding.contactLine || (instituteInfo.email ? `CONTACT : ${instituteInfo.email}` : '');
+  if (contactText) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(contactText.toUpperCase(), centerX, 108, { align: 'center', maxWidth: 400 });
+  }
+
+  // Title Badge
+  const badgeText = 'ADMISSION FEE PAYMENT RECEIPT';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  const bw = doc.getTextWidth(badgeText) + 34;
+  doc.setDrawColor(ar, ag, ab);
+  doc.setFillColor(240, 249, 255);
+  doc.roundedRect(298 - bw / 2, 118, bw, 20, 5, 5, 'FD');
+  doc.setTextColor(15, 23, 42);
+  doc.text(badgeText, 298, 131.5, { align: 'center' });
+
+  // Meta Strip
+  doc.setDrawColor(203, 213, 225);
+  doc.line(36, 148, 559, 148);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Receipt No: RCP-${rec.admissionNo || 'TEMP'}`, 52, 165);
+  doc.text(`Admission No: ${rec.admissionNo || 'PENDING'}`, 245, 165);
+  doc.text(`Date: ${formatDdMmmYyyy(rec.admissionDate) || '-'}`, 448, 165);
+
+  // Student Details Box
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(48, 178, 499, 64, 4, 4, 'FD');
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Student Name:', 60, 196);
+  doc.text("Father's Name:", 60, 214);
+  doc.text('Contact No:', 60, 232);
+
+  doc.text('Class / Roll No:', 320, 196);
+  doc.text('Academic Session:', 320, 214);
+  doc.text('Payment Mode:', 320, 232);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text(String(rec.studentName || '-').toUpperCase(), 132, 196);
+  doc.text(String(rec.fatherName || '-').toUpperCase(), 132, 214);
+  doc.text(String(rec.contactNo || '-'), 132, 232);
+
+  doc.text(`${rec.className || '-'} ${rec.rollNo ? `(Roll #${rec.rollNo})` : ''}`, 405, 196);
+  doc.text(rec.academicSession || '-', 405, 214);
+  doc.text(String(rec.payMode || 'Cash').toUpperCase(), 405, 232);
+
+  // Fee Breakdown Table
+  let y = 258;
+  doc.setFillColor(15, 23, 42);
+  doc.rect(48, y, 499, 22, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text('FEE PARTICULAR', 60, y + 14);
+  doc.text('AMOUNT (INR)', 535, y + 14, { align: 'right' });
+  y += 22;
+
+  const ledgerRows: Array<{ label: string; amount: string; bold?: boolean; color?: [number, number, number] }> = [
+    { label: 'Admission Fee', amount: `Rs. ${Number(rec.admFee || 0).toLocaleString('en-IN')}` },
+    { label: 'Current Month Tuition Fee', amount: `Rs. ${Number(rec.monthFee || 0).toLocaleString('en-IN')}` },
+    { label: 'Uniform / Book Kit Charge', amount: `Rs. ${Number(rec.uniformFee || 0).toLocaleString('en-IN')}` },
+    { label: 'Gross Fee Total', amount: `Rs. ${gross.toLocaleString('en-IN')}`, bold: true },
+    { label: 'Less: Concession / Scholarship', amount: `- Rs. ${concession.toLocaleString('en-IN')}`, color: [217, 119, 6] },
+    { label: 'Net Payable Fee', amount: `Rs. ${net.toLocaleString('en-IN')}`, bold: true },
+    { label: `Amount Paid (${rec.payMode || 'Cash'})`, amount: `Rs. ${paid.toLocaleString('en-IN')}`, bold: true, color: [21, 128, 61] },
+    {
+      label: 'Balance Due',
+      amount: balance > 0 ? `Rs. ${balance.toLocaleString('en-IN')}` : 'Rs. 0 (NIL)',
+      bold: true,
+      color: balance > 0 ? [220, 38, 38] : [21, 128, 61],
+    },
+  ];
+
+  ledgerRows.forEach((row, idx) => {
+    doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 250, idx % 2 === 0 ? 255 : 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(48, y, 499, 22, 'FD');
+    doc.setFont('helvetica', row.bold ? 'bold' : 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(row.label, 60, y + 14.5);
+    if (row.color) doc.setTextColor(row.color[0], row.color[1], row.color[2]);
+    doc.text(row.amount, 535, y + 14.5, { align: 'right' });
+    y += 22;
+  });
+
+  if (rec.remarks) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Note: ${rec.remarks.slice(0, 95)}`, 48, y + 18);
+  }
+
+  // Signatures
+  const sigY = 516;
+  if (cachedSig) {
+    addImageFit(doc, cachedSig, 430, sigY - 34, 104, 30, 'center');
+  }
+  doc.setDrawColor(148, 163, 184);
+  doc.line(54, sigY, 194, sigY);
+  doc.line(402, sigY, 542, sigY);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Depositor / Parent Signature', 70, sigY + 14);
+  doc.text('Authorized Receiver / Cashier', 415, sigY + 14);
+
+  // Footer
+  doc.setFontSize(7.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(
+    `Generated via Ed-Trim Key  •  RCP-${rec.admissionNo || 'ADM'}  •  ${new Date().toLocaleString('en-IN')}`,
+    298,
+    555,
+    { align: 'center' }
+  );
 
   const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   return { doc, durationMs: Math.max(1, Math.round(t1 - t0)) };

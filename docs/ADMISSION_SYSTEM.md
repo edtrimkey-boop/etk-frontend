@@ -21,10 +21,12 @@ Staff opens /admission
   │     ├── Non-Admitted (Enquiry / Applied / Verified) -> ENQ-xxxxx, Roll = null
   │     └── Admitted -> Atomic Postgres RPC allocates Admission No & Class Roll No
   │
-  └─► Instant Vector PDF (<50ms) + Silent Background Archival
-        └── `archiveAdmissionPdfToDrive` uploads to:
-            /{Drive Root}/{Institute Name}/Admissions/{Session}/{AdmNo}_{Name}_Admission_Form.pdf
-            and writes `form_pdf_url` + `drive_file_id` back to `public.admissions`.
+  └─► Instant Vector PDF (<50ms) + Automatic Background Drive Archival
+        ├── Admission Form PDF (`generateDynamicAdmissionFormPdf`) ->
+        │     /{4_Institutes Root}/{Institute Name}/Documents/Admission Forms/{AdmNo}_{Name}_Admission_Form.pdf
+        └── Separate Payment Receipt PDF (`generateAdmissionPaymentReceiptPdf`) ->
+              /{4_Institutes Root}/{Institute Name}/Documents/Payment Receipts/RCP_{AdmNo}_{Name}_Receipt.pdf
+              and writes links + fees back to `public.admissions` & `public.institute_billing`.
 ```
 
 ---

@@ -199,6 +199,40 @@ export function AdmissionTemplateModal({
     window.open(url, '_blank');
   };
 
+  const handlePrintBlankPdf = () => {
+    const blankSample: AdmissionRecord = {
+      ...sampleRecord,
+      admissionNo: '',
+      admissionDate: '',
+      rollNo: null,
+      studentName: '',
+      fatherName: '',
+      motherName: '',
+      dob: '',
+      gender: 'Male',
+      category: '',
+      bloodGroup: '',
+      aadhaar: '',
+      contactNo: '',
+      className: '',
+      village: '',
+      address: '',
+      prevSchool: '',
+      guardianName: '',
+      guardianMobile: '',
+      admFee: 0,
+      monthFee: 0,
+      uniformFee: 0,
+      concession: 0,
+      amountPaid: 0,
+      documents: [],
+      customFields: {},
+    };
+    const { doc } = generateDynamicAdmissionFormPdf(blankSample, draft, instituteInfo);
+    const url = doc.output('bloburl');
+    window.open(url, '_blank');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -465,7 +499,7 @@ export function AdmissionTemplateModal({
                       style={{ marginBottom: 0 }}
                     >
                       <option value="calling_grid">Calling Date / Expected Date (12 rows)</option>
-                      <option value="fee_summary">Fee &amp; Payment Receipt Summary</option>
+                      <option value="fee_summary">Standard Fee Schedule Box</option>
                       <option value="office_checklist">Office Document Checklist</option>
                       <option value="office_remarks">Office Remarks / Verification Box</option>
                       <option value="none">None (Hide Right Block)</option>
@@ -629,9 +663,14 @@ export function AdmissionTemplateModal({
                     Updates as you edit • 1-Page Vector PDF
                   </span>
                 </div>
-                <OpticalButton type="button" variant="outline" onClick={handleTestPdf} style={{ padding: '5px 12px', fontSize: '11px' }}>
-                  Open Test PDF ↗
-                </OpticalButton>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <OpticalButton type="button" variant="outline" onClick={handlePrintBlankPdf} style={{ padding: '5px 12px', fontSize: '11px' }}>
+                    Print Blank Form
+                  </OpticalButton>
+                  <OpticalButton type="button" variant="outline" onClick={handleTestPdf} style={{ padding: '5px 12px', fontSize: '11px' }}>
+                    Open Test PDF ↗
+                  </OpticalButton>
+                </div>
               </div>
 
               <AdmissionFormLivePreview

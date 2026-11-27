@@ -20,6 +20,7 @@ import {
   deleteStudentInDb,
   exportAdmissionsToCsv,
   fetchAdmissionBootstrap,
+  generateAdmissionPaymentReceiptPdf,
   generateBulkAdmissionFormsPdf,
   generateDynamicAdmissionFormPdf,
   generateRosterPdf,
@@ -194,9 +195,10 @@ export default function AdmissionPortalPage() {
 
   const filteredRecords = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const classTarget = classFilter.trim().toLowerCase();
     return records.filter((r) => {
       if (subTab === 'roster' && r.status !== 'Admitted') return false;
-      if (classFilter !== 'all' && r.className !== classFilter) return false;
+      if (classFilter !== 'all' && String(r.className || '').trim().toLowerCase() !== classTarget) return false;
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (sessionFilter !== 'all' && r.academicSession !== sessionFilter) return false;
 
@@ -223,8 +225,18 @@ export default function AdmissionPortalPage() {
 
   const seatMatrix = useMemo(() => {
     return ADMISSION_CLASSES.map((cls) => {
-      const enrolled = records.filter((r) => r.status === 'Admitted' && r.className === cls && r.studentStatus !== 'Inactive').length;
-      const pending = records.filter((r) => ['Enquiry', 'Applied', 'Verified'].includes(r.status) && r.className === cls).length;
+      const clsLower = cls.toLowerCase();
+      const enrolled = records.filter(
+        (r) =>
+          r.status === 'Admitted' &&
+          String(r.className || '').trim().toLowerCase() === clsLower &&
+          r.studentStatus !== 'Inactive'
+      ).length;
+      const pending = records.filter(
+        (r) =>
+          ['Enquiry', 'Applied', 'Verified'].includes(r.status) &&
+          String(r.className || '').trim().toLowerCase() === clsLower
+      ).length;
       const capacity = capacities[cls] || 40;
       const available = Math.max(0, capacity - enrolled);
       const pct = Math.min(100, Math.round((enrolled / Math.max(1, capacity)) * 100));
@@ -237,35 +249,128 @@ export default function AdmissionPortalPage() {
   }
 
   // =========================================================================
-  // Millisecond PDF Generation + Async 5TB Google Drive Archival
+  // Millisecond PDF Generation + Automatic Google Drive Archival
+  // (Path: Trim Key System / 4_Institutes / {Institute} / Documents / Admission Forms)
   // =========================================================================
-  const handleGenerateAndArchive = async (rec: AdmissionRecord, silentArchive = false): Promise<number> => {
-    const { doc, durationMs } = generateDynamicAdmissionFormPdf(rec, template, instInfo);
+  const ensureRecordAssetsCached = async (rec: AdmissionRecord) => {
+    await Promise.allSettled([
+      instInfo.logoUrl ? preloadImageAsDataUrl(instInfo.logoUrl) : Promise.resolve(null),
+      template.branding.signatureUrl ? preloadImageAsDataUrl(template.branding.signatureUrl) : Promise.resolve(null),
+      rec.photoUrl ? preloadImageAsDataUrl(rec.photoUrl) : Promise.resolve(null),
+    ]);
+  };
+
+  const handleGenerateAndArchive = async (
+    rec: AdmissionRecord,
+    silentArchive = false,
+    docType: 'admission_form' | 'receipt' = 'admission_form'
+  ): Promise<number> => {
+    await ensureRecordAssetsCached(rec);
+    const { doc, durationMs } =
+      docType === 'receipt'
+        ? generateAdmissionPaymentReceiptPdf(rec, template, instInfo)
+        : generateDynamicAdmissionFormPdf(rec, template, instInfo);
+
     if (!silentArchive) {
-      showToast(`PDF rendered in ${durationMs}ms. Archiving to 5TB Google Drive...`, 'info');
+      showToast(`PDF rendered in ${durationMs}ms. Auto-archiving to Drive Documents...`, 'info');
     }
 
-    const driveRes = await archiveAdmissionPdfToDriveRemote(instId || 'default', rec, doc);
+    const driveRes = await archiveAdmissionPdfToDriveRemote(instId || 'default', rec, doc, docType);
     if (driveRes.success && driveRes.formPdfUrl) {
       setRecords((prev) =>
         prev.map((item) =>
           item.admissionNo === rec.admissionNo
-            ? { ...item, formPdfUrl: driveRes.formPdfUrl, driveFileId: driveRes.driveFileId }
+            ? {
+                ...item,
+                ...(docType === 'receipt'
+                  ? { receiptPdfUrl: driveRes.formPdfUrl, receiptDriveFileId: driveRes.driveFileId }
+                  : { formPdfUrl: driveRes.formPdfUrl, driveFileId: driveRes.driveFileId }),
+              }
             : item
         )
       );
       setSlipRecord((prev) =>
         prev && prev.admissionNo === rec.admissionNo
-          ? { ...prev, formPdfUrl: driveRes.formPdfUrl, driveFileId: driveRes.driveFileId }
+          ? {
+              ...prev,
+              ...(docType === 'receipt'
+                ? { receiptPdfUrl: driveRes.formPdfUrl, receiptDriveFileId: driveRes.driveFileId }
+                : { formPdfUrl: driveRes.formPdfUrl, driveFileId: driveRes.driveFileId }),
+            }
           : prev
       );
-      if (!silentArchive) {
-        showToast('Saved permanently to your 5TB Google Drive!', 'success');
-      }
+      showToast(
+        docType === 'receipt'
+          ? 'Payment Receipt archived to Documents / Payment Receipts!'
+          : 'Admission Form auto-saved to Documents / Admission Forms!',
+        'success'
+      );
     } else if (!silentArchive) {
       showToast(driveRes.error || 'Drive upload skipped (check Drive env vars on backend).', 'warning');
     }
     return durationMs;
+  };
+
+  const handleQuickRowFormPdf = async (rec: AdmissionRecord) => {
+    await ensureRecordAssetsCached(rec);
+    const { doc, durationMs } = generateDynamicAdmissionFormPdf(rec, template, instInfo);
+    doc.save(`Admission_Form_${rec.admissionNo || 'Student'}.pdf`);
+    showToast(`Admission Form PDF (${durationMs}ms).`, 'success');
+    if (rec.status === 'Admitted' && !rec.formPdfUrl) {
+      handleGenerateAndArchive(rec, true, 'admission_form').catch(() => {});
+    }
+  };
+
+  const handleQuickRowReceiptPdf = async (rec: AdmissionRecord) => {
+    await ensureRecordAssetsCached(rec);
+    const { doc, durationMs } = generateAdmissionPaymentReceiptPdf(rec, template, instInfo);
+    doc.save(`Payment_Receipt_${rec.admissionNo || 'Student'}.pdf`);
+    showToast(`Payment Receipt PDF (${durationMs}ms).`, 'success');
+    if (rec.status === 'Admitted') {
+      handleGenerateAndArchive(rec, true, 'receipt').catch(() => {});
+    }
+  };
+
+  const handlePrintBlankForm = async () => {
+    await ensureRecordAssetsCached({} as AdmissionRecord);
+    const blankSample: AdmissionRecord = {
+      id: 'blank-form',
+      admissionNo: '',
+      status: 'Admitted',
+      studentStatus: 'Active',
+      className: '',
+      section: '',
+      rollNo: null,
+      academicSession: getCurrentAcademicSession(),
+      admissionDate: '',
+      studentName: '',
+      dob: '',
+      gender: 'Male',
+      category: '',
+      bloodGroup: '',
+      aadhaar: '',
+      photoUrl: '',
+      fatherName: '',
+      motherName: '',
+      contactNo: '',
+      guardianName: '',
+      guardianMobile: '',
+      village: '',
+      address: '',
+      prevSchool: '',
+      prevClass: '',
+      documents: [],
+      admFee: 0,
+      monthFee: 0,
+      uniformFee: 0,
+      concession: 0,
+      amountPaid: 0,
+      payMode: 'Cash',
+      remarks: '',
+      customFields: {},
+    };
+    const { doc } = generateDynamicAdmissionFormPdf(blankSample, template, instInfo);
+    window.open(doc.output('bloburl'), '_blank');
   };
 
   // =========================================================================
@@ -296,11 +401,9 @@ export default function AdmissionPortalPage() {
 
     if (savedRec.status === 'Admitted') {
       showToast(
-        `${savedRec.studentName} enrolled (${savedRec.admissionNo}${savedRec.rollNo ? ` • Roll ${savedRec.rollNo}` : ''}) in Supabase.`,
+        `${savedRec.studentName} enrolled (${savedRec.admissionNo}${savedRec.rollNo ? ` • Roll ${savedRec.rollNo}` : ''}). Archiving to Google Drive...`,
         'success'
       );
-      // Pre-render & archive PDF to 5TB Google Drive in background
-      handleGenerateAndArchive(savedRec, true).catch(() => {});
     } else {
       showToast(`Saved ${savedRec.studentName} as ${savedRec.status} (${savedRec.admissionNo}).`, 'success');
     }
@@ -308,6 +411,14 @@ export default function AdmissionPortalPage() {
     setFormOpen(false);
     setEditingRecord(null);
     await loadAll(true);
+
+    // Automatically upload PDFs to respective Drive folders after fresh table reload so links stay synced in UI
+    if (savedRec.status === 'Admitted') {
+      handleGenerateAndArchive(savedRec, true, 'admission_form').catch(() => {});
+      if (savedRec.amountPaid > 0 || savedRec.admFee > 0) {
+        handleGenerateAndArchive(savedRec, true, 'receipt').catch(() => {});
+      }
+    }
   };
 
   const handleEnrollPending = (rec: AdmissionRecord) => {
@@ -504,64 +615,24 @@ export default function AdmissionPortalPage() {
         </div>
       </div>
 
-      {/* Main Command Panel */}
-      <div className="panel">
-        <div
-          className="panel-header"
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}
-        >
+      {/* Modern Quick Actions Command Bar */}
+      <div className="panel" style={{ marginBottom: '20px', padding: '18px 22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
           <div>
-            <h3 style={{ margin: 0 }}>Admission Command Center</h3>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900, letterSpacing: '-0.3px', color: 'var(--text)' }}>
+              Admission Command Center
+            </h2>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
-              Multi-tenant custom forms, sub-50ms vector PDF engine, 5TB Google Drive archival &amp; live Supabase sync.
+              Auto-syncs finalized forms to <span style={{ color: 'var(--brand)' }}>Documents / Admission Forms</span> on Drive with atomic monotonic numbering.
             </p>
           </div>
-
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {canManage && (
-              <>
-                <OpticalButton type="button" variant="outline" onClick={() => setTemplateOpen(true)}>
-                  Customize Form
-                </OpticalButton>
-
-                <OpticalButton type="button" variant="warning" onClick={() => setEnquiryOpen(true)}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                  Quick Enquiry
-                </OpticalButton>
-
-                <OpticalButton
-                  type="button"
-                  variant="primary"
-                  onClick={() => {
-                    setEditingRecord(null);
-                    setFormOpen(true);
-                  }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <line x1="19" x2="19" y1="8" y2="14" />
-                    <line x1="22" x2="16" y1="11" y2="11" />
-                  </svg>
-                  New Admission
-                </OpticalButton>
-
-                <OpticalButton type="button" variant="purple" onClick={() => setBulkOpen(true)}>
-                  Bulk Promote
-                </OpticalButton>
-              </>
-            )}
-
-            <OpticalButton type="button" variant="outline" onClick={handleExportBulkFormsPdf}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <OpticalButton type="button" variant="outline" onClick={handleExportBulkFormsPdf} style={{ padding: '8px 14px', fontSize: '12px' }}>
               Bulk Forms PDF
             </OpticalButton>
-
-            <OpticalButton type="button" variant="outline" onClick={handleExportRosterPdf}>
+            <OpticalButton type="button" variant="outline" onClick={handleExportRosterPdf} style={{ padding: '8px 14px', fontSize: '12px' }}>
               Roster PDF
             </OpticalButton>
-
             <OpticalButton
               type="button"
               variant="outline"
@@ -569,19 +640,141 @@ export default function AdmissionPortalPage() {
                 exportAdmissionsToCsv(filteredRecords, instCode);
                 showToast('CSV exported.', 'success');
               }}
+              style={{ padding: '8px 14px', fontSize: '12px' }}
             >
-              CSV
+              Export CSV
             </OpticalButton>
-
-            <OpticalButton type="button" variant="secondary" onClick={() => loadAll(true)} disabled={syncing}>
+            <OpticalButton type="button" variant="secondary" onClick={() => loadAll(true)} disabled={syncing} style={{ padding: '8px 14px', fontSize: '12px' }}>
               {syncing ? <IOSSpinner size={14} color="currentColor" /> : null}
-              {syncing ? 'Syncing...' : 'Sync'}
+              {syncing ? 'Syncing...' : 'Refresh'}
             </OpticalButton>
           </div>
         </div>
 
+        {canManage && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            <OpticalButton
+              type="button"
+              variant="primary"
+              onClick={() => {
+                setEditingRecord(null);
+                setFormOpen(true);
+              }}
+              style={{
+                minHeight: '56px',
+                justifyContent: 'flex-start',
+                padding: '12px 16px',
+                borderRadius: '14px',
+                fontSize: '13.5px',
+                fontWeight: 800,
+                gap: '12px',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="19" x2="19" y1="8" y2="14" />
+                <line x1="22" x2="16" y1="11" y2="11" />
+              </svg>
+              <span>New Admission</span>
+            </OpticalButton>
+
+            <OpticalButton
+              type="button"
+              variant="warning"
+              onClick={() => setEnquiryOpen(true)}
+              style={{
+                minHeight: '56px',
+                justifyContent: 'flex-start',
+                padding: '12px 16px',
+                borderRadius: '14px',
+                fontSize: '13.5px',
+                fontWeight: 800,
+                gap: '12px',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>Quick Enquiry</span>
+            </OpticalButton>
+
+            <OpticalButton
+              type="button"
+              variant="outline"
+              onClick={() => setTemplateOpen(true)}
+              style={{
+                minHeight: '56px',
+                justifyContent: 'flex-start',
+                padding: '12px 16px',
+                borderRadius: '14px',
+                fontSize: '13.5px',
+                fontWeight: 800,
+                gap: '12px',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+              <span>Customize Form</span>
+            </OpticalButton>
+
+            <OpticalButton
+              type="button"
+              variant="purple"
+              onClick={() => setBulkOpen(true)}
+              style={{
+                minHeight: '56px',
+                justifyContent: 'flex-start',
+                padding: '12px 16px',
+                borderRadius: '14px',
+                fontSize: '13.5px',
+                fontWeight: 800,
+                gap: '12px',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <path d="m18 15-6-6-6 6" />
+              </svg>
+              <span>Bulk Promote</span>
+            </OpticalButton>
+
+            <OpticalButton
+              type="button"
+              variant="secondary"
+              onClick={handlePrintBlankForm}
+              style={{
+                minHeight: '56px',
+                justifyContent: 'flex-start',
+                padding: '12px 16px',
+                borderRadius: '14px',
+                fontSize: '13.5px',
+                fontWeight: 800,
+                gap: '12px',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect width="12" height="8" x="6" y="14" />
+              </svg>
+              <span>Blank Paper Form</span>
+            </OpticalButton>
+          </div>
+        )}
+      </div>
+
+      {/* Main Directory & Pipeline Panel */}
+      <div className="panel">
         {/* Apple Segmented Sub-Tabs */}
-        <div className="etk-segmented-nav-wrap">
+        <div className="etk-segmented-nav-wrap" style={{ marginTop: 0 }}>
           <div className="etk-segmented-nav">
             <button
               type="button"
@@ -853,7 +1046,12 @@ export default function AdmissionPortalPage() {
                               <span className={`badge ${statusBadgeClass(rec.status)}`}>{rec.status}</span>
                               {rec.formPdfUrl && (
                                 <a href={rec.formPdfUrl} target="_blank" rel="noreferrer" className="badge bg-info" style={{ textDecoration: 'none' }}>
-                                  Drive PDF ↗
+                                  Drive Form ↗
+                                </a>
+                              )}
+                              {rec.receiptPdfUrl && (
+                                <a href={rec.receiptPdfUrl} target="_blank" rel="noreferrer" className="badge bg-purple" style={{ textDecoration: 'none' }}>
+                                  Drive Receipt ↗
                                 </a>
                               )}
                               {rec.status === 'Admitted' && rec.studentStatus === 'Inactive' && (
@@ -866,11 +1064,29 @@ export default function AdmissionPortalPage() {
                             <div className="mobile-action-row" style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                               <OpticalButton
                                 type="button"
+                                variant="success"
+                                onClick={() => handleQuickRowFormPdf(rec)}
+                                style={{ padding: '6px 10px', fontSize: '11px' }}
+                              >
+                                Form PDF
+                              </OpticalButton>
+
+                              <OpticalButton
+                                type="button"
+                                variant="purple"
+                                onClick={() => handleQuickRowReceiptPdf(rec)}
+                                style={{ padding: '6px 10px', fontSize: '11px' }}
+                              >
+                                Receipt
+                              </OpticalButton>
+
+                              <OpticalButton
+                                type="button"
                                 variant="outline"
                                 onClick={() => setSlipRecord(rec)}
-                                style={{ padding: '6px 12px', fontSize: '11px' }}
+                                style={{ padding: '6px 10px', fontSize: '11px' }}
                               >
-                                Form / Slip
+                                View
                               </OpticalButton>
 
                               {canManage && rec.status !== 'Admitted' && rec.status !== 'Cancelled' && (
