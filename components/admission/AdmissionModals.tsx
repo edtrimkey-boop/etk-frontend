@@ -117,6 +117,8 @@ export function AdmissionFormModal({
           !initialRecord.admissionNo.startsWith('ENQ-'));
       setForm({
         ...initialRecord,
+        className: alreadyEnrolled ? (initialRecord.admittedClassName || initialRecord.className) : initialRecord.className,
+        rollNo: alreadyEnrolled ? (initialRecord.admittedRollNo ?? initialRecord.rollNo) : initialRecord.rollNo,
         previousAdmissionNo: initialRecord.admissionNo,
         customFields: { ...(initialRecord.customFields || {}) },
       });
@@ -266,9 +268,9 @@ export function AdmissionFormModal({
           : autoAdmNo
             ? 'AUTO'
             : targetAdmNo,
-        className: isExistingAdmitted ? initialRecord!.className : form.className,
+        className: isExistingAdmitted ? (initialRecord!.admittedClassName || initialRecord!.className) : form.className,
         rollNo: isExistingAdmitted
-          ? (initialRecord!.rollNo ?? null)
+          ? (initialRecord!.admittedRollNo ?? initialRecord!.rollNo ?? null)
           : form.status === 'Admitted'
             ? (autoRollNo ? null : form.rollNo)
             : null,
@@ -1408,16 +1410,19 @@ export function AdmissionSlipModal({
 
   const handlePrint = async () => {
     if (record.driveFileId) {
+      // Open tab synchronously inside user gesture so iOS Safari never blocks the popup after await
+      const preWin = typeof window !== 'undefined' ? window.open('', '_blank') : null;
       setBusyDoc('print');
       try {
         const res = await fetchSavedDrivePdfBlobRemote(instId || 'default', record.driveFileId, formFileName);
         if (res.success && res.blob) {
-          openPdfBlobInNewTab(res.blob);
+          openPdfBlobInNewTab(res.blob, preWin);
           return;
         }
       } finally {
         setBusyDoc(null);
       }
+      if (preWin && !preWin.closed) preWin.close();
     }
     const { doc, durationMs } = generateDynamicAdmissionFormPdf(record, template, instituteInfo);
     setLastRenderMs(durationMs);

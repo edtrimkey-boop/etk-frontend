@@ -77,7 +77,7 @@ export default function AdmissionPortalPage() {
   const { user, payload, showToast, showAlert, showConfirm } = useDashboard();
   const role = normalizeRole(user?.role);
   const permissions = getPermissions(user?.role);
-  const canManage = permissions.canManageStudents || role === 'super_admin';
+  const canManage = permissions.canManageStudents;
 
   const instCode = user?.code || user?.instId || payload?.profile?.code || 'ETK';
   const instInfo = useMemo(
@@ -175,7 +175,7 @@ export default function AdmissionPortalPage() {
 
   const loadAll = useCallback(
     async (mode: 'initial' | 'manual' | 'silent' = 'initial') => {
-      if (role === 'operator') return;
+      if (role === 'operator' || role === 'super_admin') return;
       if (mode === 'manual') {
         setSyncing(true);
       } else if (mode === 'initial' && !hasLoadedOnceRef.current) {
@@ -225,7 +225,7 @@ export default function AdmissionPortalPage() {
 
   // Silent Realtime Roster & Pipeline Sync (zero loading flash, updates only when data changes)
   useEffect(() => {
-    if (!instKey || role === 'operator') return;
+    if (!instKey || role === 'operator' || role === 'super_admin') return;
 
     const triggerSilentSync = (minIntervalMs = 2500) => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
@@ -334,8 +334,13 @@ export default function AdmissionPortalPage() {
     });
   }, [records, capacities]);
 
-  if (role === 'operator') {
-    return <AccessDenied requiredRole="Institute Admin or Teacher" moduleName="Admission System" />;
+  if (role === 'operator' || role === 'super_admin') {
+    return (
+      <AccessDenied
+        requiredRole="Institute Admin or Faculty"
+        moduleName="Admission System (Institute Portal)"
+      />
+    );
   }
 
   // =========================================================================
@@ -859,25 +864,59 @@ export default function AdmissionPortalPage() {
       </section>
 
       {/* Main Directory & Pipeline Panel */}
-      <div className="panel">
+      <div className="panel" style={{ padding: '18px 20px' }}>
+        {/* Unified Header: Sub-Tabs Left + Compact Exports Right */}
         <div
-          className="panel-header"
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '16px',
+            paddingBottom: '14px',
+            borderBottom: '1px solid var(--border)',
+          }}
         >
-          <div>
-            <h3 style={{ margin: 0 }}>Admission Command Center</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>
-              Finalized admissions auto-sync to <span style={{ color: 'var(--brand)' }}>Documents / Admission Forms</span> on Drive with atomic numbering.
-            </p>
+          <div className="etk-segmented-nav" style={{ margin: 0 }}>
+            <button
+              type="button"
+              className={`etk-segmented-pill ${subTab === 'pipeline' ? 'active' : ''}`}
+              onClick={() => setSubTab('pipeline')}
+            >
+              Pipeline ({records.length})
+            </button>
+            <button
+              type="button"
+              className={`etk-segmented-pill ${subTab === 'roster' ? 'active' : ''}`}
+              onClick={() => setSubTab('roster')}
+            >
+              Student Roster ({kpis.enrolled})
+            </button>
+            <button
+              type="button"
+              className={`etk-segmented-pill ${subTab === 'seats' ? 'active' : ''}`}
+              onClick={() => setSubTab('seats')}
+            >
+              Seat Matrix
+            </button>
+            <button
+              type="button"
+              className={`etk-segmented-pill ${subTab === 'fees' ? 'active' : ''}`}
+              onClick={() => setSubTab('fees')}
+            >
+              Fees &amp; Docs
+            </button>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <OpticalButton type="button" variant="outline" onClick={handlePrintBlankForm} style={{ padding: '7px 12px', fontSize: '11.5px' }}>
-              Blank Form PDF
+
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <OpticalButton type="button" variant="outline" onClick={handlePrintBlankForm} style={{ padding: '6px 11px', fontSize: '11px' }}>
+              Blank Form
             </OpticalButton>
-            <OpticalButton type="button" variant="outline" onClick={handleExportBulkFormsPdf} style={{ padding: '7px 12px', fontSize: '11.5px' }}>
-              Bulk Forms PDF
+            <OpticalButton type="button" variant="outline" onClick={handleExportBulkFormsPdf} style={{ padding: '6px 11px', fontSize: '11px' }}>
+              Bulk PDF
             </OpticalButton>
-            <OpticalButton type="button" variant="outline" onClick={handleExportRosterPdf} style={{ padding: '7px 12px', fontSize: '11.5px' }}>
+            <OpticalButton type="button" variant="outline" onClick={handleExportRosterPdf} style={{ padding: '6px 11px', fontSize: '11px' }}>
               Roster PDF
             </OpticalButton>
             <OpticalButton
@@ -887,62 +926,28 @@ export default function AdmissionPortalPage() {
                 exportAdmissionsToCsv(filteredRecords, instCode);
                 showToast('CSV exported.', 'success');
               }}
-              style={{ padding: '7px 12px', fontSize: '11.5px' }}
+              style={{ padding: '6px 11px', fontSize: '11px' }}
             >
               CSV
             </OpticalButton>
           </div>
         </div>
 
-        {/* Apple Segmented Sub-Tabs */}
-        <div className="etk-segmented-nav-wrap">
-          <div className="etk-segmented-nav">
-            <button
-              type="button"
-              className={`etk-segmented-pill ${subTab === 'pipeline' ? 'active' : ''}`}
-              onClick={() => setSubTab('pipeline')}
-            >
-              Applications &amp; Pipeline ({records.length})
-            </button>
-            <button
-              type="button"
-              className={`etk-segmented-pill ${subTab === 'roster' ? 'active' : ''}`}
-              onClick={() => setSubTab('roster')}
-            >
-              Master Student Roster ({kpis.enrolled})
-            </button>
-            <button
-              type="button"
-              className={`etk-segmented-pill ${subTab === 'seats' ? 'active' : ''}`}
-              onClick={() => setSubTab('seats')}
-            >
-              Class Seat Matrix
-            </button>
-            <button
-              type="button"
-              className={`etk-segmented-pill ${subTab === 'fees' ? 'active' : ''}`}
-              onClick={() => setSubTab('fees')}
-            >
-              Fee &amp; Docs Tracker
-            </button>
-          </div>
-        </div>
-
         {/* Seat Matrix Sub-View */}
         {subTab === 'seats' ? (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Live active student counts from Supabase compared against configured class seat limits.
+                Live active student counts against configured class seat limits.
               </span>
               {canManage && (
-                <OpticalButton type="button" variant="outline" onClick={() => setCapacityOpen(true)}>
-                  Configure Seat Capacities
+                <OpticalButton type="button" variant="outline" onClick={() => setCapacityOpen(true)} style={{ padding: '7px 14px', fontSize: '11.5px' }}>
+                  Configure Capacities
                 </OpticalButton>
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
               {seatMatrix.map((item) => {
                 const barColor = item.pct >= 90 ? 'var(--danger)' : item.pct >= 70 ? 'var(--accent)' : 'var(--success)';
                 return (
@@ -951,15 +956,15 @@ export default function AdmissionPortalPage() {
                     style={{
                       background: 'rgba(255,255,255,0.025)',
                       border: '1px solid var(--border)',
-                      borderRadius: '16px',
-                      padding: '18px',
+                      borderRadius: '14px',
+                      padding: '15px 16px',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <b style={{ fontSize: '15px', color: 'var(--text)' }}>{item.cls}</b>
+                      <b style={{ fontSize: '14.5px', color: 'var(--text)' }}>{item.cls}</b>
                       <span className="badge bg-info">{item.pct}% Full</span>
                     </div>
-                    <div style={{ width: '100%', height: '7px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', overflow: 'hidden', margin: '12px 0' }}>
+                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', overflow: 'hidden', margin: '10px 0' }}>
                       <div style={{ width: `${item.pct}%`, height: '100%', background: barColor, borderRadius: '999px', transition: 'width 0.3s ease' }} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -967,7 +972,7 @@ export default function AdmissionPortalPage() {
                       <span>Open: <b style={{ color: 'var(--success)' }}>{item.available}</b></span>
                     </div>
                     {item.pending > 0 && (
-                      <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
+                      <div style={{ marginTop: '5px', fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
                         +{item.pending} in pipeline
                       </div>
                     )}
@@ -978,20 +983,21 @@ export default function AdmissionPortalPage() {
           </div>
         ) : (
           <>
+            {/* Compact Filter Bar */}
             <div
               style={{
                 display: 'flex',
-                gap: '12px',
-                marginBottom: '20px',
+                gap: '10px',
+                marginBottom: '16px',
                 flexWrap: 'wrap',
                 alignItems: 'center',
-                background: 'rgba(0,0,0,0.2)',
-                padding: '15px',
+                background: 'rgba(255,255,255,0.02)',
+                padding: '10px 12px',
                 borderRadius: '12px',
                 border: '1px solid var(--border)',
               }}
             >
-              <div className="search-wrapper" style={{ maxWidth: '300px', marginBottom: 0 }}>
+              <div className="search-wrapper" style={{ maxWidth: '280px', marginBottom: 0 }}>
                 <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -999,13 +1005,13 @@ export default function AdmissionPortalPage() {
                 <input
                   type="text"
                   className="search-input"
-                  placeholder="Search Adm No, Name, Father, Phone..."
+                  placeholder="Search Adm No, Name, Phone..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
 
-              <select className="filter-select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+              <select className="filter-select" style={{ marginBottom: 0 }} value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
                 <option value="all">All Classes</option>
                 {ADMISSION_CLASSES.map((c) => (
                   <option key={c} value={c}>
@@ -1015,7 +1021,7 @@ export default function AdmissionPortalPage() {
               </select>
 
               {subTab !== 'roster' && (
-                <select className="filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <select className="filter-select" style={{ marginBottom: 0 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   <option value="all">All Stages</option>
                   <option value="Enquiry">Enquiry</option>
                   <option value="Applied">Applied</option>
@@ -1025,7 +1031,7 @@ export default function AdmissionPortalPage() {
                 </select>
               )}
 
-              <select className="filter-select" value={sessionFilter} onChange={(e) => setSessionFilter(e.target.value)}>
+              <select className="filter-select" style={{ marginBottom: 0 }} value={sessionFilter} onChange={(e) => setSessionFilter(e.target.value)}>
                 <option value="all">All Sessions</option>
                 {sessions.map((s) => (
                   <option key={s} value={s}>
@@ -1034,9 +1040,8 @@ export default function AdmissionPortalPage() {
                 ))}
               </select>
 
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                Showing <b style={{ color: 'var(--text)' }}>{visibleRecords.length}</b> of{' '}
-                <b style={{ color: 'var(--text)' }}>{filteredRecords.length}</b> records
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: 'auto', paddingRight: '4px' }}>
+                <b style={{ color: 'var(--text)' }}>{visibleRecords.length}</b> / {filteredRecords.length}
               </span>
             </div>
 
@@ -1044,10 +1049,10 @@ export default function AdmissionPortalPage() {
               <table className="tk-sleek-table" style={{ width: '100%' }}>
                 <thead>
                   <tr>
-                    <th>Adm / App No</th>
+                    <th>Adm No</th>
                     <th>Student &amp; Parent</th>
-                    <th>Class &amp; Session</th>
-                    <th>Contact &amp; Village</th>
+                    <th>Class &amp; Roll</th>
+                    <th>Contact</th>
                     <th>{subTab === 'fees' ? 'Fee Breakdown' : 'Fee & Docs'}</th>
                     <th>Status</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -1077,7 +1082,7 @@ export default function AdmissionPortalPage() {
                       const { net, paid, balance } = computeFeeTotals(rec);
                       return (
                         <tr key={rec.id}>
-                          <td data-label="Adm / App No">
+                          <td data-label="Adm No">
                             <span
                               className="flat-pill"
                               style={{
@@ -1093,7 +1098,10 @@ export default function AdmissionPortalPage() {
                           </td>
 
                           <td data-label="Student & Parent">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              onClick={() => setSlipRecord(rec)}
+                              style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                            >
                               <div
                                 style={{
                                   width: '34px',
@@ -1128,18 +1136,18 @@ export default function AdmissionPortalPage() {
                             </div>
                           </td>
 
-                          <td data-label="Class & Session">
+                          <td data-label="Class & Roll">
                             <div>
                               <b style={{ color: 'var(--text)', fontSize: '12.5px' }}>
                                 {rec.className || '-'} {rec.section ? `(${rec.section})` : ''}
                               </b>
                               <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                Roll: {rec.rollNo ?? '-'} • {rec.academicSession}
+                                Roll {rec.rollNo ?? '-'} • {rec.academicSession}
                               </div>
                             </div>
                           </td>
 
-                          <td data-label="Contact & Village">
+                          <td data-label="Contact">
                             <div>
                               <span style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 600 }}>
                                 {highlightMatch(rec.contactNo, search)}
@@ -1163,16 +1171,30 @@ export default function AdmissionPortalPage() {
                           </td>
 
                           <td data-label="Status">
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
                               <span className={`badge ${statusBadgeClass(rec.status)}`}>{rec.status}</span>
                               {rec.formPdfUrl && (
-                                <a href={rec.formPdfUrl} target="_blank" rel="noreferrer" className="badge bg-info" style={{ textDecoration: 'none' }}>
-                                  Drive Form ↗
+                                <a
+                                  href={rec.formPdfUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="badge bg-info"
+                                  style={{ textDecoration: 'none' }}
+                                  title="Open Auto-Saved Drive Admission Form"
+                                >
+                                  Drive ↗
                                 </a>
                               )}
-                              {rec.receiptPdfUrl && (
-                                <a href={rec.receiptPdfUrl} target="_blank" rel="noreferrer" className="badge bg-purple" style={{ textDecoration: 'none' }}>
-                                  Drive Receipt ↗
+                              {subTab === 'fees' && rec.receiptPdfUrl && (
+                                <a
+                                  href={rec.receiptPdfUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="badge bg-purple"
+                                  style={{ textDecoration: 'none' }}
+                                  title="Open Auto-Saved Drive Receipt"
+                                >
+                                  Receipt ↗
                                 </a>
                               )}
                               {rec.status === 'Admitted' && rec.studentStatus === 'Inactive' && (
@@ -1182,56 +1204,44 @@ export default function AdmissionPortalPage() {
                           </td>
 
                           <td data-label="Actions" style={{ textAlign: 'right' }}>
-                            <div className="mobile-action-row" style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                              <OpticalButton
-                                type="button"
-                                variant="success"
-                                onClick={() => handleQuickRowFormPdf(rec)}
-                                style={{ padding: '6px 10px', fontSize: '11px' }}
-                              >
-                                Form PDF
-                              </OpticalButton>
-
-                              <OpticalButton
-                                type="button"
-                                variant="purple"
-                                onClick={() => handleQuickRowReceiptPdf(rec)}
-                                style={{ padding: '6px 10px', fontSize: '11px' }}
-                              >
-                                Receipt
-                              </OpticalButton>
-
+                            <div className="mobile-action-row" style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                               <OpticalButton
                                 type="button"
                                 variant="outline"
                                 onClick={() => setSlipRecord(rec)}
-                                style={{ padding: '6px 10px', fontSize: '11px' }}
+                                style={{ padding: '6px 11px', fontSize: '11px' }}
                               >
                                 View
                               </OpticalButton>
+
+                              {subTab === 'fees' ? (
+                                <OpticalButton
+                                  type="button"
+                                  variant="purple"
+                                  onClick={() => handleQuickRowReceiptPdf(rec)}
+                                  style={{ padding: '6px 11px', fontSize: '11px' }}
+                                >
+                                  Receipt PDF
+                                </OpticalButton>
+                              ) : (
+                                <OpticalButton
+                                  type="button"
+                                  variant="success"
+                                  onClick={() => handleQuickRowFormPdf(rec)}
+                                  style={{ padding: '6px 11px', fontSize: '11px' }}
+                                >
+                                  Form PDF
+                                </OpticalButton>
+                              )}
 
                               {canManage && rec.status !== 'Admitted' && rec.status !== 'Cancelled' && (
                                 <OpticalButton
                                   type="button"
                                   variant="success"
                                   onClick={() => handleEnrollPending(rec)}
-                                  style={{ padding: '6px 12px', fontSize: '11px' }}
+                                  style={{ padding: '6px 11px', fontSize: '11px' }}
                                 >
                                   Enroll
-                                </OpticalButton>
-                              )}
-
-                              {canManage && (
-                                <OpticalButton
-                                  type="button"
-                                  variant="secondary"
-                                  onClick={() => {
-                                    setEditingRecord(rec);
-                                    setFormOpen(true);
-                                  }}
-                                  style={{ padding: '6px 12px', fontSize: '11px' }}
-                                >
-                                  Edit
                                 </OpticalButton>
                               )}
 
@@ -1240,7 +1250,7 @@ export default function AdmissionPortalPage() {
                                   type="button"
                                   variant={rec.studentStatus === 'Inactive' ? 'success' : 'danger'}
                                   onClick={() => handleToggleActiveStatus(rec)}
-                                  style={{ padding: '6px 12px', fontSize: '11px' }}
+                                  style={{ padding: '6px 11px', fontSize: '11px' }}
                                 >
                                   {rec.studentStatus === 'Inactive' ? 'Activate' : 'Deactivate'}
                                 </OpticalButton>

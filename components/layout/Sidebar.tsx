@@ -141,8 +141,8 @@ export default function Sidebar({
         </>
       )}
 
-      {/* Dynamic Sub-Apps Links (Fees, Admission, Attendance) */}
-      {!isOperator && (
+      {/* Institute Sub-Apps Links (Fees, Admission, Attendance) — Institute Roles Only */}
+      {(isInstAdmin || isTeacher) && (
         <div id="sidebar-dynamic-apps">
           <Link
             href="/fees"

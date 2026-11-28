@@ -104,8 +104,10 @@ export interface AdmissionRecord {
   status: AdmissionStatus;
   studentStatus?: 'Active' | 'Inactive';
   className: string;
+  admittedClassName?: string;
   section: string;
   rollNo: number | null;
+  admittedRollNo?: number | null;
   academicSession: string;
   admissionDate: string;
   studentName: string;
@@ -760,8 +762,10 @@ function mergeFullSources(
       status: 'Admitted',
       studentStatus: String(s.status || 'Active').trim().toLowerCase() === 'inactive' ? 'Inactive' : 'Active',
       className: s.class_name || s.class || linkedAdm?.className || meta.className || '',
+      admittedClassName: linkedAdm?.className || s.class_name || s.class || meta.className || '',
       section: linkedAdm?.section || meta.section || 'A',
       rollNo: s.roll_no !== undefined && s.roll_no !== null ? Number(s.roll_no) : null,
+      admittedRollNo: linkedAdm?.rollNo ?? (s.roll_no !== undefined && s.roll_no !== null ? Number(s.roll_no) : null),
       academicSession: linkedAdm?.academicSession || meta.academicSession || currentSession,
       admissionDate:
         linkedAdm?.admissionDate ||
@@ -1015,10 +1019,14 @@ export function downloadPdfBlob(blob: Blob, fileName: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-export function openPdfBlobInNewTab(blob: Blob): void {
+export function openPdfBlobInNewTab(blob: Blob, targetWin?: Window | null): void {
   if (typeof window === 'undefined') return;
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
+  if (targetWin && !targetWin.closed) {
+    targetWin.location.href = url;
+  } else {
+    window.open(url, '_blank');
+  }
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
@@ -1944,7 +1952,12 @@ export function generateDynamicAdmissionFormPdf(
   const cachedPhoto = getCachedImageAsset(rec.photoUrl);
   const cachedSig = getCachedImageAsset(template.branding.signatureUrl);
 
-  drawAdmissionFormPage(doc, rec, template, instituteInfo, cachedLogo, cachedPhoto, cachedSig);
+  const canonicalRec: AdmissionRecord = {
+    ...rec,
+    className: rec.admittedClassName || rec.className,
+    rollNo: rec.admittedRollNo ?? rec.rollNo,
+  };
+  drawAdmissionFormPage(doc, canonicalRec, template, instituteInfo, cachedLogo, cachedPhoto, cachedSig);
 
   const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   return { doc, durationMs: Math.max(1, Math.round(t1 - t0)) };
@@ -1963,7 +1976,12 @@ export function generateBulkAdmissionFormsPdf(
   records.forEach((rec, index) => {
     if (index > 0) doc.addPage();
     const cachedPhoto = getCachedImageAsset(rec.photoUrl);
-    drawAdmissionFormPage(doc, rec, template, instituteInfo, cachedLogo, cachedPhoto, cachedSig);
+    const canonicalRec: AdmissionRecord = {
+    ...rec,
+    className: rec.admittedClassName || rec.className,
+    rollNo: rec.admittedRollNo ?? rec.rollNo,
+  };
+  drawAdmissionFormPage(doc, canonicalRec, template, instituteInfo, cachedLogo, cachedPhoto, cachedSig);
   });
 
   const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
