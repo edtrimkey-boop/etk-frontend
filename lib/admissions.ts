@@ -269,12 +269,64 @@ export interface CachedImageAsset {
 const imageDataUrlCache = new Map<string, string>();
 const imageAssetCache = new Map<string, CachedImageAsset>();
 
-function measureDataUrlDimensions(dataUrl: string): Promise<{ width: number; height: number }> {
-  if (typeof window === 'undefined') return Promise.resolve({ width: 100, height: 100 });
+function measureAndOptimizeDataUrlForPdf(dataUrl: string): Promise<CachedImageAsset> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve({ dataUrl, width: 100, height: 100 });
+  }
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth || 100, height: img.naturalHeight || 100 });
-    img.onerror = () => resolve({ width: 100, height: 100 });
+    img.onload = () => {
+      const natW = img.naturalWidth || 100;
+      const natH = img.naturalHeight || 100;
+      const maxDim = 520;
+      const isLarge = natW > maxDim || natH > maxDim || dataUrl.length > 120_000;
+      if (!isLarge) {
+        resolve({ dataUrl, width: natW, height: natH });
+        return;
+      }
+
+      try {
+        const scale = Math.min(1, maxDim / Math.max(natW, natH));
+        const targetW = Math.max(1, Math.round(natW * scale));
+        const targetH = Math.max(1, Math.round(natH * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve({ dataUrl, width: natW, height: natH });
+          return;
+        }
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
+        // Preserve transparency for PNG logos/signatures; compress opaque photos as JPEG
+        let hasAlpha = false;
+        const lowerHead = dataUrl.slice(0, 40).toLowerCase();
+        if (lowerHead.includes('image/png') || lowerHead.includes('image/webp')) {
+          try {
+            const sample = ctx.getImageData(0, 0, targetW, targetH).data;
+            for (let i = 3; i < sample.length; i += 16) {
+              if (sample[i] < 248) {
+                hasAlpha = true;
+                break;
+              }
+            }
+          } catch {}
+        }
+
+        const outUrl = hasAlpha
+          ? canvas.toDataURL('image/png')
+          : canvas.toDataURL('image/jpeg', 0.84);
+        resolve({
+          dataUrl: outUrl.length < dataUrl.length ? outUrl : dataUrl,
+          width: targetW,
+          height: targetH,
+        });
+      } catch {
+        resolve({ dataUrl, width: natW, height: natH });
+      }
+    };
+    img.onerror = () => resolve({ dataUrl, width: 100, height: 100 });
     img.src = dataUrl;
   });
 }
@@ -291,10 +343,10 @@ export async function preloadImageAsDataUrl(url?: string): Promise<string | null
   if (imageAssetCache.has(url)) return imageAssetCache.get(url)!.dataUrl;
 
   if (url.startsWith('data:image/')) {
-    imageDataUrlCache.set(url, url);
-    const dims = await measureDataUrlDimensions(url);
-    imageAssetCache.set(url, { dataUrl: url, ...dims });
-    return url;
+    const asset = await measureAndOptimizeDataUrlForPdf(url);
+    imageDataUrlCache.set(url, asset.dataUrl);
+    imageAssetCache.set(url, asset);
+    return asset.dataUrl;
   }
 
   let dataUrl: string | null = null;
@@ -322,11 +374,12 @@ export async function preloadImageAsDataUrl(url?: string): Promise<string | null
   }
 
   if (dataUrl) {
-    const dims = await measureDataUrlDimensions(dataUrl);
-    imageDataUrlCache.set(url, dataUrl);
-    imageAssetCache.set(url, { dataUrl, ...dims });
+    const asset = await measureAndOptimizeDataUrlForPdf(dataUrl);
+    imageDataUrlCache.set(url, asset.dataUrl);
+    imageAssetCache.set(url, asset);
+    return asset.dataUrl;
   }
-  return dataUrl;
+  return null;
 }
 
 export function seedCachedAsset(url: string, dataUrl: string, width = 420, height = 540): void {
@@ -375,7 +428,7 @@ function addImageFit(
   const drawY = boxY + (boxH - drawH) / 2;
 
   try {
-    doc.addImage(asset.dataUrl, detectImageFormat(asset.dataUrl), drawX, drawY, drawW, drawH);
+    doc.addImage(asset.dataUrl, detectImageFormat(asset.dataUrl), drawX, drawY, drawW, drawH, undefined, 'MEDIUM');
   } catch {}
 }
 
@@ -858,6 +911,16 @@ export async function archiveAdmissionPdfToDriveRemote(
   try {
     const dataUri = pdfDoc.output('datauristring');
     const fileBase64 = dataUri.split(',')[1] || '';
+    if (!fileBase64) {
+      return { success: false, error: 'Failed to generate PDF payload for Drive archival.' };
+    }
+    if (fileBase64.length > 4_100_000) {
+      const mb = (fileBase64.length / (1024 * 1024)).toFixed(2);
+      return {
+        success: false,
+        error: `PDF base64 payload (${mb} MB) exceeds 4.5 MB gateway limit. Re-upload compressed logo/photo images and retry.`,
+      };
+    }
     const safeAdm = String(record.admissionNo || 'ADM').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeName = String(record.studentName || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
     const defaultName =
@@ -1808,7 +1871,7 @@ export function generateDynamicAdmissionFormPdf(
   instituteInfo: { name: string; code: string; address?: string; email?: string; logoUrl?: string }
 ): { doc: jsPDF; durationMs: number } {
   const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  const doc = new jsPDF('p', 'pt', 'a4');
+  const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
   const cachedLogo = getCachedImageAsset(instituteInfo.logoUrl);
   const cachedPhoto = getCachedImageAsset(rec.photoUrl);
   const cachedSig = getCachedImageAsset(template.branding.signatureUrl);
@@ -1825,7 +1888,7 @@ export function generateBulkAdmissionFormsPdf(
   instituteInfo: { name: string; code: string; address?: string; email?: string; logoUrl?: string }
 ): { doc: jsPDF; durationMs: number } {
   const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  const doc = new jsPDF('p', 'pt', 'a4');
+  const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
   const cachedLogo = getCachedImageAsset(instituteInfo.logoUrl);
   const cachedSig = getCachedImageAsset(template.branding.signatureUrl);
 
@@ -1845,7 +1908,7 @@ export function generateAdmissionPaymentReceiptPdf(
   instituteInfo: { name: string; code: string; address?: string; email?: string; logoUrl?: string }
 ): { doc: jsPDF; durationMs: number } {
   const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  const doc = new jsPDF('p', 'pt', 'a4');
+  const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
   const [ar, ag, ab] = hexToRgb(template.branding.accentColor || '#008FD5');
   const cachedLogo = getCachedImageAsset(instituteInfo.logoUrl);
   const cachedSig = getCachedImageAsset(template.branding.signatureUrl);
@@ -2022,7 +2085,7 @@ export function generateRosterPdf(
   instituteInfo: { name: string; code: string },
   filterLabel = 'All Classes'
 ): jsPDF {
-  const doc = new jsPDF('p', 'pt', 'a4');
+  const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
   doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, 595, 76, 'F');
 

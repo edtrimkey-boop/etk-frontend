@@ -248,7 +248,22 @@ export async function serverCall<T = any>(
         body: JSON.stringify(requestBody),
       });
 
-      const data: ServerCallResponse<T> = await response.json();
+      const rawText = await response.text();
+      if (response.status === 413) {
+        throw new Error('Upload payload too large (413). Please reduce PDF/image size and retry.');
+      }
+
+      let data: ServerCallResponse<T>;
+      try {
+        data = JSON.parse(rawText) as ServerCallResponse<T>;
+      } catch {
+        const snippet = rawText.trim().slice(0, 120);
+        throw new Error(
+          snippet
+            ? `Backend returned invalid response (${response.status}): ${snippet}`
+            : `Backend returned empty non-JSON response (${response.status}).`
+        );
+      }
 
       if (data.authFailed) {
         if (typeof window !== 'undefined') {
