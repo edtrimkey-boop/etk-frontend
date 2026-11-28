@@ -18,8 +18,10 @@ import {
   bulkPromoteClassInDb,
   computeFeeTotals,
   deleteStudentInDb,
+  downloadPdfBlob,
   exportAdmissionsToCsv,
   fetchAdmissionBootstrap,
+  fetchSavedDrivePdfBlobRemote,
   getCachedAdmissionBootstrap,
   generateAdmissionPaymentReceiptPdf,
   generateBulkAdmissionFormsPdf,
@@ -400,21 +402,39 @@ export default function AdmissionPortalPage() {
   };
 
   const handleQuickRowFormPdf = async (rec: AdmissionRecord) => {
+    const fileName = `Admission_Form_${rec.admissionNo || 'Student'}.pdf`;
+    if (rec.driveFileId) {
+      const cachedRes = await fetchSavedDrivePdfBlobRemote(instId || 'default', rec.driveFileId, fileName);
+      if (cachedRes.success && cachedRes.blob) {
+        downloadPdfBlob(cachedRes.blob, cachedRes.fileName || fileName);
+        showToast('Downloaded canonical Drive Admission Form.', 'success');
+        return;
+      }
+    }
     await ensureRecordAssetsCached(rec);
     const { doc, durationMs } = generateDynamicAdmissionFormPdf(rec, template, instInfo);
-    doc.save(`Admission_Form_${rec.admissionNo || 'Student'}.pdf`);
+    doc.save(fileName);
     showToast(`Admission Form PDF (${durationMs}ms).`, 'success');
-    if (rec.status === 'Admitted' && !rec.formPdfUrl) {
+    if (rec.status === 'Admitted' && !rec.driveFileId) {
       handleGenerateAndArchive(rec, true, 'admission_form').catch(() => {});
     }
   };
 
   const handleQuickRowReceiptPdf = async (rec: AdmissionRecord) => {
+    const fileName = `Payment_Receipt_${rec.admissionNo || 'Student'}.pdf`;
+    if (rec.receiptDriveFileId) {
+      const cachedRes = await fetchSavedDrivePdfBlobRemote(instId || 'default', rec.receiptDriveFileId, fileName);
+      if (cachedRes.success && cachedRes.blob) {
+        downloadPdfBlob(cachedRes.blob, cachedRes.fileName || fileName);
+        showToast('Downloaded canonical Drive Payment Receipt.', 'success');
+        return;
+      }
+    }
     await ensureRecordAssetsCached(rec);
     const { doc, durationMs } = generateAdmissionPaymentReceiptPdf(rec, template, instInfo);
-    doc.save(`Payment_Receipt_${rec.admissionNo || 'Student'}.pdf`);
+    doc.save(fileName);
     showToast(`Payment Receipt PDF (${durationMs}ms).`, 'success');
-    if (rec.status === 'Admitted') {
+    if (rec.status === 'Admitted' && !rec.receiptDriveFileId) {
       handleGenerateAndArchive(rec, true, 'receipt').catch(() => {});
     }
   };
@@ -1291,6 +1311,7 @@ export default function AdmissionPortalPage() {
 
       <AdmissionSlipModal
         record={slipRecord}
+        instId={instId}
         template={template}
         instituteInfo={instInfo}
         canManage={canManage}

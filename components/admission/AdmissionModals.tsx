@@ -15,12 +15,15 @@ import {
   computeFeeTotals,
   computeLiveAdmissionPreviewNo,
   computeLiveRollPreview,
+  downloadPdfBlob,
+  fetchSavedDrivePdfBlobRemote,
   generateAdmissionPaymentReceiptPdf,
   generateDynamicAdmissionFormPdf,
   getCurrentAcademicSession,
   getNextClassName,
   getPrevClassName,
   getTodayIsoDate,
+  openPdfBlobInNewTab,
   preloadImageAsDataUrl,
   uploadStudentPhotoBlobToStorage,
   uploadStudentPhotoToStorage,
@@ -258,10 +261,19 @@ export function AdmissionFormModal({
       }
       await onSave({
         ...form,
-        admissionNo: autoAdmNo ? 'AUTO' : targetAdmNo,
-        rollNo: form.status === 'Admitted' ? (autoRollNo ? null : form.rollNo) : null,
-        autoAssignAdmNo: autoAdmNo,
-        autoAssignRollNo: form.status === 'Admitted' ? autoRollNo : false,
+        admissionNo: isExistingAdmitted
+          ? initialRecord!.admissionNo
+          : autoAdmNo
+            ? 'AUTO'
+            : targetAdmNo,
+        className: isExistingAdmitted ? initialRecord!.className : form.className,
+        rollNo: isExistingAdmitted
+          ? (initialRecord!.rollNo ?? null)
+          : form.status === 'Admitted'
+            ? (autoRollNo ? null : form.rollNo)
+            : null,
+        autoAssignAdmNo: isExistingAdmitted ? false : autoAdmNo,
+        autoAssignRollNo: isExistingAdmitted ? false : form.status === 'Admitted' ? autoRollNo : false,
         previousAdmissionNo: initialRecord?.admissionNo || form.previousAdmissionNo,
         admissionPrefix: template.branding.admissionPrefix,
         admissionPadding: template.branding.admissionPadding,
@@ -341,13 +353,13 @@ export function AdmissionFormModal({
             className="modal-scroll-body"
             style={{
               display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr 480px',
+              gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 480px',
               gap: '18px',
               alignItems: 'start',
             }}
           >
             {/* LEFT PANE: FORM INPUTS */}
-            <div style={{ display: isMobile && mobilePane === 'preview' ? 'none' : 'block' }}>
+            <div style={{ display: isMobile && mobilePane === 'preview' ? 'none' : 'block', minWidth: 0 }}>
               {duplicateCandidate && (
                 <div
                   style={{
@@ -366,7 +378,14 @@ export function AdmissionFormModal({
               )}
               {/* 1. Academic & Enrollment */}
               <div style={sectionCardStyle}>
-                <div style={sectionTitleStyle}>Academic &amp; Enrollment Details</div>
+                <div style={{ ...sectionTitleStyle, justifyContent: 'space-between' }}>
+                  <span>Academic &amp; Enrollment Details</span>
+                  {isExistingAdmitted && (
+                    <span className="badge bg-info" style={{ fontSize: '9.5px', textTransform: 'none', letterSpacing: '0.2px' }}>
+                      Adm No, Class &amp; Roll Locked
+                    </span>
+                  )}
+                </div>
                 <div className="grid-2" style={{ marginBottom: '12px' }}>
                   <div className="form-group">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -384,7 +403,27 @@ export function AdmissionFormModal({
                         </label>
                       )}
                     </div>
-                    {autoAdmNo || form.status !== 'Admitted' ? (
+                    {isExistingAdmitted ? (
+                      <div
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          fontSize: '12.5px',
+                          fontWeight: 800,
+                          color: 'var(--text)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          opacity: 0.85,
+                        }}
+                        title="Admission Number is permanently locked once admitted"
+                      >
+                        <span style={{ fontFamily: 'monospace' }}>{initialRecord?.admissionNo}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Locked</span>
+                      </div>
+                    ) : autoAdmNo || form.status !== 'Admitted' ? (
                       <div
                         style={{
                           padding: '10px 12px',
@@ -420,6 +459,7 @@ export function AdmissionFormModal({
                     </label>
                     <select
                       value={form.status}
+                      disabled={isExistingAdmitted}
                       onChange={(e) => setForm({ ...form, status: e.target.value as AdmissionStatus })}
                     >
                       <option value="Admitted">Admitted (Assigns Adm No &amp; Class Roll No)</option>
@@ -433,10 +473,22 @@ export function AdmissionFormModal({
 
                 <div className="grid-2" style={{ marginBottom: '12px' }}>
                   <div className="form-group">
-                    <label className="label-text">
-                      {getFieldLabel('className', 'Class')} <span className="req">*</span>
-                    </label>
-                    <select required value={form.className} onChange={(e) => handleClassChange(e.target.value)}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="label-text" style={{ marginBottom: 0 }}>
+                        {getFieldLabel('className', 'Class')} <span className="req">*</span>
+                      </label>
+                      {isExistingAdmitted && (
+                        <span style={{ fontSize: '9.5px', fontWeight: 700, color: 'var(--text-muted)' }}>Locked</span>
+                      )}
+                    </div>
+                    <select
+                      required
+                      disabled={isExistingAdmitted}
+                      value={form.className}
+                      onChange={(e) => handleClassChange(e.target.value)}
+                      style={isExistingAdmitted ? { opacity: 0.72, cursor: 'not-allowed' } : undefined}
+                      title={isExistingAdmitted ? 'Admission class is locked; use Promote/Demote on Roster to change current student class.' : undefined}
+                    >
                       <option value="" disabled>
                         Select Class...
                       </option>
@@ -463,7 +515,7 @@ export function AdmissionFormModal({
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <label className="label-text" style={{ marginBottom: 0 }}>Section &amp; Roll Number</label>
-                      {form.status === 'Admitted' && (
+                      {!isExistingAdmitted && form.status === 'Admitted' && (
                         <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                           <input
                             type="checkbox"
@@ -481,7 +533,23 @@ export function AdmissionFormModal({
                         <option value="C">Section C</option>
                         <option value="D">Section D</option>
                       </select>
-                      {form.status !== 'Admitted' ? (
+                      {isExistingAdmitted ? (
+                        <div
+                          style={{
+                            padding: '9px 10px',
+                            borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            fontSize: '12px',
+                            color: 'var(--text)',
+                            fontWeight: 800,
+                            opacity: 0.85,
+                          }}
+                          title="Roll Number is permanently locked on admission record"
+                        >
+                          Roll #{initialRecord?.rollNo ?? '-'} (Locked)
+                        </div>
+                      ) : form.status !== 'Admitted' ? (
                         <div
                           style={{
                             padding: '9px 10px',
@@ -937,18 +1005,49 @@ export function AdmissionFormModal({
                 />
               </div>
             </div>
+
+            {initialRecord && onDelete && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.06)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                  Delete this admission record permanently?
+                </span>
+                <OpticalButton
+                  type="button"
+                  variant="danger"
+                  onClick={() => onDelete(initialRecord)}
+                  style={{ padding: '6px 12px', fontSize: '11.5px' }}
+                >
+                  Remove
+                </OpticalButton>
+              </div>
+            )}
             </div>
 
             {/* RIGHT PANE: LIVE FILLED FORM PREVIEW */}
             <div
               style={{
                 display: isMobile && mobilePane === 'form' ? 'none' : 'block',
-                position: 'sticky',
+                minWidth: 0,
+                width: '100%',
+                overflowX: 'hidden',
+                position: isMobile ? 'relative' : 'sticky',
                 top: 0,
                 background: 'rgba(0,0,0,0.22)',
                 border: '1px solid var(--border)',
                 borderRadius: '14px',
-                padding: '12px',
+                padding: isMobile ? '10px' : '12px',
+                boxSizing: 'border-box',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
@@ -971,6 +1070,7 @@ export function AdmissionFormModal({
                 instituteInfo={instituteInfo}
                 photoPreviewUrl={photoPreview}
                 admNoPreviewHint={liveAdmNoPreview}
+                refreshKey={mobilePane}
                 rollNoPreviewHint={
                   form.status === 'Admitted'
                     ? liveRollPreview
@@ -982,21 +1082,14 @@ export function AdmissionFormModal({
             </div>
           </div>
 
-          <div className="modal-action-dock" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div className="modal-action-dock" style={{ justifyContent: 'space-between' }}>
             <OpticalButton type="button" variant="outline" onClick={onClose}>
               Cancel
             </OpticalButton>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              {initialRecord && onDelete && (
-                <OpticalButton type="button" variant="danger" onClick={() => onDelete(initialRecord)}>
-                  Remove
-                </OpticalButton>
-              )}
-              <OpticalButton type="submit" variant="success" disabled={saving}>
-                {saving ? <IOSSpinner size={15} color="#05080F" /> : null}
-                {saving ? 'Saving...' : form.status === 'Admitted' ? 'Save & Enroll Student' : 'Save Application'}
-              </OpticalButton>
-            </div>
+            <OpticalButton type="submit" variant="success" disabled={saving}>
+              {saving ? <IOSSpinner size={15} color="#05080F" /> : null}
+              {saving ? 'Saving...' : isExistingAdmitted ? 'Update & Re-Sync Drive' : form.status === 'Admitted' ? 'Save & Enroll Student' : 'Save Application'}
+            </OpticalButton>
           </div>
         </form>
       </div>
@@ -1213,6 +1306,7 @@ export function QuickEnquiryModal({ open, onClose, onSave }: QuickEnquiryModalPr
 // ============================================================================
 interface AdmissionSlipModalProps {
   record: AdmissionRecord | null;
+  instId?: string;
   template: AdmissionFormTemplate;
   instituteInfo: { name: string; code: string; address?: string; email?: string; logoUrl?: string };
   canManage: boolean;
@@ -1225,6 +1319,7 @@ interface AdmissionSlipModalProps {
 
 export function AdmissionSlipModal({
   record,
+  instId,
   template,
   instituteInfo,
   canManage,
@@ -1235,6 +1330,7 @@ export function AdmissionSlipModal({
   onGenerateAndArchive,
 }: AdmissionSlipModalProps) {
   const [archiving, setArchiving] = useState(false);
+  const [busyDoc, setBusyDoc] = useState<null | 'form' | 'receipt' | 'print'>(null);
   const [lastRenderMs, setLastRenderMs] = useState<number | null>(null);
 
   useEffect(() => {
@@ -1253,21 +1349,48 @@ export function AdmissionSlipModal({
   const nextCls = getNextClassName(record.className);
   const prevCls = getPrevClassName(record.className);
   const customEntries = Object.entries(record.customFields || {}).filter(([, v]) => v);
+  const formFileName = `Admission_Form_${record.admissionNo || 'Student'}.pdf`;
+  const receiptFileName = `Payment_Receipt_${record.admissionNo || 'Student'}.pdf`;
 
+  // Serve canonical PDF saved in Drive when present; generate once + auto-upload otherwise
   const handleDownloadPdf = async () => {
+    if (record.driveFileId) {
+      setBusyDoc('form');
+      try {
+        const res = await fetchSavedDrivePdfBlobRemote(instId || 'default', record.driveFileId, formFileName);
+        if (res.success && res.blob) {
+          downloadPdfBlob(res.blob, res.fileName || formFileName);
+          return;
+        }
+      } finally {
+        setBusyDoc(null);
+      }
+    }
     const { doc, durationMs } = generateDynamicAdmissionFormPdf(record, template, instituteInfo);
     setLastRenderMs(durationMs);
-    doc.save(`Admission_Form_${record.admissionNo || 'Student'}.pdf`);
-    if (onGenerateAndArchive && !record.formPdfUrl) {
+    doc.save(formFileName);
+    if (onGenerateAndArchive && !record.driveFileId && record.status === 'Admitted') {
       onGenerateAndArchive(record, true, 'admission_form').catch(() => {});
     }
   };
 
   const handleDownloadReceiptPdf = async () => {
+    if (record.receiptDriveFileId) {
+      setBusyDoc('receipt');
+      try {
+        const res = await fetchSavedDrivePdfBlobRemote(instId || 'default', record.receiptDriveFileId, receiptFileName);
+        if (res.success && res.blob) {
+          downloadPdfBlob(res.blob, res.fileName || receiptFileName);
+          return;
+        }
+      } finally {
+        setBusyDoc(null);
+      }
+    }
     const { doc, durationMs } = generateAdmissionPaymentReceiptPdf(record, template, instituteInfo);
     setLastRenderMs(durationMs);
-    doc.save(`Payment_Receipt_${record.admissionNo || 'Student'}.pdf`);
-    if (onGenerateAndArchive) {
+    doc.save(receiptFileName);
+    if (onGenerateAndArchive && !record.receiptDriveFileId && record.status === 'Admitted') {
       onGenerateAndArchive(record, true, 'receipt').catch(() => {});
     }
   };
@@ -1283,7 +1406,19 @@ export function AdmissionSlipModal({
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    if (record.driveFileId) {
+      setBusyDoc('print');
+      try {
+        const res = await fetchSavedDrivePdfBlobRemote(instId || 'default', record.driveFileId, formFileName);
+        if (res.success && res.blob) {
+          openPdfBlobInNewTab(res.blob);
+          return;
+        }
+      } finally {
+        setBusyDoc(null);
+      }
+    }
     const { doc, durationMs } = generateDynamicAdmissionFormPdf(record, template, instituteInfo);
     setLastRenderMs(durationMs);
     const blobUrl = doc.output('bloburl');
@@ -1383,7 +1518,7 @@ export function AdmissionSlipModal({
                   </button>
                 )}
 
-                {onGenerateAndArchive && !record.formPdfUrl && record.status === 'Admitted' && (
+                {onGenerateAndArchive && record.status === 'Admitted' && (
                   <button
                     type="button"
                     className="slip-pill-btn"
@@ -1399,7 +1534,7 @@ export function AdmissionSlipModal({
                         <line x1="12" y1="3" x2="12" y2="15" />
                       </svg>
                     )}
-                    {archiving ? 'Syncing Drive...' : 'Sync to Drive'}
+                    {archiving ? 'Syncing Drive...' : record.driveFileId ? 'Regenerate & Sync Drive' : 'Sync to Drive'}
                   </button>
                 )}
 
@@ -1506,48 +1641,67 @@ export function AdmissionSlipModal({
         {/* Clean Document Dock: Single-Row Desktop / Compact 2+1 Grid Mobile */}
         <div className="modal-action-dock slip-action-dock">
           <div className="slip-dock-meta" style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-            {lastRenderMs !== null ? `PDF ready in ${lastRenderMs}ms` : 'A4 Admission Documents'}
+            {record.driveFileId
+              ? 'Synced Canonical Drive PDF'
+              : lastRenderMs !== null
+                ? `PDF ready in ${lastRenderMs}ms`
+                : 'A4 Admission Documents'}
           </div>
           <div className="slip-doc-actions">
             <OpticalButton
               type="button"
               variant="outline"
+              disabled={busyDoc !== null}
               onClick={handlePrint}
               style={{ padding: '9px 14px', fontSize: '12px', gap: '6px' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <polyline points="6 9 6 2 18 2 18 9" />
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                <rect x="6" y="14" width="12" height="8" />
-              </svg>
-              Print Form
+              {busyDoc === 'print' ? (
+                <IOSSpinner size={13} color="currentColor" />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <polyline points="6 9 6 2 18 2 18 9" />
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                  <rect x="6" y="14" width="12" height="8" />
+                </svg>
+              )}
+              {busyDoc === 'print' ? 'Opening...' : 'Print Form'}
             </OpticalButton>
             <OpticalButton
               type="button"
               variant="purple"
+              disabled={busyDoc !== null}
               onClick={handleDownloadReceiptPdf}
               style={{ padding: '9px 14px', fontSize: '12px', gap: '6px' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
-                <path d="M8 8h8" />
-                <path d="M8 12h6" />
-              </svg>
-              Receipt PDF
+              {busyDoc === 'receipt' ? (
+                <IOSSpinner size={13} color="currentColor" />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+                  <path d="M8 8h8" />
+                  <path d="M8 12h6" />
+                </svg>
+              )}
+              {busyDoc === 'receipt' ? 'Loading...' : 'Receipt PDF'}
             </OpticalButton>
             <OpticalButton
               type="button"
               variant="success"
               className="slip-primary-cta"
+              disabled={busyDoc !== null}
               onClick={handleDownloadPdf}
               style={{ padding: '9px 16px', fontSize: '12.5px', gap: '6px' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Admission Form PDF
+              {busyDoc === 'form' ? (
+                <IOSSpinner size={14} color="#05080F" />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              )}
+              {busyDoc === 'form' ? 'Fetching Drive PDF...' : 'Admission Form PDF'}
             </OpticalButton>
           </div>
         </div>

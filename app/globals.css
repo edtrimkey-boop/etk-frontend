@@ -2852,6 +2852,11 @@ td { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; ve
     max-width: calc(50% - 6px) !important;
   }
 
+  .glass-overlay .glass-box .modal-action-dock .apple-glass-shell > * {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
   /* Single button in mobile dock: Perfectly Centered */
   .glass-overlay .glass-box .modal-action-dock.dock-center,
   .glass-overlay .glass-box .modal-action-dock:has(> button:only-child),

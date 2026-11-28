@@ -928,6 +928,7 @@ export async function archiveAdmissionPdfToDriveRemote(
         ? `RCP_${safeAdm}_${safeName}_Receipt.pdf`
         : `${safeAdm}_${safeName}_Admission_Form.pdf`;
 
+    const existingId = docType === 'receipt' ? (record.receiptDriveFileId || null) : (record.driveFileId || null);
     const res = await serverCall('archiveAdmissionPdfToDrive', {
       instId: instituteId,
       docType,
@@ -936,10 +937,12 @@ export async function archiveAdmissionPdfToDriveRemote(
       academicSession: record.academicSession || getCurrentAcademicSession(),
       fileName: defaultName,
       fileBase64,
-      existingDriveFileId: docType === 'receipt' ? (record.receiptDriveFileId || null) : (record.driveFileId || null),
+      existingDriveFileId: existingId,
     });
 
     if (res?.success && res.formPdfUrl) {
+      if (existingId) invalidateSavedDrivePdfCache(existingId);
+      if (res.driveFileId) invalidateSavedDrivePdfCache(res.driveFileId);
       saveAdmissionMetaRecord(instituteId, {
         ...record,
         ...(docType === 'receipt'
@@ -952,6 +955,71 @@ export async function archiveAdmissionPdfToDriveRemote(
   } catch (err: any) {
     return { success: false, error: err?.message || 'Google Drive connection error.' };
   }
+}
+
+const canonicalPdfBlobCache = new Map<string, { blob: Blob; fileName: string }>();
+
+export function invalidateSavedDrivePdfCache(driveFileId?: string | null): void {
+  if (!driveFileId) {
+    canonicalPdfBlobCache.clear();
+    return;
+  }
+  canonicalPdfBlobCache.delete(String(driveFileId).trim());
+}
+
+export async function fetchSavedDrivePdfBlobRemote(
+  instituteId: string,
+  driveFileId: string,
+  fallbackFileName = 'Admission_Document.pdf'
+): Promise<{ success: boolean; blob?: Blob; fileName?: string; error?: string }> {
+  const cleanId = String(driveFileId || '').trim();
+  if (!cleanId) return { success: false, error: 'Missing Drive file ID.' };
+
+  const cached = canonicalPdfBlobCache.get(cleanId);
+  if (cached) {
+    return { success: true, blob: cached.blob, fileName: cached.fileName || fallbackFileName };
+  }
+
+  try {
+    const res = await serverCall('getAdmissionDrivePdf', {
+      instId: instituteId,
+      driveFileId: cleanId,
+    });
+    if (!res?.success || !res?.fileBase64) {
+      return { success: false, error: res?.message || 'Failed to load archived PDF from Drive.' };
+    }
+
+    const binStr = atob(String(res.fileBase64));
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) {
+      bytes[i] = binStr.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: res.mimeType || 'application/pdf' });
+    const fileName = res.fileName || fallbackFileName;
+    canonicalPdfBlobCache.set(cleanId, { blob, fileName });
+    return { success: true, blob, fileName };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Drive fetch failed.' };
+  }
+}
+
+export function downloadPdfBlob(blob: Blob, fileName: string): void {
+  if (typeof window === 'undefined') return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export function openPdfBlobInNewTab(blob: Blob): void {
+  if (typeof window === 'undefined') return;
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export async function upsertStudentRecord(

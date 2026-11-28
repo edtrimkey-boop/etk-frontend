@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ADMISSION_DOCUMENTS,
   AdmissionFormTemplate,
@@ -21,6 +21,7 @@ interface AdmissionFormLivePreviewProps {
   photoPreviewUrl?: string;
   admNoPreviewHint?: string;
   rollNoPreviewHint?: string;
+  refreshKey?: string | number;
 }
 
 export function AdmissionFormLivePreview({
@@ -30,24 +31,38 @@ export function AdmissionFormLivePreview({
   photoPreviewUrl,
   admNoPreviewHint,
   rollNoPreviewHint,
+  refreshKey,
 }: AdmissionFormLivePreviewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.75);
+  const [scale, setScale] = useState(0.56);
+
+  const measureHost = useCallback(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const w = el.clientWidth || el.getBoundingClientRect().width;
+    if (w > 40) {
+      setScale(Math.max(0.25, Math.min(1, w / 595)));
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    measureHost();
+  }, [measureHost, refreshKey]);
 
   useEffect(() => {
     const el = hostRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const update = () => {
-      const w = el.clientWidth;
-      if (w > 40) {
-        setScale(Math.min(1, w / 595));
-      }
+    if (!el) return;
+    measureHost();
+    const rafId = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame(measureHost) : 0;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measureHost) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', measureHost);
+    return () => {
+      if (rafId && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(rafId);
+      ro?.disconnect();
+      window.removeEventListener('resize', measureHost);
     };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  }, [measureHost, refreshKey]);
 
   const accent = template.branding.accentColor || '#008FD5';
   const variant = template.layoutVariant || 'keystone';
@@ -65,11 +80,12 @@ export function AdmissionFormLivePreview({
   const scaledHeight = Math.round(842 * scale);
 
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: '100%', minWidth: 0 }}>
       <div
         ref={hostRef}
         style={{
           width: '100%',
+          maxWidth: '100%',
           height: `${scaledHeight}px`,
           overflow: 'hidden',
           borderRadius: '10px',
@@ -80,13 +96,15 @@ export function AdmissionFormLivePreview({
       >
         <div
           style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
             width: '595px',
             height: '842px',
             transform: `scale(${scale})`,
             transformOrigin: 'top left',
             background: '#ffffff',
             color: '#0f172a',
-            position: 'relative',
             overflow: 'hidden',
             fontFamily: '"Helvetica Neue", Arial, sans-serif',
             userSelect: 'none',
