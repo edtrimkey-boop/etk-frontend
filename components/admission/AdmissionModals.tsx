@@ -1290,20 +1290,13 @@ export function AdmissionSlipModal({
     window.open(blobUrl, '_blank');
   };
 
-  const infoBoxStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px',
-    padding: '12px 14px',
-  };
-
   return (
     <ModalPortal>
       <div className="glass-overlay active" onClick={onClose} style={{ zIndex: 100000 }}>
-      <div className="glass-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px', width: '95%' }}>
+      <div className="glass-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '760px', width: '95%' }}>
         <div className="premium-sticky-header">
           <h2 style={{ color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
               <path d="M6 12v5c3 3 9 3 12 0v-5" />
             </svg>
@@ -1313,211 +1306,247 @@ export function AdmissionSlipModal({
         </div>
 
         <div className="modal-scroll-body">
-          {/* Student Header Card */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              flexWrap: 'wrap',
-              padding: '16px',
-              borderRadius: '14px',
-              background: 'rgba(38,195,234,0.07)',
-              border: '1px solid rgba(38,195,234,0.28)',
-              marginBottom: '16px',
-            }}
-          >
-            <div
-              style={{
-                width: '62px',
-                height: '72px',
-                borderRadius: '12px',
-                background: 'rgba(0,0,0,0.3)',
-                border: '1px solid rgba(38,195,234,0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                fontWeight: 900,
-                fontSize: '22px',
-                color: 'var(--brand)',
-                flexShrink: 0,
-              }}
-            >
-              {record.photoUrl ? (
-                <img src={record.photoUrl} alt={record.studentName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                (record.studentName || 'S').charAt(0).toUpperCase()
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: '180px' }}>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text)' }}>{record.studentName}</div>
-              <div style={{ fontSize: '12px', color: 'var(--brand)', fontWeight: 800, marginTop: '3px' }}>
-                {record.admissionNo} • {record.className || '-'} ({record.section || 'A'}) • Roll {record.rollNo ?? '-'}
+          {/* Student Hero Card + Compact Management Bar */}
+          <div className="slip-hero-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
+              <div
+                style={{
+                  width: '54px',
+                  height: '66px',
+                  borderRadius: '11px',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(38,195,234,0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  fontWeight: 900,
+                  fontSize: '20px',
+                  color: 'var(--brand)',
+                  flexShrink: 0,
+                }}
+              >
+                {record.photoUrl ? (
+                  <img src={record.photoUrl} alt={record.studentName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  (record.studentName || 'S').charAt(0).toUpperCase()
+                )}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', fontWeight: 600 }}>
-                Session: {record.academicSession} • Adm Date: {record.admissionDate || '-'}
-                {lastRenderMs !== null ? ` • Rendered in ${lastRenderMs}ms` : ''}
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: '16.5px', fontWeight: 900, color: 'var(--text)', lineHeight: 1.2 }}>
+                    {record.studentName}
+                  </div>
+                  <span className={`badge ${record.status === 'Admitted' ? 'bg-success' : record.status === 'Cancelled' ? 'bg-danger' : 'bg-warning'}`}>
+                    {record.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--brand)', fontWeight: 800, marginTop: '4px' }}>
+                  {record.admissionNo} • {record.className || '-'} ({record.section || 'A'}) • Roll {record.rollNo ?? '-'}
+                </div>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '3px', fontWeight: 600 }}>
+                  Session: {record.academicSession} • Adm Date: {record.admissionDate || '-'}
+                  {lastRenderMs !== null ? ` • Rendered in ${lastRenderMs}ms` : ''}
+                </div>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
-              <span className={`badge ${record.status === 'Admitted' ? 'bg-success' : record.status === 'Cancelled' ? 'bg-danger' : 'bg-warning'}`}>
-                {record.status}
-              </span>
-              {record.formPdfUrl ? (
-                <a
-                  href={record.formPdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-info"
-                  style={{ textDecoration: 'none' }}
-                >
-                  Auto-Saved Drive Form ↗
-                </a>
-              ) : null}
-              {record.receiptPdfUrl ? (
-                <a
-                  href={record.receiptPdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-purple"
-                  style={{ textDecoration: 'none' }}
-                >
-                  Drive Receipt ↗
-                </a>
-              ) : null}
-            </div>
+
+            {/* Compact Modern Quick Actions Strip */}
+            {(canManage || record.formPdfUrl || record.receiptPdfUrl || (onGenerateAndArchive && record.status === 'Admitted')) && (
+              <div className="slip-manage-bar">
+                {canManage && (
+                  <button type="button" className="slip-pill-btn tone-brand" onClick={() => onEdit(record)}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+
+                {canManage && record.supabaseStudentId && nextCls && (
+                  <button type="button" className="slip-pill-btn tone-purple" onClick={() => onPromote(record)}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="m18 15-6-6-6 6" />
+                    </svg>
+                    Promote ({nextCls})
+                  </button>
+                )}
+
+                {canManage && record.supabaseStudentId && prevCls && (
+                  <button type="button" className="slip-pill-btn tone-amber" onClick={() => onDemote(record)}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                    Demote ({prevCls})
+                  </button>
+                )}
+
+                {onGenerateAndArchive && !record.formPdfUrl && record.status === 'Admitted' && (
+                  <button
+                    type="button"
+                    className="slip-pill-btn"
+                    onClick={handleRetryDriveSync}
+                    disabled={archiving}
+                  >
+                    {archiving ? (
+                      <IOSSpinner size={11} color="currentColor" />
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                    )}
+                    {archiving ? 'Syncing Drive...' : 'Sync to Drive'}
+                  </button>
+                )}
+
+                {record.formPdfUrl && (
+                  <a href={record.formPdfUrl} target="_blank" rel="noreferrer" className="slip-pill-btn tone-brand">
+                    Drive Form ↗
+                  </a>
+                )}
+
+                {record.receiptPdfUrl && (
+                  <a href={record.receiptPdfUrl} target="_blank" rel="noreferrer" className="slip-pill-btn tone-purple">
+                    Drive Receipt ↗
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* 3-Column Master Detail Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-            <div style={infoBoxStyle}>
+          {/* Responsive Master Detail Grid (3-col Desktop, Compact 2-col Mobile) */}
+          <div className="slip-detail-grid">
+            <div className="slip-info-cell">
               <div className="label-text">Father&apos;s Name</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>{record.fatherName || '-'}</div>
+              <div className="slip-val">{record.fatherName || '-'}</div>
             </div>
-            <div style={infoBoxStyle}>
+            <div className="slip-info-cell">
               <div className="label-text">Mother&apos;s Name</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>{record.motherName || '-'}</div>
+              <div className="slip-val">{record.motherName || '-'}</div>
             </div>
-            <div style={infoBoxStyle}>
+            <div className="slip-info-cell">
               <div className="label-text">Primary Contact</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>{record.contactNo || '-'}</div>
+              <div className="slip-val">{record.contactNo || '-'}</div>
             </div>
-            <div style={infoBoxStyle}>
-              <div className="label-text">Date of Birth &amp; Gender</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>
+            <div className="slip-info-cell">
+              <div className="label-text">DOB &amp; Gender</div>
+              <div className="slip-val">
                 {record.dob || '-'} ({record.gender || '-'})
               </div>
             </div>
-            <div style={infoBoxStyle}>
+            <div className="slip-info-cell">
               <div className="label-text">Aadhaar / Category</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>
+              <div className="slip-val">
                 {record.aadhaar || '-'} • {record.category || 'General'}
               </div>
             </div>
-            <div style={infoBoxStyle}>
+            <div className="slip-info-cell">
+              <div className="label-text">Guardian</div>
+              <div className="slip-val">
+                {record.guardianName || '-'} ({record.guardianMobile || '-'})
+              </div>
+            </div>
+            <div className="slip-info-cell">
+              <div className="label-text">Previous School</div>
+              <div className="slip-val">{record.prevSchool || 'Fresh Admission'}</div>
+            </div>
+            <div className="slip-info-cell slip-span-full">
               <div className="label-text">Village &amp; Address</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>
+              <div className="slip-val">
                 {record.village || '-'}
                 {record.address ? `, ${record.address}` : ''}
               </div>
             </div>
-            <div style={infoBoxStyle}>
-              <div className="label-text">Guardian</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>
-                {record.guardianName || '-'} ({record.guardianMobile || '-'})
-              </div>
-            </div>
-            <div style={infoBoxStyle}>
-              <div className="label-text">Previous School</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>
-                {record.prevSchool || 'Fresh Admission'}
-              </div>
-            </div>
-            <div style={infoBoxStyle}>
+            <div className="slip-info-cell slip-span-full">
               <div className="label-text">Documents Verified</div>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand)', marginTop: '3px' }}>
+              <div className="slip-val" style={{ color: 'var(--brand)' }}>
                 {record.documents.length > 0 ? record.documents.join(', ') : 'None marked'}
               </div>
             </div>
             {customEntries.map(([k, v]) => {
               const cfg = template.fieldsConfig?.find((f) => f.key === k);
               return (
-                <div key={k} style={infoBoxStyle}>
+                <div key={k} className="slip-info-cell">
                   <div className="label-text">{cfg?.label || k}</div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>{v}</div>
+                  <div className="slip-val">{v}</div>
                 </div>
               );
             })}
           </div>
 
           {/* Fee Strip */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-              gap: '12px',
-              padding: '14px',
-              borderRadius: '12px',
-              background: 'rgba(46,204,113,0.06)',
-              border: '1px solid rgba(46,204,113,0.22)',
-            }}
-          >
+          <div className="slip-fee-grid">
             <div>
               <div className="label-text">Adm / Mon / Kit</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+              <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text)' }}>
                 ₹{record.admFee} / ₹{record.monthFee} / ₹{record.uniformFee}
               </div>
             </div>
             <div>
               <div className="label-text">Net Payable</div>
-              <div style={{ fontSize: '15px', fontWeight: 900, color: 'var(--brand)' }}>₹{net.toLocaleString('en-IN')}</div>
+              <div style={{ fontSize: '14.5px', fontWeight: 900, color: 'var(--brand)' }}>₹{net.toLocaleString('en-IN')}</div>
             </div>
             <div>
               <div className="label-text">Paid ({record.payMode})</div>
-              <div style={{ fontSize: '15px', fontWeight: 900, color: 'var(--success)' }}>₹{paid.toLocaleString('en-IN')}</div>
+              <div style={{ fontSize: '14.5px', fontWeight: 900, color: 'var(--success)' }}>₹{paid.toLocaleString('en-IN')}</div>
             </div>
             <div>
               <div className="label-text">Balance Due</div>
-              <div style={{ fontSize: '15px', fontWeight: 900, color: balance > 0 ? 'var(--accent)' : 'var(--success)' }}>
+              <div style={{ fontSize: '14.5px', fontWeight: 900, color: balance > 0 ? 'var(--accent)' : 'var(--success)' }}>
                 ₹{balance.toLocaleString('en-IN')}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="modal-action-dock" style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {canManage && record.supabaseStudentId && prevCls && (
-              <OpticalButton type="button" variant="warning" onClick={() => onDemote(record)} style={{ padding: '8px 14px', fontSize: '12px' }}>
-                Demote ({prevCls})
-              </OpticalButton>
-            )}
-            {canManage && record.supabaseStudentId && nextCls && (
-              <OpticalButton type="button" variant="purple" onClick={() => onPromote(record)} style={{ padding: '8px 14px', fontSize: '12px' }}>
-                Promote ({nextCls})
-              </OpticalButton>
-            )}
+        {/* Clean Document Dock: Single-Row Desktop / Compact 2+1 Grid Mobile */}
+        <div className="modal-action-dock slip-action-dock">
+          <div className="slip-dock-meta" style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+            {lastRenderMs !== null ? `PDF ready in ${lastRenderMs}ms` : 'A4 Admission Documents'}
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {canManage && (
-              <OpticalButton type="button" variant="outline" onClick={() => onEdit(record)}>
-                Edit
-              </OpticalButton>
-            )}
-            {onGenerateAndArchive && !record.formPdfUrl && record.status === 'Admitted' && (
-              <OpticalButton type="button" variant="outline" onClick={handleRetryDriveSync} disabled={archiving}>
-                {archiving ? <IOSSpinner size={14} color="currentColor" /> : null}
-                {archiving ? 'Archiving...' : 'Retry Auto-Drive'}
-              </OpticalButton>
-            )}
-            <OpticalButton type="button" variant="purple" onClick={handleDownloadReceiptPdf}>
-              Payment Receipt PDF
-            </OpticalButton>
-            <OpticalButton type="button" variant="secondary" onClick={handlePrint}>
+          <div className="slip-doc-actions">
+            <OpticalButton
+              type="button"
+              variant="outline"
+              onClick={handlePrint}
+              style={{ padding: '9px 14px', fontSize: '12px', gap: '6px' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
               Print Form
             </OpticalButton>
-            <OpticalButton type="button" variant="success" onClick={handleDownloadPdf}>
+            <OpticalButton
+              type="button"
+              variant="purple"
+              onClick={handleDownloadReceiptPdf}
+              style={{ padding: '9px 14px', fontSize: '12px', gap: '6px' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+                <path d="M8 8h8" />
+                <path d="M8 12h6" />
+              </svg>
+              Receipt PDF
+            </OpticalButton>
+            <OpticalButton
+              type="button"
+              variant="success"
+              className="slip-primary-cta"
+              onClick={handleDownloadPdf}
+              style={{ padding: '9px 16px', fontSize: '12.5px', gap: '6px' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
               Admission Form PDF
             </OpticalButton>
           </div>

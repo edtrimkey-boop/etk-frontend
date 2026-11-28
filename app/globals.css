@@ -4534,4 +4534,218 @@ h1, h2, h3, .premium-sticky-header h2, .panel h2, .glass-title-pill h3 {
   border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
+/* =======================================================
+   ADMISSION MASTER PROFILE & SLIP MODAL (MODERN COMPACT UI)
+   ======================================================= */
+.slip-hero-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(38, 195, 234, 0.09) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(38, 195, 234, 0.25);
+  margin-bottom: 14px;
+}
+
+.slip-manage-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.slip-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.slip-pill-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.26);
+  transform: translateY(-1px);
+}
+
+.slip-pill-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.slip-pill-btn.tone-brand {
+  background: rgba(38, 195, 234, 0.12);
+  border-color: rgba(38, 195, 234, 0.32);
+  color: var(--brand);
+}
+
+.slip-pill-btn.tone-purple {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.36);
+  color: #c4b5fd;
+}
+
+.slip-pill-btn.tone-amber {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.32);
+  color: #fcd34d;
+}
+
+.slip-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.slip-info-cell {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.slip-info-cell .slip-val {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 3px;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.slip-fee-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(46, 204, 113, 0.06);
+  border: 1px solid rgba(46, 204, 113, 0.22);
+}
+
+.glass-box .modal-action-dock.slip-action-dock {
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  gap: 12px !important;
+}
+
+.slip-doc-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+
+.slip-doc-actions button,
+.slip-doc-actions .apple-glass-shell {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .slip-hero-card {
+    padding: 12px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+  }
+
+  .slip-manage-bar {
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 8px;
+  }
+
+  .slip-pill-btn {
+    height: 28px;
+    padding: 0 9px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+
+  .slip-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .slip-span-full {
+    grid-column: 1 / -1;
+  }
+
+  .slip-info-cell {
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .slip-info-cell .label-text {
+    font-size: 9.5px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .slip-info-cell .slip-val {
+    font-size: 11.5px;
+    margin-top: 2px;
+  }
+
+  .slip-fee-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .glass-overlay .glass-box .modal-action-dock.slip-action-dock {
+    display: block !important;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 12px)) 14px !important;
+  }
+
+  .slip-dock-meta {
+    display: none !important;
+  }
+
+  .slip-doc-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .slip-doc-actions button,
+  .slip-doc-actions .apple-glass-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 38px !important;
+    font-size: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .slip-doc-actions .apple-glass-shell > * {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .slip-doc-actions .slip-primary-cta {
+    grid-column: 1 / -1 !important;
+    min-height: 41px !important;
+    font-size: 12.5px !important;
+  }
+}
+
+
 
